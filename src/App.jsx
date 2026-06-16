@@ -6,7 +6,12 @@ import { useForumStream } from "./hooks/useForumStream";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import AuthModal from "./components/AuthModal";
 import Layout from "./components/Layout";
+import InsightsPanel from "./components/InsightsPanel";
 import QuestionPage from "./pages/QuestionPage";
+import OlimpiadalarPage from "./pages/OlimpiadalarPage";
+import ReytingPage from "./pages/ReytingPage";
+import ProfilePage from "./pages/ProfilePage";
+import { avatarBg } from "./utils/avatarColor";
 
 const BACKEND = import.meta.env.VITE_API_URL || 'http://localhost:3002';
 
@@ -35,12 +40,6 @@ const TRENDING_TAGS = [
   "DTM-kimyo",
   "olimpiada",
   "titrlash",
-];
-
-const EXPERTS = [
-  { name: "Aziza Karimova",  role: "Organik kimyo",   score: "18.4k", initials: "AK", online: true  },
-  { name: "Sardor Yusupov",  role: "Anorganik kimyo", score: "12.1k", initials: "SY", online: true  },
-  { name: "Nilufar Rashidova", role: "Analitik kimyo", score: "9.3k", initials: "NR", online: false },
 ];
 
 const INITIAL_TOPICS = [
@@ -280,7 +279,8 @@ function FlaskIcon() {
 
 function Avatar({ initials, name, online = false }) {
   return (
-    <span className="avatar" title={name}>
+    <span className="avatar" title={name}
+      style={{ background: avatarBg(initials), color: '#fff', border: 'none' }}>
       {initials}
       {online && <span className="avatar__status" />}
     </span>
@@ -293,38 +293,6 @@ function CategoryMark({ categoryId }) {
     <span className="category-mark" style={{ "--category-color": category.color }}>
       {category.short}
     </span>
-  );
-}
-
-function MoleculeVisual() {
-  return (
-    <div className="molecule-visual" aria-hidden="true">
-      <svg viewBox="0 0 220 170" role="img">
-        <defs>
-          <linearGradient id="bondGradient" x1="0" x2="1" y1="0" y2="1">
-            <stop offset="0%" stopColor="#0f766e" />
-            <stop offset="55%" stopColor="#2563eb" />
-            <stop offset="100%" stopColor="#f59e0b" />
-          </linearGradient>
-        </defs>
-        <path d="M45 108 92 58l54 20 31-38" className="molecule-line" />
-        <path d="M45 108 97 131l49-53" className="molecule-line molecule-line--soft" />
-        <circle cx="45" cy="108" r="18" />
-        <circle cx="92" cy="58" r="14" />
-        <circle cx="146" cy="78" r="20" />
-        <circle cx="177" cy="40" r="13" />
-        <circle cx="97" cy="131" r="12" />
-      </svg>
-    </div>
-  );
-}
-
-function StatCard({ label, value, tone }) {
-  return (
-    <div className={`stat-card stat-card--${tone}`}>
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
   );
 }
 
@@ -1008,17 +976,29 @@ function Toast({ message }) {
 }
 
 export default function App() {
+  const [theme, setTheme] = useState(
+    () => localStorage.getItem('ximor_theme') || 'light'
+  );
+  const toggleTheme = () => setTheme(t => {
+    const next = t === 'light' ? 'dark' : 'light';
+    localStorage.setItem('ximor_theme', next);
+    return next;
+  });
+
   return (
     <AuthProvider>
       <Routes>
-        <Route path="/" element={<Forum />} />
+        <Route path="/" element={<Forum theme={theme} onThemeToggle={toggleTheme} />} />
+        <Route path="/olimpiadalar" element={<OlimpiadalarPage theme={theme} onThemeToggle={toggleTheme} />} />
+        <Route path="/reyting" element={<ReytingPage theme={theme} onThemeToggle={toggleTheme} />} />
         <Route path="/q/:id" element={<QuestionPage />} />
+        <Route path="/u/:username" element={<ProfilePage theme={theme} onThemeToggle={toggleTheme} />} />
       </Routes>
     </AuthProvider>
   );
 }
 
-function Forum() {
+function Forum({ theme, onThemeToggle }) {
   const { user, logout, authHeaders } = useAuth();
   const navigate                  = useNavigate();
   const [showAuth, setShowAuth]   = useState(false);
@@ -1029,7 +1009,6 @@ function Forum() {
   const [query, setQuery] = useState("");
   const openTopic = (id) => navigate(`/q/${id}`);
   const [showComposer, setShowComposer] = useState(false);
-  const [theme, setTheme] = useState("light");
   const [toast, setToast] = useState("");
   const toastTimerRef = useRef(null);
 
@@ -1119,7 +1098,6 @@ function Forum() {
   }, [activeCategory, activeSort, query, topics]);
 
   const activeCategoryName = CATEGORIES.find((item) => item.id === activeCategory)?.name || "Hammasi";
-  const answeredToday = topics.reduce((total, topic) => total + Math.min(topic.answers, 6), 0);
 
   const handleVote = (topicId, direction) => {
     setTopics((currentTopics) =>
@@ -1223,7 +1201,7 @@ function Forum() {
   return (
     <Layout
       theme={theme}
-      onThemeToggle={() => setTheme(t => t === 'light' ? 'dark' : 'light')}
+      onThemeToggle={onThemeToggle}
       onCompose={() => setShowComposer(true)}
       query={query}
       onQuery={setQuery}
@@ -1294,11 +1272,11 @@ function Forum() {
           <div className="panel-card sprint-card">
             <div className="section-heading">
               <h3>Kunlik sprint</h3>
-              <span>1 / 3</span>
+              <span>2 / 3</span>
             </div>
             <p>Bugun uchta kimyo muhokamada foydali izoh qoldiring.</p>
             <div className="progress">
-              <span style={{ width: "33%" }} />
+              <span style={{ width: "66%" }} />
             </div>
           </div>
 
@@ -1315,26 +1293,6 @@ function Forum() {
         </aside>
 
         <section className="feed">
-          <div className="hero-panel">
-            <div className="hero-copy">
-              <div className="hero-eyebrow">
-                <span className="hero-eyebrow-dot" />
-                O'zbek kimyo forumi
-              </div>
-              <h1>Kimyo savollariga tez, tartibli va jonli javoblar</h1>
-              <p>
-                Organik, anorganik, analitik va fizikaviy kimyo — formulalar, reaksiyalar va
-                mexanizmlar bitta joyda muhokama qilinadi.
-              </p>
-              <div className="hero-stats">
-                <StatCard label="Onlayn" tone="green" value="42" />
-                <StatCard label="Bugun javob" tone="blue" value={answeredToday} />
-                <StatCard label="Yechilgan" tone="amber" value="68%" />
-              </div>
-            </div>
-            <MoleculeVisual />
-          </div>
-
           <div className="feed-toolbar">
             <div>
               <span className="eyebrow">{activeCategoryName}</span>
@@ -1390,49 +1348,7 @@ function Forum() {
           </div>
         </section>
 
-        <aside className="insights-panel">
-          <div className="panel-card live-card">
-            <div className="section-heading">
-              <h3><span className="live-dot" />Jonli xona</h3>
-              <span>42 onlayn</span>
-            </div>
-            <div className="live-grid">
-              {["AK", "JI", "NS", "MU", "SE", "IS", "MA", "AZ"].map((initials, index) => (
-                <Avatar initials={initials} key={initials} name={initials} online={index < 5} />
-              ))}
-            </div>
-          </div>
-
-          <div className="panel-card">
-            <div className="section-heading">
-              <h3>Eng faol mentorlar</h3>
-              <Icon name="trophy" size={17} />
-            </div>
-            <div className="expert-list">
-              {EXPERTS.map((expert, i) => (
-                <div className="expert-row" key={expert.name}>
-                  <span className={`rank-badge rank-badge--${i + 1}`}>#{i + 1}</span>
-                  <Avatar initials={expert.initials} name={expert.name} online={expert.online} />
-                  <div>
-                    <strong>{expert.name}</strong>
-                    <span>{expert.role}</span>
-                  </div>
-                  <b>{expert.score}</b>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="panel-card spotlight-card">
-            <span className="eyebrow">Hafta chaqiruvi</span>
-            <h3>Reaksiya marafoni</h3>
-            <p>Har kuni bitta kimyo reaksiyasini to'liq mexanizm bilan yozing. Yakshanba — mentor tahlili.</p>
-            <button className="primary-button" type="button" onClick={() => setQuery("reaksiya")}>
-              <Icon name="spark" size={16} />
-              Ko'rish
-            </button>
-          </div>
-        </aside>
+        <InsightsPanel onSpotlightClick={() => setQuery("reaksiya")} />
       </main>
 
       <button

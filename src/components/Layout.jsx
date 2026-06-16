@@ -1,11 +1,11 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import AuthModal from './AuthModal';
+import { avatarBg } from '../utils/avatarColor';
 
 function Icon({ name, size = 18 }) {
   const paths = {
-    menu:  "M4 6h16M4 12h16M4 18h16",
     bell:  "M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4",
     plus:  "M12 5v14M5 12h14",
     moon:  "M21 12.8A8.5 8.5 0 1 1 11.2 3 6.5 6.5 0 0 0 21 12.8Z",
@@ -23,7 +23,8 @@ function Icon({ name, size = 18 }) {
 
 function Avatar({ initials, name, online = false }) {
   return (
-    <span className="avatar" title={name}>
+    <span className="avatar" title={name}
+          style={{ background: avatarBg(initials), color: '#fff', border: 'none' }}>
       {initials}
       {online && <span className="avatar__status" />}
     </span>
@@ -40,10 +41,25 @@ function FlaskIcon() {
   );
 }
 
+const NAV_ITEMS = [
+  { to: '/', label: 'Savollar', exact: true },
+  { to: '/olimpiadalar', label: 'Olimpiadalar', badge: 4 },
+  { to: '/reyting', label: 'Reyting' },
+];
+
 export default function Layout({ children, theme, onThemeToggle, onCompose, query, onQuery }) {
   const { user, logout } = useAuth();
-  const navigate         = useNavigate();
+  const location = useLocation();
   const [showAuth, setShowAuth] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = e => { if (!menuRef.current?.contains(e.target)) setMenuOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [menuOpen]);
 
   const handleCompose = () => {
     if (!user) { setShowAuth(true); return; }
@@ -53,23 +69,30 @@ export default function Layout({ children, theme, onThemeToggle, onCompose, quer
   return (
     <div className="app" data-theme={theme}>
       <header className="topbar">
-        {/* Brand */}
-        <Link to="/" className="brand" style={{ textDecoration: 'none' }}>
+        <Link to="/" className="brand">
           <div className="brand-icon"><FlaskIcon /></div>
           <div className="brand-text">
             <strong>So'ra!</strong>
-            <small>Beyond Curriculum</small>
+            <small>Beyond Curriculum · Kimyo</small>
           </div>
         </Link>
 
-        {/* Nav */}
         <nav className="topnav" aria-label="Asosiy bo'limlar">
-          <Link to="/">Forum</Link>
-          <a href="#olympiads">Olimpiadalar</a>
-          <a href="#rating">Reyting</a>
+          {NAV_ITEMS.map(item => {
+            const active = item.exact
+              ? location.pathname === item.to
+              : location.pathname.startsWith(item.to);
+            return (
+              <Link key={item.to} to={item.to} className={active ? 'is-active' : ''}>
+                {item.label}
+                {item.badge != null && (
+                  <span className="nav-badge">{item.badge}</span>
+                )}
+              </Link>
+            );
+          })}
         </nav>
 
-        {/* Search */}
         <label className="search-box">
           <Icon name="search" size={17} />
           <input
@@ -77,31 +100,45 @@ export default function Layout({ children, theme, onThemeToggle, onCompose, quer
             onChange={e => onQuery?.(e.target.value)}
             placeholder="Savol, teg yoki reaksiya qidiring"
           />
+          <span className="search-kbd">⌘K</span>
         </label>
 
-        {/* Actions */}
         <div className="top-actions">
           <button className="icon-button" title="Mavzuni almashtirish" type="button"
                   onClick={onThemeToggle}>
             <Icon name={theme === 'light' ? 'moon' : 'sun'} size={17} />
           </button>
-          <button className="icon-button" title="Bildirishnomalar" type="button">
+          <button className="icon-button bell-btn" title="Bildirishnomalar" type="button">
             <Icon name="bell" size={17} />
+            <span className="bell-dot" />
+          </button>
+
+          <button className="primary-button" type="button" onClick={handleCompose}>
+            <Icon name="plus" size={16} /> Savol berish
           </button>
 
           {user ? (
-            <>
-              <button className="primary-button" type="button" onClick={handleCompose}>
-                <Icon name="plus" size={16} /> Savol berish
-              </button>
-              <button className="icon-button" title={`${user.name} — chiqish`}
-                      type="button" onClick={logout} style={{ gap: 0 }}>
+            <div className="user-menu-wrap" ref={menuRef}>
+              <button className="icon-button" type="button" title={user.name}
+                      style={{ gap: 0 }} onClick={() => setMenuOpen(o => !o)}>
                 <Avatar initials={user.initials} name={user.name} online />
               </button>
-            </>
+              {menuOpen && (
+                <div className="user-dropdown">
+                  <Link to={`/u/${user.username}`} onClick={() => setMenuOpen(false)}>
+                    <span>Profilim</span>
+                    <span className="dropdown-kbd">@{user.username}</span>
+                  </Link>
+                  <button type="button" onClick={() => { logout(); setMenuOpen(false); }}>
+                    Chiqish
+                  </button>
+                </div>
+              )}
+            </div>
           ) : (
-            <button className="primary-button" type="button" onClick={() => setShowAuth(true)}>
-              Kirish
+            <button className="avatar-btn" type="button" onClick={() => setShowAuth(true)}
+                    title="Kirish" style={{ background: 'var(--surface-soft)', border: '1.5px solid var(--line-strong)', borderRadius: '50%', width: 36, height: 36, cursor: 'pointer', fontWeight: 900, fontSize: 13, color: 'var(--muted)' }}>
+              N
             </button>
           )}
         </div>

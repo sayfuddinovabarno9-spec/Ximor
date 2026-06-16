@@ -6,22 +6,13 @@ const { sign, requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
-// ── Rate limiters ─────────────────────────────────────────────────────────────
-// Each IP: max 10 register attempts per hour
 const registerLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,   // 1 hour
-  max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
+  windowMs: 60 * 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false,
   message: { error: "Juda ko'p urinish. 1 soatdan keyin qayta urinib ko'ring." },
 });
 
-// Each IP: max 20 login attempts per 15 minutes
 const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,   // 15 minutes
-  max: 20,
-  standardHeaders: true,
-  legacyHeaders: false,
+  windowMs: 15 * 60 * 1000, max: 20, standardHeaders: true, legacyHeaders: false,
   message: { error: "Juda ko'p urinish. 15 daqiqadan keyin qayta urinib ko'ring." },
 });
 
@@ -31,22 +22,18 @@ router.post('/register', registerLimiter, async (req, res) => {
 
   if (!username || !name || !password)
     return res.status(400).json({ error: "username, name va password kerak" });
-
   if (username.length < 3)
     return res.status(400).json({ error: "Username kamida 3 ta belgi bo'lishi kerak" });
-
   if (!/^[a-z0-9_.-]+$/i.test(username))
     return res.status(400).json({ error: "Username faqat harf, raqam, _ . - belgisi bo'lishi mumkin" });
-
   if (password.length < 6)
     return res.status(400).json({ error: "Parol kamida 6 ta belgi bo'lishi kerak" });
-
   if (name.trim().length < 2)
     return res.status(400).json({ error: "Ism kamida 2 ta belgi bo'lishi kerak" });
 
   const hash     = await bcrypt.hash(password, 10);
   const initials = name.trim().split(/\s+/).map(w => w[0]?.toUpperCase()).join('').slice(0, 2) || 'AN';
-  const user     = db.createUser({
+  const user     = await db.createUser({
     username: username.toLowerCase().trim(),
     name:     name.trim().slice(0, 80),
     initials,
@@ -65,7 +52,7 @@ router.post('/login', loginLimiter, async (req, res) => {
   if (!username || !password)
     return res.status(400).json({ error: "username va password kerak" });
 
-  const user = db.getUserByUsername(username.toLowerCase().trim());
+  const user = await db.getUserByUsername(username.toLowerCase().trim());
   if (!user) return res.status(401).json({ error: "Foydalanuvchi topilmadi" });
 
   const ok = await bcrypt.compare(password, user.password);
@@ -76,8 +63,8 @@ router.post('/login', loginLimiter, async (req, res) => {
 });
 
 // ── GET /api/auth/me ──────────────────────────────────────────────────────────
-router.get('/me', requireAuth, (req, res) => {
-  const user = db.getUserById(req.user.id);
+router.get('/me', requireAuth, async (req, res) => {
+  const user = await db.getUserById(req.user.id);
   if (!user) return res.status(404).json({ error: 'not found' });
   res.json(user);
 });

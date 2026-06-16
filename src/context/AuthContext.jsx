@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:3002';
 const STORAGE_KEY = 'ximor_token';
@@ -16,6 +16,20 @@ export function AuthProvider({ children }) {
       return { id: payload.id, username: payload.username, name: payload.name, initials: payload.initials, role: payload.role };
     } catch { return null; }
   });
+
+  // On mount, verify stored token against the server; clear if expired/invalid
+  useEffect(() => {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (!stored) return;
+    fetch(`${API}/api/auth/me`, { headers: { Authorization: `Bearer ${stored}` } })
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(u => setUser({ id: u.id, username: u.username, name: u.name, initials: u.initials, role: u.role }))
+      .catch(() => {
+        localStorage.removeItem(STORAGE_KEY);
+        setToken(null);
+        setUser(null);
+      });
+  }, []);
 
   const saveSession = useCallback((newToken, newUser) => {
     localStorage.setItem(STORAGE_KEY, newToken);

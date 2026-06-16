@@ -5,6 +5,7 @@ import { useForumStream } from '../hooks/useForumStream';
 import { LatexLine, hasLatex } from '../components/Latex';
 import AuthModal from '../components/AuthModal';
 import Layout from '../components/Layout';
+import { avatarBg } from '../utils/avatarColor';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:3002';
 
@@ -110,7 +111,8 @@ function Icon({ name, size=18 }) {
 
 function Avatar({ initials, name, online=false }) {
   return (
-    <span className="avatar" title={name}>
+    <span className="avatar" title={name}
+      style={{ background: avatarBg(initials), color: '#fff', border: 'none' }}>
       {initials}
       {online && <span className="avatar__status" />}
     </span>
@@ -122,6 +124,14 @@ export default function QuestionPage() {
   const { id }              = useParams();
   const navigate            = useNavigate();
   const { user, authHeaders } = useAuth();
+
+  // Theme must be first — before any early returns
+  const [theme, setTheme]   = useState(() => localStorage.getItem('ximor_theme') || 'light');
+  const toggleTheme = () => setTheme(t => {
+    const next = t === 'light' ? 'dark' : 'light';
+    localStorage.setItem('ximor_theme', next);
+    return next;
+  });
 
   const [topic, setTopic]   = useState(null);
   const [loading, setLoading] = useState(true);
@@ -238,28 +248,25 @@ export default function QuestionPage() {
 
   /* ── Render ── */
   if (loading) return (
-    <div className="qp-shell">
-      <div className="qp-loading">Yuklanmoqda…</div>
-    </div>
+    <Layout theme={theme} onThemeToggle={toggleTheme}>
+      <div className="qp-shell">
+        <div className="qp-loading">Yuklanmoqda…</div>
+      </div>
+    </Layout>
   );
 
   if (error || !topic) return (
-    <div className="qp-shell">
-      <button className="soft-button" onClick={() => navigate('/')} style={{ width: 'max-content' }}>
-        <Icon name="arrowLeft" size={16} /> Orqaga
-      </button>
-      <div className="qp-loading" style={{ color: 'var(--rose)' }}>Savol topilmadi</div>
-    </div>
+    <Layout theme={theme} onThemeToggle={toggleTheme}>
+      <div className="qp-shell">
+        <button className="soft-button qp-back" onClick={() => navigate(-1)}>
+          <Icon name="arrowLeft" size={16} /> Orqaga
+        </button>
+        <div className="qp-loading" style={{ color: 'var(--rose)' }}>Savol topilmadi</div>
+      </div>
+    </Layout>
   );
 
   const isAuthor = user && topic.author === user.name;
-
-  const [theme, setTheme] = useState(() => localStorage.getItem('ximor_theme') || 'light');
-  const toggleTheme = () => setTheme(t => {
-    const next = t === 'light' ? 'dark' : 'light';
-    localStorage.setItem('ximor_theme', next);
-    return next;
-  });
 
   return (
     <Layout theme={theme} onThemeToggle={toggleTheme}>
