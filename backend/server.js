@@ -10,6 +10,7 @@ const leaderboardRoutes = require('./routes/leaderboard');
 
 const app  = express();
 const PORT = process.env.PORT || 3002;
+const HOST = '0.0.0.0';
 
 app.set('trust proxy', 1);
 
@@ -55,13 +56,14 @@ app.get('/api/health', (_req, res) =>
 
 async function start() {
   // Bind port first so Railway health checks pass immediately
-  await new Promise(resolve =>
-    app.listen(PORT, () => {
-      console.log(`\n🧪 Ximor API → http://localhost:${PORT}`);
+  await new Promise((resolve, reject) => {
+    const server = app.listen(PORT, HOST, () => {
+      console.log(`\n🧪 Ximor API → http://${HOST}:${PORT}`);
       console.log(`🔒 CORS: ${ALLOWED_ORIGIN} + *.vercel.app + localhost`);
       resolve();
-    })
-  );
+    });
+    server.on('error', reject);
+  });
 
   // Init DB — retry on failure so Railway health check stays green
   const initDB = async () => {
@@ -82,4 +84,7 @@ async function start() {
 process.on('uncaughtException',  err => console.error('uncaughtException:', err.message));
 process.on('unhandledRejection', err => console.error('unhandledRejection:', err?.message ?? err));
 
-start();
+start().catch(err => {
+  console.error('Fatal startup error:', err);
+  process.exit(1);
+});
