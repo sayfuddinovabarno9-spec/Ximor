@@ -69,6 +69,26 @@ async function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_answers_topic ON answers(topic_id);
     ALTER TABLE answers ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
 
+    CREATE TABLE IF NOT EXISTS score_log (
+      id         SERIAL PRIMARY KEY,
+      user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      delta      INTEGER NOT NULL,
+      reason     TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_score_log_user ON score_log(user_id, created_at);
+
+    CREATE TABLE IF NOT EXISTS notifications (
+      id         SERIAL PRIMARY KEY,
+      user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      type       TEXT NOT NULL,
+      topic_id   INTEGER REFERENCES topics(id) ON DELETE SET NULL,
+      message    TEXT NOT NULL,
+      read       BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id, read, created_at);
+
     CREATE TABLE IF NOT EXISTS tournaments (
       id                    SERIAL PRIMARY KEY,
       title                 TEXT    NOT NULL,
@@ -221,8 +241,9 @@ async function getUserById(id) {
   return q1('SELECT id, username, name, initials, role, score FROM users WHERE id = $1', [id]);
 }
 
-async function addUserScore(id, delta) {
+async function addUserScore(id, delta, reason = 'answer_accepted') {
   await pool.query('UPDATE users SET score = score + $1 WHERE id = $2', [delta, id]);
+  await pool.query('INSERT INTO score_log (user_id, delta, reason) VALUES ($1, $2, $3)', [id, delta, reason]);
 }
 
 async function getUserProfile(username) {
@@ -300,16 +321,91 @@ async function registerForTournament(tournamentId, userId) {
 }
 
 // ── Leaderboard ───────────────────────────────────────────────────────────────
-async function getLeaderboard() {
-  const rows = await q(`
-    SELECT
-      u.id, u.username, u.name, u.initials, u.role, u.score,
-      (SELECT COUNT(*) FROM answers WHERE author = u.name AND accepted = TRUE)::INTEGER AS accepted_count
-    FROM users u
-    ORDER BY u.score DESC, u.id ASC
-    LIMIT 50
-  `);
+async function getLeaderboard(period = 'hammasi') {
+  const intervalMap = {
+    hafta:  "NOW() - INTERVAL '7 days'",
+    oy:     "NOW() - INTERVAL '30 days'",
+    chorak: "NOW() - INTERVAL '90 days'",
+    yil:    "NOW() - INTERVAL '365 days'",
+  };
+  const since = intervalMap[period];
+
+  let rows;
+  if (!since) {
+    // All-time: use total score
+    rows = await q(`
+      SELECT u.id, u.username, u.name, u.initials, u.role, u.score,
+        (SELECT COUNT(*) FROM answers WHERE author = u.name AND accepted = TRUE)::INTEGER AS accepted_count
+      FROM users u
+      ORDER BY u.score DESC, u.id ASC
+      LIMIT 50
+    `);
+  } else {
+    rows = await q(`
+      SELECT u.id, u.username, u.name, u.initials, u.role,
+        COALESCE(SUM(sl.delta), 0)::INTEGER AS score,
+        (SELECT COUNT(*) FROM answers a WHERE a.user_id = u.id AND a.accepted = TRUE AND a.created_at >= ${since})::INTEGER AS accepted_count
+      FROM users u
+      LEFT JOIN score_log sl ON sl.user_id = u.id AND sl.created_at >= ${since}
+      GROUP BY u.id
+      ORDER BY score DESC, u.id ASC
+      LIMIT 50
+    `);
+  }
   return rows.map((u, i) => ({ ...u, rank: i + 1 }));
+}
+
+// ── User Answers ──────────────────────────────────────────────────────────────
+async function getUserAnswers(username) {
+  const user = await q1('SELECT id, name FROM users WHERE LOWER(username) = LOWER($1)', [username]);
+  if (!user) return null;
+  const rows = await q(`
+    SELECT a.id, a.text, a.accepted, a.score, a.created_at,
+           t.id AS topic_id, t.title AS topic_title, t.category
+    FROM answers a
+    JOIN topics t ON t.id = a.topic_id
+    WHERE a.user_id = $1
+    ORDER BY a.created_at DESC
+    LIMIT 50
+  `, [user.id]);
+  return rows;
+}
+
+// ── Notifications ─────────────────────────────────────────────────────────────
+async function createNotification(userId, type, topicId, message) {
+  if (!userId) return;
+  await pool.query(
+    'INSERT INTO notifications (user_id, type, topic_id, message) VALUES ($1,$2,$3,$4)',
+    [userId, type, topicId, message]
+  );
+}
+
+async function getNotifications(userId) {
+  return q(`
+    SELECT id, type, topic_id, message, read, created_at
+    FROM notifications
+    WHERE user_id = $1
+    ORDER BY created_at DESC
+    LIMIT 20
+  `, [userId]);
+}
+
+async function markNotificationsRead(userId) {
+  await pool.query('UPDATE notifications SET read = TRUE WHERE user_id = $1 AND read = FALSE', [userId]);
+}
+
+// ── Search ────────────────────────────────────────────────────────────────────
+async function searchTopics(q_text) {
+  if (!q_text || q_text.trim().length < 2) return [];
+  const like = `%${q_text.trim().toLowerCase()}%`;
+  const rows = await q(`
+    SELECT id, category, title, summary, tags, author, score, answers, views, activity, difficulty, solved, hot, pinned
+    FROM topics
+    WHERE LOWER(title) LIKE $1 OR LOWER(summary) LIKE $1 OR LOWER(tags) LIKE $1 OR LOWER(author) LIKE $1
+    ORDER BY score DESC
+    LIMIT 20
+  `, [like]);
+  return rows.map(hydrateTopic);
 }
 
 // ── Seed ──────────────────────────────────────────────────────────────────────
@@ -382,6 +478,9 @@ module.exports = {
   getAllTopics, getTopicWithAnswers, saveTopic, updateScore, acceptAnswer,
   saveAnswer,
   createUser, getUserByUsername, getUserById, addUserScore, getUserProfile,
+  getUserAnswers,
   getAllTournaments, getTournamentById, registerForTournament,
   getLeaderboard,
+  createNotification, getNotifications, markNotificationsRead,
+  searchTopics,
 };

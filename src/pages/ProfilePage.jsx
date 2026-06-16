@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { avatarBg } from '../utils/avatarColor';
 
@@ -26,6 +26,8 @@ export default function ProfilePage({ theme, onThemeToggle }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [tab, setTab] = useState('savollar');
+  const [answers, setAnswers] = useState(null);
+  const [answersLoading, setAnswersLoading] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -39,6 +41,15 @@ export default function ProfilePage({ theme, onThemeToggle }) {
         setLoading(false);
       });
   }, [username]);
+
+  useEffect(() => {
+    if (tab !== 'javoblar' || answers !== null) return;
+    setAnswersLoading(true);
+    fetch(`${BACKEND}/api/users/${username}/answers`)
+      .then(r => r.ok ? r.json() : [])
+      .then(data => { setAnswers(data); setAnswersLoading(false); })
+      .catch(() => { setAnswers([]); setAnswersLoading(false); });
+  }, [tab, username, answers]);
 
   if (loading) return (
     <Layout theme={theme} onThemeToggle={onThemeToggle}>
@@ -138,7 +149,33 @@ export default function ProfilePage({ theme, onThemeToggle }) {
         )}
 
         {tab === 'javoblar' && (
-          <div className="profile-empty">Javoblar tez orada ko'rsatiladi…</div>
+          answersLoading ? (
+            <div className="profile-empty">Yuklanmoqda…</div>
+          ) : !answers || answers.length === 0 ? (
+            <div className="profile-empty">Hali javob berilmagan</div>
+          ) : (
+            <div className="profile-topics">
+              {answers.map(a => (
+                <div key={a.id} className="profile-topic-card panel-card"
+                     role="button" tabIndex={0}
+                     onClick={() => navigate(`/q/${a.topic_id}`)}
+                     onKeyDown={e => e.key === 'Enter' && navigate(`/q/${a.topic_id}`)}>
+                  <div className="ptc-title" style={{ fontSize: '0.78rem', color: 'var(--muted)', marginBottom: 4 }}>
+                    {a.topic_title}
+                  </div>
+                  <div className="ptc-answer-text">{a.text}</div>
+                  <div className="ptc-meta" style={{ marginTop: 8 }}>
+                    {a.accepted && (
+                      <span className="ptc-badge" style={{ background: '#16a34a22', color: '#16a34a' }}>
+                        ✓ Qabul qilindi
+                      </span>
+                    )}
+                    <span>{a.score} ball</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
         )}
 
       </div>

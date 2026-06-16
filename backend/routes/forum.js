@@ -112,6 +112,8 @@ router.post('/topics/:id/answers', requireAuth, async (req, res) => {
   if (saved) {
     const updated = await db.getTopicWithAnswers(topicId);
     broadcast('answer', { topicId, answer: saved, answers: updated.answers });
+    // Notify via SSE so logged-in users can refresh notifications
+    broadcast('notification', { topicId });
   }
 
   res.json({ ok: true, listeners: clients.size });
@@ -132,10 +134,24 @@ router.patch('/topics/:id/vote', requireAuth, async (req, res) => {
 router.post('/topics/:id/accept/:answerId', requireAuth, async (req, res) => {
   const topicId  = Number(req.params.id);
   const answerId = Number(req.params.answerId);
-  const answer   = await db.acceptAnswer(topicId, answerId);
-  if (answer?.user_id) await db.addUserScore(answer.user_id, 50);
+  const topic  = await db.getTopicWithAnswers(topicId);
+  if (!topic) return res.status(404).json({ error: 'not found' });
+  const answer = await db.acceptAnswer(topicId, answerId);
+  if (answer?.user_id) {
+    await db.addUserScore(answer.user_id, 50, 'answer_accepted');
+    await db.createNotification(
+      answer.user_id, 'accept', topicId,
+      `Tabriklaymiz! Javobingiz qabul qilindi: "${topic.title.slice(0, 60)}" (+50 ball)`
+    );
+  }
   broadcast('accept', { topicId, answerId });
   res.json({ ok: true });
+});
+
+// ── GET /api/forum/search?q= ──────────────────────────────────────────────────
+router.get('/search', async (req, res) => {
+  const results = await db.searchTopics(req.query.q || '');
+  res.json(results);
 });
 
 // ── GET /api/forum/listeners ──────────────────────────────────────────────────

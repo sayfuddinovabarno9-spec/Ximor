@@ -2,11 +2,12 @@ require('dotenv').config();
 
 const express           = require('express');
 const db                = require('./db');
-const forumRoutes       = require('./routes/forum');
-const authRoutes        = require('./routes/auth');
-const usersRoutes       = require('./routes/users');
-const tournamentsRoutes = require('./routes/tournaments');
-const leaderboardRoutes = require('./routes/leaderboard');
+const forumRoutes         = require('./routes/forum');
+const authRoutes          = require('./routes/auth');
+const usersRoutes         = require('./routes/users');
+const tournamentsRoutes   = require('./routes/tournaments');
+const leaderboardRoutes   = require('./routes/leaderboard');
+const notificationsRoutes = require('./routes/notifications');
 
 const app  = express();
 const PORT = process.env.BACKEND_PORT || 3002;
@@ -42,11 +43,12 @@ app.use((req, res, next) => {
 
 app.use(express.json({ limit: '64kb' }));
 
-app.use('/api/auth',        authRoutes);
-app.use('/api/forum',       forumRoutes);
-app.use('/api/users',       usersRoutes);
-app.use('/api/tournaments', tournamentsRoutes);
-app.use('/api/leaderboard', leaderboardRoutes);
+app.use('/api/auth',          authRoutes);
+app.use('/api/forum',         forumRoutes);
+app.use('/api/users',         usersRoutes);
+app.use('/api/tournaments',   tournamentsRoutes);
+app.use('/api/leaderboard',   leaderboardRoutes);
+app.use('/api/notifications', notificationsRoutes);
 
 let dbReady = false;
 

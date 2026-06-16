@@ -1363,19 +1363,20 @@ function Forum({ theme, onThemeToggle }) {
         <Icon name="plus" size={22} />
       </button>
 
-      <nav className="mobile-nav" aria-label="Mobil navigatsiya">
-        {SORTS.slice(0, 4).map((sort) => (
+      {/* Mobile sort bar — only visible on small screens within the forum */}
+      <div className="mobile-sort-bar">
+        {SORTS.map((sort) => (
           <button
             className={activeSort === sort.id ? "is-active" : ""}
             key={sort.id}
             onClick={() => setActiveSort(sort.id)}
             type="button"
           >
-            <Icon name={sort.icon} size={17} />
-            <span>{sort.label}</span>
+            <Icon name={sort.icon} size={15} />
+            {sort.label}
           </button>
         ))}
-      </nav>
+      </div>
 
       {showComposer && <ComposerModal onClose={() => setShowComposer(false)} onSubmit={handleCreateTopic} />}
       {showAuth && <AuthModal onClose={() => setShowAuth(false)} onSuccess={() => showToast("Xush kelibsiz!")} />}
