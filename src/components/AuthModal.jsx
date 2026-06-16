@@ -3,10 +3,10 @@ import { useAuth } from '../context/AuthContext';
 
 export default function AuthModal({ onClose, onSuccess }) {
   const { login, register } = useAuth();
-  const [mode, setMode]     = useState('login'); // 'login' | 'register'
+  const [mode, setMode]     = useState('login');
   const [busy, setBusy]     = useState(false);
   const [error, setError]   = useState('');
-  const [form, setForm]     = useState({ username: '', name: '', password: '' });
+  const [form, setForm]     = useState({ username: '', name: '', email: '', password: '' });
   const firstRef            = useRef(null);
 
   useEffect(() => { firstRef.current?.focus(); }, [mode]);
@@ -27,7 +27,7 @@ export default function AuthModal({ onClose, onSuccess }) {
       if (mode === 'login') {
         await login(form.username, form.password);
       } else {
-        await register(form.username, form.name, form.password);
+        await register(form.username, form.name, form.password, form.email);
       }
       onSuccess?.();
       onClose();
@@ -37,6 +37,8 @@ export default function AuthModal({ onClose, onSuccess }) {
       setBusy(false);
     }
   };
+
+  const switchMode = (m) => { setMode(m); setError(''); };
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -58,21 +60,28 @@ export default function AuthModal({ onClose, onSuccess }) {
 
         {/* Tabs */}
         <div className="auth-modal__tabs">
-          <button type="button" className={mode === 'login' ? 'is-active' : ''} onClick={() => { setMode('login'); setError(''); }}>
+          <button type="button" className={mode === 'login' ? 'is-active' : ''} onClick={() => switchMode('login')}>
             Kirish
           </button>
-          <button type="button" className={mode === 'register' ? 'is-active' : ''} onClick={() => { setMode('register'); setError(''); }}>
+          <button type="button" className={mode === 'register' ? 'is-active' : ''} onClick={() => switchMode('register')}>
             Ro'yxatdan o'tish
           </button>
         </div>
 
-        {/* Fields */}
+        {/* Register-only fields */}
         {mode === 'register' && (
-          <label>
-            To'liq ism
-            <input ref={firstRef} placeholder="Aziza Karimova" value={form.name}
-                   onChange={e => set('name', e.target.value)} required autoComplete="name" />
-          </label>
+          <>
+            <label>
+              To'liq ism
+              <input ref={firstRef} placeholder="Aziza Karimova" value={form.name}
+                     onChange={e => set('name', e.target.value)} required autoComplete="name" />
+            </label>
+            <label>
+              Email <span style={{ opacity: 0.5, fontWeight: 400 }}>(ixtiyoriy)</span>
+              <input type="email" placeholder="aziza@example.com" value={form.email}
+                     onChange={e => set('email', e.target.value)} autoComplete="email" />
+            </label>
+          </>
         )}
 
         <label>
@@ -92,14 +101,15 @@ export default function AuthModal({ onClose, onSuccess }) {
 
         {error && <p className="auth-modal__error">{error}</p>}
 
-        <button className="primary-button" type="submit" disabled={busy} style={{ width: '100%', justifyContent: 'center', minHeight: 44 }}>
+        <button className="primary-button" type="submit" disabled={busy}
+                style={{ width: '100%', justifyContent: 'center', minHeight: 44 }}>
           {busy ? 'Yuklanmoqda…' : mode === 'login' ? 'Kirish' : 'Hisob yaratish'}
         </button>
 
         <p className="auth-modal__hint">
           {mode === 'login'
-            ? <>Hisob yo'qmi? <button type="button" onClick={() => { setMode('register'); setError(''); }}>Ro'yxatdan o'ting</button></>
-            : <>Hisob bormi? <button type="button" onClick={() => { setMode('login'); setError(''); }}>Kiring</button></>}
+            ? <>Hisob yo'qmi? <button type="button" onClick={() => switchMode('register')}>Ro'yxatdan o'ting</button></>
+            : <>Hisob bormi? <button type="button" onClick={() => switchMode('login')}>Kiring</button></>}
         </p>
       </form>
     </div>

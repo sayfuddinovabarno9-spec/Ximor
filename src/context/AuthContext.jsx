@@ -43,11 +43,11 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, []);
 
-  const register = useCallback(async (username, name, password) => {
+  const register = useCallback(async (username, name, password, email) => {
     const res  = await fetch(`${API}/api/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, name, password }),
+      body: JSON.stringify({ username, name, password, email: email || undefined }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Ro\'yxatdan o\'tishda xato');

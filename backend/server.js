@@ -12,6 +12,8 @@ const leaderboardRoutes = require('./routes/leaderboard');
 const app  = express();
 const PORT = process.env.PORT || 3002;
 
+app.set('trust proxy', 1); // required for rate-limiting behind Railway/Vercel proxy
+
 const ALLOWED_ORIGIN = process.env.FRONTEND_ORIGIN || 'http://localhost:5173';
 
 app.use(cors({

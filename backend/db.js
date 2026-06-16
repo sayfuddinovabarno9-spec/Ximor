@@ -25,9 +25,11 @@ async function initSchema() {
       initials   TEXT    NOT NULL,
       role       TEXT    DEFAULT 'Shogird',
       password   TEXT    NOT NULL,
+      email      TEXT    UNIQUE,
       score      INTEGER DEFAULT 0,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT UNIQUE;
 
     CREATE TABLE IF NOT EXISTS topics (
       id           SERIAL PRIMARY KEY,
@@ -54,6 +56,7 @@ async function initSchema() {
     CREATE TABLE IF NOT EXISTS answers (
       id         SERIAL PRIMARY KEY,
       topic_id   INTEGER NOT NULL REFERENCES topics(id) ON DELETE CASCADE,
+      user_id    INTEGER REFERENCES users(id) ON DELETE SET NULL,
       author     TEXT    DEFAULT 'Anonim',
       initials   TEXT    DEFAULT 'AN',
       role       TEXT    DEFAULT 'Ishtirokchi',
@@ -64,6 +67,7 @@ async function initSchema() {
     );
 
     CREATE INDEX IF NOT EXISTS idx_answers_topic ON answers(topic_id);
+    ALTER TABLE answers ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
 
     CREATE TABLE IF NOT EXISTS tournaments (
       id                    SERIAL PRIMARY KEY,
@@ -173,17 +177,19 @@ async function updateScore(topicId, delta) {
 }
 
 async function acceptAnswer(topicId, answerId) {
-  await pool.query('UPDATE answers SET accepted = TRUE  WHERE id = $1 AND topic_id = $2', [answerId, topicId]);
-  await pool.query('UPDATE topics  SET solved   = TRUE  WHERE id = $1',                   [topicId]);
+  const answer = await q1('SELECT * FROM answers WHERE id = $1 AND topic_id = $2', [answerId, topicId]);
+  await pool.query('UPDATE answers SET accepted = TRUE WHERE id = $1 AND topic_id = $2', [answerId, topicId]);
+  await pool.query('UPDATE topics  SET solved   = TRUE WHERE id = $1', [topicId]);
+  return answer;
 }
 
 // ── Answers ───────────────────────────────────────────────────────────────────
 async function saveAnswer(topicId, answer) {
   const row = await q1(`
-    INSERT INTO answers (topic_id, author, initials, role, score, text)
-    VALUES ($1, $2, $3, $4, $5, $6)
+    INSERT INTO answers (topic_id, user_id, author, initials, role, score, text)
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
     RETURNING *
-  `, [topicId, answer.author ?? 'Anonim', answer.initials ?? 'AN',
+  `, [topicId, answer.user_id ?? null, answer.author ?? 'Anonim', answer.initials ?? 'AN',
       answer.role ?? 'Ishtirokchi', answer.score ?? 0, answer.text ?? '']);
   if (!row) return null;
   await pool.query(
@@ -194,15 +200,15 @@ async function saveAnswer(topicId, answer) {
 }
 
 // ── Users ─────────────────────────────────────────────────────────────────────
-async function createUser({ username, name, initials, role = 'Shogird', password }) {
+async function createUser({ username, name, initials, role = 'Shogird', password, email }) {
   try {
     return await q1(`
-      INSERT INTO users (username, name, initials, role, password)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING id, username, name, initials, role, score
-    `, [username, name, initials, role, password]);
+      INSERT INTO users (username, name, initials, role, password, email)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING id, username, name, initials, role, score, email
+    `, [username, name, initials, role, password, email || null]);
   } catch (e) {
-    if (e.code === '23505') return null; // unique_violation = username taken
+    if (e.code === '23505') return null; // unique_violation = username or email taken
     throw e;
   }
 }

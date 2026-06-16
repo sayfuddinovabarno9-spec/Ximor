@@ -18,7 +18,7 @@ const loginLimiter = rateLimit({
 
 // ── POST /api/auth/register ───────────────────────────────────────────────────
 router.post('/register', registerLimiter, async (req, res) => {
-  const { username, name, password } = req.body || {};
+  const { username, name, password, email } = req.body || {};
 
   if (!username || !name || !password)
     return res.status(400).json({ error: "username, name va password kerak" });
@@ -30,6 +30,8 @@ router.post('/register', registerLimiter, async (req, res) => {
     return res.status(400).json({ error: "Parol kamida 6 ta belgi bo'lishi kerak" });
   if (name.trim().length < 2)
     return res.status(400).json({ error: "Ism kamida 2 ta belgi bo'lishi kerak" });
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    return res.status(400).json({ error: "Email manzili noto'g'ri" });
 
   const hash     = await bcrypt.hash(password, 10);
   const initials = name.trim().split(/\s+/).map(w => w[0]?.toUpperCase()).join('').slice(0, 2) || 'AN';
@@ -38,9 +40,10 @@ router.post('/register', registerLimiter, async (req, res) => {
     name:     name.trim().slice(0, 80),
     initials,
     password: hash,
+    email:    email?.toLowerCase().trim() || null,
   });
 
-  if (!user) return res.status(409).json({ error: "Bu username band, boshqasini tanlang" });
+  if (!user) return res.status(409).json({ error: "Bu username yoki email band, boshqasini tanlang" });
 
   const token = sign({ id: user.id, username: user.username, name: user.name, initials: user.initials, role: user.role });
   res.json({ token, user: { id: user.id, username: user.username, name: user.name, initials: user.initials, role: user.role } });

@@ -43,9 +43,7 @@ router.get('/stream', async (req, res) => {
   res.flushHeaders();
 
   const topics = await db.getAllTopics();
-  if (topics.length > 0) {
-    res.write(`event: init\ndata: ${JSON.stringify(topics)}\n\n`);
-  }
+  res.write(`event: init\ndata: ${JSON.stringify(topics)}\n\n`);
 
   clients.add(res);
   const heartbeat = setInterval(() => res.write(': ping\n\n'), 25_000);
@@ -94,6 +92,7 @@ router.post('/topics/:id/answers', requireAuth, async (req, res) => {
   if (!raw.trim()) return res.status(400).json({ error: 'content required' });
 
   const saved = await db.saveAnswer(topicId, {
+    user_id:  req.user.id,
     text:     sanitize(String(raw).slice(0, 20_000)),
     author:   req.user.name,
     initials: req.user.initials,
@@ -124,7 +123,8 @@ router.patch('/topics/:id/vote', requireAuth, async (req, res) => {
 router.post('/topics/:id/accept/:answerId', requireAuth, async (req, res) => {
   const topicId  = Number(req.params.id);
   const answerId = Number(req.params.answerId);
-  await db.acceptAnswer(topicId, answerId);
+  const answer   = await db.acceptAnswer(topicId, answerId);
+  if (answer?.user_id) await db.addUserScore(answer.user_id, 50);
   broadcast('accept', { topicId, answerId });
   res.json({ ok: true });
 });
