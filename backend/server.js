@@ -9,7 +9,7 @@ const tournamentsRoutes = require('./routes/tournaments');
 const leaderboardRoutes = require('./routes/leaderboard');
 
 const app  = express();
-const PORT = process.env.PORT || 3002;
+const PORT = process.env.BACKEND_PORT || 3002;
 const HOST = '0.0.0.0';
 
 app.set('trust proxy', 1);
