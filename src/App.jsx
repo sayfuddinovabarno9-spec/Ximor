@@ -1002,7 +1002,8 @@ function Forum({ theme, onThemeToggle }) {
   const { user, logout, authHeaders } = useAuth();
   const navigate                  = useNavigate();
   const [showAuth, setShowAuth]   = useState(false);
-  const [topics, setTopics] = useState(INITIAL_TOPICS);
+  const [topics, setTopics] = useState([]);
+  const [topicsLoaded, setTopicsLoaded] = useState(false);
   const [activeCategory, setActiveCategory] = useState("all");
   const [activeSort, setActiveSort] = useState("recent");
   const [density, setDensity] = useState("comfortable");
@@ -1033,11 +1034,8 @@ function Forum({ theme, onThemeToggle }) {
 
   // Real-time: merge all server-stored topics when we first connect
   const handleInitTopics = useCallback((serverTopics) => {
-    setTopics(prev => {
-      const existingIds = new Set(prev.map(t => t.id));
-      const fresh = serverTopics.filter(t => !existingIds.has(t.id));
-      return fresh.length ? [...fresh, ...prev] : prev;
-    });
+    setTopics(serverTopics);
+    setTopicsLoaded(true);
   }, []);
 
   // Real-time: single new topic broadcast from another device
@@ -1327,7 +1325,11 @@ function Forum({ theme, onThemeToggle }) {
           </div>
 
           <div className="topic-list">
-            {filteredTopics.length === 0 ? (
+            {!topicsLoaded ? (
+              <div className="empty-state">
+                <span>Yuklanmoqda…</span>
+              </div>
+            ) : filteredTopics.length === 0 ? (
               <div className="empty-state">
                 <Icon name="filter" size={24} />
                 <strong>Natija topilmadi</strong>
