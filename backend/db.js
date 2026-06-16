@@ -113,6 +113,23 @@ async function initSchema() {
 
     CREATE INDEX IF NOT EXISTS idx_reg_tournament ON registrations(tournament_id);
     CREATE INDEX IF NOT EXISTS idx_reg_user       ON registrations(user_id);
+
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin   BOOLEAN     DEFAULT FALSE;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS banned_at  TIMESTAMPTZ;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS bio        TEXT        DEFAULT '';
+
+    CREATE TABLE IF NOT EXISTS saved_topics (
+      user_id   INTEGER NOT NULL REFERENCES users(id)   ON DELETE CASCADE,
+      topic_id  INTEGER NOT NULL REFERENCES topics(id)  ON DELETE CASCADE,
+      PRIMARY KEY (user_id, topic_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS answer_votes (
+      user_id   INTEGER NOT NULL REFERENCES users(id)   ON DELETE CASCADE,
+      answer_id INTEGER NOT NULL REFERENCES answers(id) ON DELETE CASCADE,
+      delta     INTEGER NOT NULL DEFAULT 1,
+      PRIMARY KEY (user_id, answer_id)
+    );
   `);
 }
 
@@ -238,7 +255,7 @@ async function getUserByUsername(username) {
 }
 
 async function getUserById(id) {
-  return q1('SELECT id, username, name, initials, role, score FROM users WHERE id = $1', [id]);
+  return q1('SELECT id, username, name, initials, role, score, is_admin, bio FROM users WHERE id = $1', [id]);
 }
 
 async function addUserScore(id, delta, reason = 'answer_accepted') {
@@ -394,6 +411,146 @@ async function markNotificationsRead(userId) {
   await pool.query('UPDATE notifications SET read = TRUE WHERE user_id = $1 AND read = FALSE', [userId]);
 }
 
+// ── Admin ─────────────────────────────────────────────────────────────────────
+async function getAdminStats() {
+  const [users, topics, answers, todayUsers, todayTopics, todayAnswers, banned] = await Promise.all([
+    q1('SELECT COUNT(*)::INTEGER AS n FROM users'),
+    q1('SELECT COUNT(*)::INTEGER AS n FROM topics'),
+    q1('SELECT COUNT(*)::INTEGER AS n FROM answers'),
+    q1("SELECT COUNT(*)::INTEGER AS n FROM users   WHERE created_at >= NOW() - INTERVAL '24 hours'"),
+    q1("SELECT COUNT(*)::INTEGER AS n FROM topics  WHERE created_at >= NOW() - INTERVAL '24 hours'"),
+    q1("SELECT COUNT(*)::INTEGER AS n FROM answers WHERE created_at >= NOW() - INTERVAL '24 hours'"),
+    q1('SELECT COUNT(*)::INTEGER AS n FROM users WHERE banned_at IS NOT NULL'),
+  ]);
+  return {
+    users: users.n, topics: topics.n, answers: answers.n,
+    banned: banned.n,
+    today: { users: todayUsers.n, topics: todayTopics.n, answers: todayAnswers.n },
+  };
+}
+
+async function getAllUsersAdmin(limit = 100, offset = 0) {
+  return q(`
+    SELECT u.id, u.username, u.name, u.initials, u.role, u.score,
+           u.is_admin, u.banned_at, u.created_at,
+           (SELECT COUNT(*)::INTEGER FROM topics  WHERE author = u.name)  AS topics_count,
+           (SELECT COUNT(*)::INTEGER FROM answers WHERE author = u.name)  AS answers_count,
+           (SELECT COUNT(*)::INTEGER FROM answers WHERE author = u.name AND accepted = TRUE) AS accepted_count
+    FROM users u
+    ORDER BY u.score DESC, u.id ASC
+    LIMIT $1 OFFSET $2
+  `, [limit, offset]);
+}
+
+async function updateUserAdmin(id, fields) {
+  const sets = [];
+  const vals = [];
+  let i = 1;
+  if ('is_admin'   in fields) { sets.push(`is_admin = $${i++}`);   vals.push(fields.is_admin); }
+  if ('banned'     in fields) { sets.push(`banned_at = $${i++}`);  vals.push(fields.banned ? new Date() : null); }
+  if ('role'       in fields) { sets.push(`role = $${i++}`);        vals.push(fields.role); }
+  if ('score'      in fields) { sets.push(`score = $${i++}`);       vals.push(fields.score); }
+  if (!sets.length) return;
+  vals.push(id);
+  await pool.query(`UPDATE users SET ${sets.join(', ')} WHERE id = $${i}`, vals);
+}
+
+async function getAdminTopics(limit = 50) {
+  const rows = await q(`
+    SELECT id, category, title, author, score, answers, solved, pinned, hot, created_at
+    FROM topics ORDER BY id DESC LIMIT $1
+  `, [limit]);
+  return rows.map(r => ({ ...r, pinned: Boolean(r.pinned), hot: Boolean(r.hot), solved: Boolean(r.solved) }));
+}
+
+async function adminDeleteTopic(id) {
+  await pool.query('DELETE FROM topics WHERE id = $1', [id]);
+}
+
+async function adminDeleteAnswer(id) {
+  await pool.query('DELETE FROM answers WHERE id = $1', [id]);
+}
+
+async function adminUpdateTopic(id, fields) {
+  const sets = [];
+  const vals = [];
+  let i = 1;
+  if ('pinned' in fields) { sets.push(`pinned = $${i++}`); vals.push(fields.pinned); }
+  if ('hot'    in fields) { sets.push(`hot = $${i++}`);    vals.push(fields.hot); }
+  if ('solved' in fields) { sets.push(`solved = $${i++}`); vals.push(fields.solved); }
+  if (!sets.length) return;
+  vals.push(id);
+  await pool.query(`UPDATE topics SET ${sets.join(', ')} WHERE id = $${i}`, vals);
+}
+
+async function broadcastAnnouncement(message) {
+  const users = await q('SELECT id FROM users WHERE banned_at IS NULL');
+  for (const u of users) {
+    await pool.query(
+      "INSERT INTO notifications (user_id, type, topic_id, message) VALUES ($1,'announce',NULL,$2)",
+      [u.id, message]
+    );
+  }
+  return users.length;
+}
+
+async function getRecentActivity() {
+  const topics  = await q('SELECT id, title, author, created_at FROM topics  ORDER BY created_at DESC LIMIT 10');
+  const answers = await q('SELECT a.id, a.author, a.created_at, t.id AS topic_id, t.title AS topic_title FROM answers a JOIN topics t ON t.id = a.topic_id ORDER BY a.created_at DESC LIMIT 10');
+  return { topics, answers };
+}
+
+// ── Saved topics ──────────────────────────────────────────────────────────────
+async function toggleSavedTopic(userId, topicId) {
+  const existing = await q1('SELECT 1 FROM saved_topics WHERE user_id=$1 AND topic_id=$2', [userId, topicId]);
+  if (existing) {
+    await pool.query('DELETE FROM saved_topics WHERE user_id=$1 AND topic_id=$2', [userId, topicId]);
+    return false;
+  }
+  await pool.query('INSERT INTO saved_topics (user_id, topic_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [userId, topicId]);
+  return true;
+}
+
+async function getUserSavedTopicIds(userId) {
+  const rows = await q('SELECT topic_id FROM saved_topics WHERE user_id=$1', [userId]);
+  return rows.map(r => r.topic_id);
+}
+
+// ── Answer votes ──────────────────────────────────────────────────────────────
+async function voteAnswer(userId, answerId, delta) {
+  const clamped = delta > 0 ? 1 : -1;
+  const existing = await q1('SELECT delta FROM answer_votes WHERE user_id=$1 AND answer_id=$2', [userId, answerId]);
+  let scoreDelta = 0;
+  if (!existing) {
+    await pool.query('INSERT INTO answer_votes (user_id, answer_id, delta) VALUES ($1,$2,$3)', [userId, answerId, clamped]);
+    scoreDelta = clamped;
+  } else if (existing.delta === clamped) {
+    await pool.query('DELETE FROM answer_votes WHERE user_id=$1 AND answer_id=$2', [userId, answerId]);
+    scoreDelta = -clamped;
+  } else {
+    await pool.query('UPDATE answer_votes SET delta=$1 WHERE user_id=$2 AND answer_id=$3', [clamped, userId, answerId]);
+    scoreDelta = clamped * 2;
+  }
+  const row = await q1('UPDATE answers SET score=score+$1 WHERE id=$2 RETURNING score', [scoreDelta, answerId]);
+  return row?.score ?? 0;
+}
+
+// ── View increment ────────────────────────────────────────────────────────────
+async function incrementTopicViews(id) {
+  await pool.query(`
+    UPDATE topics SET views = CASE
+      WHEN views ~ '^[0-9]+$' THEN (views::INTEGER + 1)::TEXT
+      WHEN views ~ '^[0-9]+\\.[0-9]+k$' OR views ~ '^[0-9]+k$' THEN views
+      ELSE (1)::TEXT
+    END WHERE id = $1
+  `, [id]);
+}
+
+// ── User bio ──────────────────────────────────────────────────────────────────
+async function updateUserBio(userId, bio) {
+  await pool.query('UPDATE users SET bio=$1 WHERE id=$2', [bio.slice(0, 300), userId]);
+}
+
 // ── Search ────────────────────────────────────────────────────────────────────
 async function searchTopics(q_text) {
   if (!q_text || q_text.trim().length < 2) return [];
@@ -453,6 +610,9 @@ async function seedDemo() {
     ]);
   }
 
+  // Make first demo user admin
+  await pool.query("UPDATE users SET is_admin = TRUE WHERE username = 'aziza_kimyo'");
+
   // Tournaments
   const tourCount = await q1('SELECT COUNT(*)::INTEGER AS n FROM tournaments');
   if (tourCount.n === 0) {
@@ -478,9 +638,17 @@ module.exports = {
   getAllTopics, getTopicWithAnswers, saveTopic, updateScore, acceptAnswer,
   saveAnswer,
   createUser, getUserByUsername, getUserById, addUserScore, getUserProfile,
-  getUserAnswers,
+  getUserAnswers, updateUserBio,
   getAllTournaments, getTournamentById, registerForTournament,
   getLeaderboard,
   createNotification, getNotifications, markNotificationsRead,
   searchTopics,
+  // Admin
+  getAdminStats, getAllUsersAdmin, updateUserAdmin,
+  getAdminTopics, adminDeleteTopic, adminDeleteAnswer, adminUpdateTopic,
+  broadcastAnnouncement, getRecentActivity,
+  // Upgrades
+  toggleSavedTopic, getUserSavedTopicIds,
+  voteAnswer,
+  incrementTopicViews,
 };

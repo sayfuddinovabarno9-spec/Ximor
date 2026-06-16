@@ -9,6 +9,7 @@ const tournamentsRoutes   = require('./routes/tournaments');
 const leaderboardRoutes   = require('./routes/leaderboard');
 const notificationsRoutes = require('./routes/notifications');
 const newsRoutes           = require('./routes/news');
+const adminRoutes          = require('./routes/admin');
 
 const app  = express();
 const PORT = process.env.BACKEND_PORT || 3002;
@@ -51,6 +52,7 @@ app.use('/api/tournaments',   tournamentsRoutes);
 app.use('/api/leaderboard',   leaderboardRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/news',          newsRoutes);
+app.use('/api/admin',         adminRoutes);
 
 let dbReady = false;
 

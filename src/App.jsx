@@ -12,6 +12,7 @@ import OlimpiadalarPage from "./pages/OlimpiadalarPage";
 import ReytingPage from "./pages/ReytingPage";
 import ProfilePage from "./pages/ProfilePage";
 import YangiliklarPage from "./pages/YangiliklarPage";
+import AdminPage from "./pages/AdminPage";
 import { avatarBg } from "./utils/avatarColor";
 
 const BACKEND = import.meta.env.VITE_API_URL || 'http://localhost:3002';
@@ -497,7 +498,7 @@ function AttachmentGallery({ images = [], size = "thumb" }) {
   );
 }
 
-function TopicCard({ density, onOpen, onSave, onVote, topic }) {
+function TopicCard({ density, onOpen, onSave, onVote, onTagClick, topic }) {
   const category = CATEGORIES.find((item) => item.id === topic.category) || CATEGORIES[0];
 
   return (
@@ -539,9 +540,10 @@ function TopicCard({ density, onOpen, onSave, onVote, topic }) {
         <AttachmentGallery images={topic.images} />
 
         <div className="topic-footer">
-          <div className="tag-row">
+          <div className="tag-row" onClick={e => e.stopPropagation()}>
             {topic.tags.map((tag) => (
-              <button key={tag} className="tag-chip" type="button">
+              <button key={tag} className="tag-chip" type="button"
+                      onClick={() => onTagClick?.(tag)}>
                 #{tag}
               </button>
             ))}
@@ -995,6 +997,7 @@ export default function App() {
         <Route path="/q/:id" element={<QuestionPage />} />
         <Route path="/u/:username" element={<ProfilePage theme={theme} onThemeToggle={toggleTheme} />} />
         <Route path="/yangiliklar" element={<YangiliklarPage theme={theme} onThemeToggle={toggleTheme} />} />
+        <Route path="/admin" element={<AdminPage theme={theme} onThemeToggle={toggleTheme} />} />
       </Routes>
     </AuthProvider>
   );
@@ -1345,6 +1348,7 @@ function Forum({ theme, onThemeToggle }) {
                   onOpen={openTopic}
                   onSave={handleSave}
                   onVote={handleVote}
+                  onTagClick={tag => setQuery(tag)}
                   topic={topic}
                 />
               ))

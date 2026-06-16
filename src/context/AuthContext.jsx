@@ -13,7 +13,7 @@ export function AuthProvider({ children }) {
       if (!t) return null;
       // Decode JWT payload (no verification — server does that)
       const payload = JSON.parse(atob(t.split('.')[1]));
-      return { id: payload.id, username: payload.username, name: payload.name, initials: payload.initials, role: payload.role };
+      return { id: payload.id, username: payload.username, name: payload.name, initials: payload.initials, role: payload.role, is_admin: false };
     } catch { return null; }
   });
 
@@ -23,7 +23,7 @@ export function AuthProvider({ children }) {
     if (!stored) return;
     fetch(`${API}/api/auth/me`, { headers: { Authorization: `Bearer ${stored}` } })
       .then(r => r.ok ? r.json() : Promise.reject())
-      .then(u => setUser({ id: u.id, username: u.username, name: u.name, initials: u.initials, role: u.role }))
+      .then(u => setUser({ id: u.id, username: u.username, name: u.name, initials: u.initials, role: u.role, is_admin: u.is_admin || false, bio: u.bio || '' }))
       .catch(() => {
         localStorage.removeItem(STORAGE_KEY);
         setToken(null);
@@ -34,7 +34,7 @@ export function AuthProvider({ children }) {
   const saveSession = useCallback((newToken, newUser) => {
     localStorage.setItem(STORAGE_KEY, newToken);
     setToken(newToken);
-    setUser(newUser);
+    setUser({ ...newUser, is_admin: newUser.is_admin || false, bio: newUser.bio || '' });
   }, []);
 
   const logout = useCallback(() => {

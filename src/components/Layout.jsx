@@ -230,6 +230,12 @@ export default function Layout({ children, theme, onThemeToggle, onCompose, quer
                     <span>Profilim</span>
                     <span className="dropdown-kbd">@{user.username}</span>
                   </Link>
+                  {user.is_admin && (
+                    <Link to="/admin" onClick={() => setMenuOpen(false)} style={{ color: 'var(--amber)' }}>
+                      <span>Admin Panel</span>
+                      <span className="dropdown-kbd">★</span>
+                    </Link>
+                  )}
                   <button type="button" onClick={() => { logout(); setMenuOpen(false); }}>
                     Chiqish
                   </button>

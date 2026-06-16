@@ -154,6 +154,34 @@ router.get('/search', async (req, res) => {
   res.json(results);
 });
 
+// ── PATCH /api/forum/topics/:id/views ────────────────────────────────────────
+router.patch('/topics/:id/views', async (req, res) => {
+  await db.incrementTopicViews(Number(req.params.id));
+  res.json({ ok: true });
+});
+
+// ── POST /api/forum/topics/:id/save ──────────────────────────────────────────
+router.post('/topics/:id/save', requireAuth, async (req, res) => {
+  const topicId = Number(req.params.id);
+  const saved   = await db.toggleSavedTopic(req.user.id, topicId);
+  res.json({ ok: true, saved });
+});
+
+// ── GET /api/forum/saved ──────────────────────────────────────────────────────
+router.get('/saved', requireAuth, async (req, res) => {
+  const ids = await db.getUserSavedTopicIds(req.user.id);
+  res.json(ids);
+});
+
+// ── PATCH /api/forum/answers/:id/vote ────────────────────────────────────────
+router.patch('/answers/:id/vote', requireAuth, async (req, res) => {
+  const answerId = Number(req.params.id);
+  const delta    = Number(req.body?.delta ?? 1);
+  const newScore = await db.voteAnswer(req.user.id, answerId, delta);
+  broadcast('answerVote', { answerId, score: newScore });
+  res.json({ ok: true, score: newScore });
+});
+
 // ── GET /api/forum/listeners ──────────────────────────────────────────────────
 router.get('/listeners', (req, res) => {
   res.json({ count: clients.size });

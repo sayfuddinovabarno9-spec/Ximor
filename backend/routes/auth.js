@@ -69,7 +69,12 @@ router.post('/login', loginLimiter, async (req, res) => {
 router.get('/me', requireAuth, async (req, res) => {
   const user = await db.getUserById(req.user.id);
   if (!user) return res.status(404).json({ error: 'not found' });
-  res.json(user);
+  if (user.banned_at) return res.status(403).json({ error: 'Hisob bloklangan' });
+  res.json({
+    id: user.id, username: user.username, name: user.name,
+    initials: user.initials, role: user.role, score: user.score,
+    is_admin: user.is_admin || false, bio: user.bio || '',
+  });
 });
 
 module.exports = router;
