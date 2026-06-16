@@ -11,6 +11,7 @@ import QuestionPage from "./pages/QuestionPage";
 import OlimpiadalarPage from "./pages/OlimpiadalarPage";
 import ReytingPage from "./pages/ReytingPage";
 import ProfilePage from "./pages/ProfilePage";
+import YangiliklarPage from "./pages/YangiliklarPage";
 import { avatarBg } from "./utils/avatarColor";
 
 const BACKEND = import.meta.env.VITE_API_URL || 'http://localhost:3002';
@@ -993,6 +994,7 @@ export default function App() {
         <Route path="/reyting" element={<ReytingPage theme={theme} onThemeToggle={toggleTheme} />} />
         <Route path="/q/:id" element={<QuestionPage />} />
         <Route path="/u/:username" element={<ProfilePage theme={theme} onThemeToggle={toggleTheme} />} />
+        <Route path="/yangiliklar" element={<YangiliklarPage theme={theme} onThemeToggle={toggleTheme} />} />
       </Routes>
     </AuthProvider>
   );

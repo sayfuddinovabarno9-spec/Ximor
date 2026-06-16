@@ -19,6 +19,7 @@ function Icon({ name, size = 18 }) {
     person:   "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z",
     check:    "M20 6 9 17l-5-5",
     message:  "M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8Z",
+    newspaper:"M4 22h14a2 2 0 0 0 2-2V7.5L14.5 2H6a2 2 0 0 0-2 2v4M14 2v6h6M2 15h10M2 19h10M2 11h4",
   };
   return (
     <svg aria-hidden fill="none" height={size} stroke="currentColor"
@@ -58,9 +59,10 @@ function timeAgo(iso) {
 }
 
 const NAV_ITEMS = [
-  { to: '/',            label: 'Savollar',    icon: 'home',   exact: true },
-  { to: '/olimpiadalar',label: 'Olimpiadalar',icon: 'trophy', badge: 4 },
-  { to: '/reyting',    label: 'Reyting',      icon: 'trophy' },
+  { to: '/',             label: 'Savollar',    icon: 'home',      exact: true },
+  { to: '/olimpiadalar', label: 'Olimpiadalar', icon: 'trophy',   badge: 4 },
+  { to: '/reyting',      label: 'Reyting',      icon: 'trophy' },
+  { to: '/yangiliklar',  label: 'Yangiliklar',  icon: 'newspaper' },
 ];
 
 export default function Layout({ children, theme, onThemeToggle, onCompose, query, onQuery }) {
@@ -258,6 +260,10 @@ export default function Layout({ children, theme, onThemeToggle, onCompose, quer
         <Link to="/reyting" className={location.pathname.startsWith('/reyting') ? 'is-active' : ''}>
           <Icon name="trophy" size={18} />
           <span>Reyting</span>
+        </Link>
+        <Link to="/yangiliklar" className={location.pathname.startsWith('/yangiliklar') ? 'is-active' : ''}>
+          <Icon name="newspaper" size={18} />
+          <span>Yangilik</span>
         </Link>
         {user ? (
           <Link to={`/u/${user.username}`} className={location.pathname.startsWith('/u/') ? 'is-active' : ''}>
