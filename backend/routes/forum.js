@@ -42,8 +42,13 @@ router.get('/stream', async (req, res) => {
   res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
 
-  const topics = await db.getAllTopics();
-  res.write(`event: init\ndata: ${JSON.stringify(topics)}\n\n`);
+  try {
+    const topics = await db.getAllTopics();
+    res.write(`event: init\ndata: ${JSON.stringify(topics)}\n\n`);
+  } catch (e) {
+    console.error('SSE init error:', e.message);
+    res.write(`event: init\ndata: []\n\n`);
+  }
 
   clients.add(res);
   const heartbeat = setInterval(() => res.write(': ping\n\n'), 25_000);

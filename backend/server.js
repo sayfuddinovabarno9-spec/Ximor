@@ -18,7 +18,9 @@ const ALLOWED_ORIGIN = process.env.FRONTEND_ORIGIN || 'http://localhost:5173';
 
 app.use(cors({
   origin: (origin, cb) => {
-    if (!origin || origin === ALLOWED_ORIGIN) return cb(null, true);
+    if (!origin) return cb(null, true);
+    if (origin === ALLOWED_ORIGIN || origin.endsWith('.vercel.app') || origin.startsWith('http://localhost'))
+      return cb(null, true);
     cb(new Error(`CORS: origin '${origin}' is not allowed`));
   },
   credentials: true,
