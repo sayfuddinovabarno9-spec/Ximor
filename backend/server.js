@@ -31,7 +31,7 @@ const corsOptions = {
   optionsSuccessStatus: 200,
 };
 
-app.options('*', cors(corsOptions)); // handle preflight for all routes
+app.options('/*splat', cors(corsOptions)); // handle preflight for all routes
 app.use(cors(corsOptions));
 
 app.use(express.json({ limit: '64kb' }));
