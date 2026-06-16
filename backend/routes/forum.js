@@ -31,7 +31,9 @@ function sanitizeTopic(body) {
 // ── SSE broadcast ─────────────────────────────────────────────────────────────
 function broadcast(event, data) {
   const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-  for (const res of clients) res.write(payload);
+  for (const res of clients) {
+    try { res.write(payload); } catch { clients.delete(res); }
+  }
 }
 
 // ── GET /api/forum/stream ─────────────────────────────────────────────────────
@@ -51,7 +53,9 @@ router.get('/stream', async (req, res) => {
   }
 
   clients.add(res);
-  const heartbeat = setInterval(() => res.write(': ping\n\n'), 25_000);
+  const heartbeat = setInterval(() => {
+    try { res.write(': ping\n\n'); } catch { clearInterval(heartbeat); clients.delete(res); }
+  }, 25_000);
 
   req.on('close', () => {
     clearInterval(heartbeat);

@@ -76,4 +76,7 @@ async function start() {
   }
 }
 
+process.on('uncaughtException',  err => console.error('uncaughtException:', err.message));
+process.on('unhandledRejection', err => console.error('unhandledRejection:', err?.message ?? err));
+
 start();
