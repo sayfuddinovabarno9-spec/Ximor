@@ -16,15 +16,23 @@ app.set('trust proxy', 1); // required for rate-limiting behind Railway/Vercel p
 
 const ALLOWED_ORIGIN = process.env.FRONTEND_ORIGIN || 'http://localhost:5173';
 
-app.use(cors({
-  origin: (origin, cb) => {
-    if (!origin) return cb(null, true);
-    if (origin === ALLOWED_ORIGIN || origin.endsWith('.vercel.app') || origin.startsWith('http://localhost'))
-      return cb(null, true);
-    cb(new Error(`CORS: origin '${origin}' is not allowed`));
-  },
+function isAllowedOrigin(origin) {
+  if (!origin) return true;
+  return origin === ALLOWED_ORIGIN
+    || origin.endsWith('.vercel.app')
+    || origin.startsWith('http://localhost');
+}
+
+const corsOptions = {
+  origin: (origin, cb) => isAllowedOrigin(origin) ? cb(null, true) : cb(new Error('CORS blocked')),
   credentials: true,
-}));
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+  allowedHeaders: 'Content-Type,Authorization',
+  optionsSuccessStatus: 200,
+};
+
+app.options('*', cors(corsOptions)); // handle preflight for all routes
+app.use(cors(corsOptions));
 
 app.use(express.json({ limit: '64kb' }));
 
