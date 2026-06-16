@@ -63,17 +63,20 @@ async function start() {
     })
   );
 
-  // Then init DB (server is already accepting connections)
-  try {
-    await db.initSchema();
-    console.log('✅ Schema ready');
-    await db.seedDemo();
-    console.log('🌱 Seed done');
-    dbReady = true;
-  } catch (err) {
-    console.error('❌ DB init failed:', err.message);
-    process.exit(1);
-  }
+  // Init DB — retry on failure so Railway health check stays green
+  const initDB = async () => {
+    try {
+      await db.initSchema();
+      console.log('✅ Schema ready');
+      await db.seedDemo();
+      console.log('🌱 Seed done');
+      dbReady = true;
+    } catch (err) {
+      console.error('❌ DB init failed, retrying in 5s:', err.message);
+      setTimeout(initDB, 5000);
+    }
+  };
+  initDB();
 }
 
 process.on('uncaughtException',  err => console.error('uncaughtException:', err.message));
