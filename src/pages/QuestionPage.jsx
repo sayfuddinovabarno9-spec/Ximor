@@ -133,15 +133,16 @@ export default function QuestionPage() {
     return next;
   });
 
-  const [topic, setTopic]   = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]   = useState('');
-  const [answer, setAnswer] = useState('');
-  const [busy, setBusy]     = useState(false);
-  const [voted, setVoted]   = useState(0);
+  const [topic, setTopic]       = useState(null);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState('');
+  const [answer, setAnswer]     = useState('');
+  const [busy, setBusy]         = useState(false);
+  const [voted, setVoted]       = useState(0);          // current user's vote on the topic
+  const [answerVotes, setAnswerVotes] = useState({});   // { [answerId]: 1 | -1 | 0 }
   const [showAuth, setShowAuth] = useState(false);
-  const [toast, setToast]   = useState('');
-  const toastRef            = useRef(null);
+  const [toast, setToast]       = useState('');
+  const toastRef                = useRef(null);
 
   const showToast = (msg) => {
     setToast(msg);
@@ -157,6 +158,23 @@ export default function QuestionPage() {
       .then(data => { setTopic(data); setLoading(false); })
       .catch(e  => { setError(String(e)); setLoading(false); });
   }, [id]);
+
+  /* Hydrate per-user vote state after login or topic change */
+  useEffect(() => {
+    if (!user) {
+      setVoted(0);
+      setAnswerVotes({});
+      return;
+    }
+    const headers = authHeaders();
+    Promise.all([
+      fetch(`${API}/api/forum/my-votes`, { headers }).then(r => r.ok ? r.json() : {}).catch(() => ({})),
+      fetch(`${API}/api/forum/my-answer-votes`, { headers }).then(r => r.ok ? r.json() : {}).catch(() => ({})),
+    ]).then(([topicVotes, ansVotes]) => {
+      setVoted(topicVotes[Number(id)] ?? 0);
+      setAnswerVotes(ansVotes);
+    });
+  }, [user?.id, id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* SSE — live updates for this specific topic */
   const onAnswer = useCallback(({ topicId, answer: a, answers }) => {
@@ -181,20 +199,83 @@ export default function QuestionPage() {
     } : prev);
   }, [id]);
 
-  useForumStream(() => {}, null, onAnswer, onVote, onAccept);
+  // Live answer-score updates from other clients
+  const onAnswerVoteSSE = useCallback(({ answerId, score }) => {
+    setTopic(prev => prev ? {
+      ...prev,
+      answersList: prev.answersList.map(a => a.id === answerId ? { ...a, score } : a),
+    } : prev);
+  }, []);
 
-  /* Vote */
+  useForumStream(() => {}, null, onAnswer, onVote, onAccept, onAnswerVoteSSE);
+
+  /* Vote on the topic */
   const handleVote = (direction) => {
     if (!user) { setShowAuth(true); return; }
-    const alreadyVoted = voted === direction;
-    const delta = alreadyVoted ? -direction : direction - voted;
-    setVoted(alreadyVoted ? 0 : direction);
-    setTopic(prev => prev ? { ...prev, score: prev.score + delta } : prev);
+    // Snapshot for revert
+    const prevVoted = voted;
+    const prevScore = topic?.score ?? 0;
+    // Optimistic
+    const toggling = voted === direction;
+    setVoted(toggling ? 0 : direction);
+    setTopic(prev => prev ? {
+      ...prev,
+      score: prev.score + (toggling ? -direction : direction - voted),
+    } : prev);
+    // Persist — server uses topic_votes table to deduplicate
     fetch(`${API}/api/forum/topics/${id}/vote`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: JSON.stringify({ delta }),
-    }).catch(() => {});
+      body: JSON.stringify({ direction }),
+    }).then(r => r.ok ? r.json() : Promise.reject())
+      .then(({ score, voted: serverVoted }) => {
+        setVoted(serverVoted);
+        setTopic(prev => prev ? { ...prev, score } : prev);
+      })
+      .catch(() => {
+        setVoted(prevVoted);
+        setTopic(prev => prev ? { ...prev, score: prevScore } : prev);
+      });
+  };
+
+  /* Vote on an answer */
+  const handleAnswerVote = (answerId, direction) => {
+    if (!user) { setShowAuth(true); return; }
+    const prevVoted = answerVotes[answerId] ?? 0;
+    const prevScore = topic?.answersList.find(a => a.id === answerId)?.score ?? 0;
+    // Optimistic
+    const toggling = prevVoted === direction;
+    const newVoted = toggling ? 0 : direction;
+    const scoreDelta = toggling ? -direction : direction - prevVoted;
+    setAnswerVotes(prev => ({ ...prev, [answerId]: newVoted }));
+    setTopic(prev => prev ? {
+      ...prev,
+      answersList: prev.answersList.map(a =>
+        a.id === answerId ? { ...a, score: a.score + scoreDelta } : a
+      ),
+    } : prev);
+    // Persist
+    fetch(`${API}/api/forum/answers/${answerId}/vote`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ delta: direction }),
+    }).then(r => r.ok ? r.json() : Promise.reject())
+      .then(({ score, voted: serverVoted }) => {
+        setAnswerVotes(prev => ({ ...prev, [answerId]: serverVoted ?? newVoted }));
+        setTopic(prev => prev ? {
+          ...prev,
+          answersList: prev.answersList.map(a => a.id === answerId ? { ...a, score } : a),
+        } : prev);
+      })
+      .catch(() => {
+        setAnswerVotes(prev => ({ ...prev, [answerId]: prevVoted }));
+        setTopic(prev => prev ? {
+          ...prev,
+          answersList: prev.answersList.map(a =>
+            a.id === answerId ? { ...a, score: prevScore } : a
+          ),
+        } : prev);
+      });
   };
 
   /* Submit answer */
@@ -369,7 +450,21 @@ export default function QuestionPage() {
                     className={`qp-answer ${ans.accepted ? 'is-accepted' : ''}`}
                   >
                     <div className="qp-vote-col qp-vote-col--answer">
+                      <button
+                        className={`qp-vote-btn ${(answerVotes[ans.id] ?? 0) === 1 ? 'is-active' : ''}`}
+                        onClick={() => handleAnswerVote(ans.id, 1)}
+                        title="Foydali"
+                      >
+                        <Icon name="arrowUp" size={15} />
+                      </button>
                       <span className="qp-answer-score">{ans.score}</span>
+                      <button
+                        className={`qp-vote-btn ${(answerVotes[ans.id] ?? 0) === -1 ? 'is-danger' : ''}`}
+                        onClick={() => handleAnswerVote(ans.id, -1)}
+                        title="Foydali emas"
+                      >
+                        <Icon name="arrowDown" size={15} />
+                      </button>
                       {ans.accepted && (
                         <span className="qp-accepted-tick" title="Qabul qilingan javob">
                           <Icon name="check" size={15} />

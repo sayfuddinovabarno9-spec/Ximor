@@ -82,6 +82,7 @@ router.post('/topics', requireAuth, async (req, res) => {
   const clean = sanitizeTopic(req.body);
   const saved = await db.saveTopic({
     ...clean,
+    user_id:  req.user.id,
     author:   req.user.name,
     initials: req.user.initials,
     role:     req.user.role,
@@ -112,7 +113,13 @@ router.post('/topics/:id/answers', requireAuth, async (req, res) => {
   if (saved) {
     const updated = await db.getTopicWithAnswers(topicId);
     broadcast('answer', { topicId, answer: saved, answers: updated.answers });
-    // Notify via SSE so logged-in users can refresh notifications
+    // Notify the topic author that their question got a new answer
+    if (topic.user_id && topic.user_id !== req.user.id) {
+      await db.createNotification(
+        topic.user_id, 'answer', topicId,
+        `"${topic.title.slice(0, 60)}" savolingizga yangi javob keldi`
+      );
+    }
     broadcast('notification', { topicId });
   }
 
@@ -121,13 +128,14 @@ router.post('/topics/:id/answers', requireAuth, async (req, res) => {
 
 // ── PATCH /api/forum/topics/:id/vote ─────────────────────────────────────────
 router.patch('/topics/:id/vote', requireAuth, async (req, res) => {
-  const topicId = Number(req.params.id);
-  const delta   = Number(req.body?.delta ?? 0);
-  if (delta !== 1 && delta !== -1) return res.status(400).json({ error: 'delta must be 1 or -1' });
+  const topicId   = Number(req.params.id);
+  // Accept either `direction` (new) or `delta` (legacy field name)
+  const direction = Number(req.body?.direction ?? req.body?.delta ?? 0);
+  if (direction !== 1 && direction !== -1) return res.status(400).json({ error: 'direction must be 1 or -1' });
 
-  const newScore = await db.updateScore(topicId, delta);
-  broadcast('vote', { topicId, score: newScore });
-  res.json({ ok: true, score: newScore });
+  const { score, voted } = await db.voteTopic(req.user.id, topicId, direction);
+  broadcast('vote', { topicId, score });
+  res.json({ ok: true, score, voted });
 });
 
 // ── POST /api/forum/topics/:id/accept/:answerId ───────────────────────────────
@@ -177,14 +185,54 @@ router.get('/saved', requireAuth, async (req, res) => {
 router.patch('/answers/:id/vote', requireAuth, async (req, res) => {
   const answerId = Number(req.params.id);
   const delta    = Number(req.body?.delta ?? 1);
-  const newScore = await db.voteAnswer(req.user.id, answerId, delta);
-  broadcast('answerVote', { answerId, score: newScore });
-  res.json({ ok: true, score: newScore });
+  const result   = await db.voteAnswer(req.user.id, answerId, delta);
+  broadcast('answerVote', { answerId, score: result.score });
+
+  // Notify the answer author only when the net result is a new upvote
+  // (scoreDelta > 0 alone would fire on downvote-removal; voted===1 confirms actual upvote)
+  if (result.scoreDelta > 0 && result.voted === 1) {
+    const { rows } = await db.pool.query(
+      'SELECT user_id, topic_id FROM answers WHERE id=$1', [answerId]
+    );
+    const ans = rows[0];
+    if (ans?.user_id && ans.user_id !== req.user.id) {
+      await db.createNotification(
+        ans.user_id, 'upvote', ans.topic_id,
+        'Javobingiz foydali deb baholandi (+1 ovoz)'
+      );
+    }
+  }
+
+  res.json({ ok: true, score: result.score, voted: result.voted });
 });
 
 // ── GET /api/forum/listeners ──────────────────────────────────────────────────
 router.get('/listeners', (req, res) => {
   res.json({ count: clients.size });
+});
+
+// ── GET /api/forum/my-votes ───────────────────────────────────────────────────
+router.get('/my-votes', requireAuth, async (req, res) => {
+  const votes = await db.getMyTopicVotes(req.user.id);
+  res.json(votes);
+});
+
+// ── GET /api/forum/my-answer-votes ───────────────────────────────────────────
+router.get('/my-answer-votes', requireAuth, async (req, res) => {
+  const votes = await db.getMyAnswerVotes(req.user.id);
+  res.json(votes);
+});
+
+// ── GET /api/forum/stats ──────────────────────────────────────────────────────
+router.get('/stats', async (_req, res) => {
+  const experts = await db.getLeaderboard('hammasi');
+  res.json({
+    connections: clients.size,   // SSE connection count, not unique users
+    topExperts: experts.slice(0, 5).map(u => ({
+      id: u.id, username: u.username, name: u.name,
+      initials: u.initials, role: u.role, score: u.score,
+    })),
+  });
 });
 
 module.exports = router;

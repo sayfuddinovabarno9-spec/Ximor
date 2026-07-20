@@ -130,6 +130,18 @@ async function initSchema() {
       delta     INTEGER NOT NULL DEFAULT 1,
       PRIMARY KEY (user_id, answer_id)
     );
+
+    ALTER TABLE topics ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+
+    CREATE TABLE IF NOT EXISTS topic_votes (
+      user_id  INTEGER NOT NULL REFERENCES users(id)  ON DELETE CASCADE,
+      topic_id INTEGER NOT NULL REFERENCES topics(id) ON DELETE CASCADE,
+      delta    INTEGER NOT NULL,
+      PRIMARY KEY (user_id, topic_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_topic_votes_user  ON topic_votes(user_id);
+    CREATE INDEX IF NOT EXISTS idx_answer_votes_user ON answer_votes(user_id);
   `);
 }
 
@@ -180,8 +192,8 @@ async function saveTopic(topic) {
   const row = await q1(`
     INSERT INTO topics
       (category, title, summary, formula, tags, author, initials, role,
-       score, answers, views, activity, difficulty, participants, pinned, hot, solved)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+       score, answers, views, activity, difficulty, participants, pinned, hot, solved, user_id)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
     RETURNING *
   `, [
     topic.category     ?? 'all',
@@ -201,6 +213,7 @@ async function saveTopic(topic) {
     topic.pinned       ?? false,
     topic.hot          ?? false,
     topic.solved       ?? false,
+    topic.user_id      ?? null,
   ]);
   return hydrateTopic(row);
 }
@@ -211,6 +224,63 @@ async function updateScore(topicId, delta) {
     [delta, topicId]
   );
   return row?.score ?? 0;
+}
+
+async function voteTopic(userId, topicId, direction) {
+  const clamped = direction > 0 ? 1 : -1;
+  const client  = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    // FOR UPDATE serializes concurrent votes from the same user on the same topic
+    const { rows } = await client.query(
+      'SELECT delta FROM topic_votes WHERE user_id=$1 AND topic_id=$2 FOR UPDATE',
+      [userId, topicId]
+    );
+    const existing  = rows[0] ?? null;
+    let scoreDelta  = 0;
+    let newVoted    = 0;
+
+    if (!existing) {
+      // ON CONFLICT handles the rare case where two requests race past the SELECT
+      const ins = await client.query(
+        `INSERT INTO topic_votes (user_id, topic_id, delta) VALUES ($1,$2,$3)
+         ON CONFLICT (user_id, topic_id) DO NOTHING`,
+        [userId, topicId, clamped]
+      );
+      if (ins.rowCount > 0) { scoreDelta = clamped; newVoted = clamped; }
+    } else if (existing.delta === clamped) {
+      await client.query(
+        'DELETE FROM topic_votes WHERE user_id=$1 AND topic_id=$2',
+        [userId, topicId]
+      );
+      scoreDelta = -clamped; newVoted = 0;
+    } else {
+      await client.query(
+        'UPDATE topic_votes SET delta=$1 WHERE user_id=$2 AND topic_id=$3',
+        [clamped, userId, topicId]
+      );
+      scoreDelta = clamped * 2; newVoted = clamped;
+    }
+
+    const { rows: sr } = await client.query(
+      'UPDATE topics SET score=score+$1 WHERE id=$2 RETURNING score',
+      [scoreDelta, topicId]
+    );
+    await client.query('COMMIT');
+    return { score: sr[0]?.score ?? 0, voted: newVoted };
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+async function getMyTopicVotes(userId) {
+  const rows = await q('SELECT topic_id, delta FROM topic_votes WHERE user_id=$1', [userId]);
+  const map = {};
+  for (const r of rows) map[r.topic_id] = r.delta;
+  return map;
 }
 
 async function acceptAnswer(topicId, answerId) {
@@ -519,20 +589,57 @@ async function getUserSavedTopicIds(userId) {
 // ── Answer votes ──────────────────────────────────────────────────────────────
 async function voteAnswer(userId, answerId, delta) {
   const clamped = delta > 0 ? 1 : -1;
-  const existing = await q1('SELECT delta FROM answer_votes WHERE user_id=$1 AND answer_id=$2', [userId, answerId]);
-  let scoreDelta = 0;
-  if (!existing) {
-    await pool.query('INSERT INTO answer_votes (user_id, answer_id, delta) VALUES ($1,$2,$3)', [userId, answerId, clamped]);
-    scoreDelta = clamped;
-  } else if (existing.delta === clamped) {
-    await pool.query('DELETE FROM answer_votes WHERE user_id=$1 AND answer_id=$2', [userId, answerId]);
-    scoreDelta = -clamped;
-  } else {
-    await pool.query('UPDATE answer_votes SET delta=$1 WHERE user_id=$2 AND answer_id=$3', [clamped, userId, answerId]);
-    scoreDelta = clamped * 2;
+  const client  = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      'SELECT delta FROM answer_votes WHERE user_id=$1 AND answer_id=$2 FOR UPDATE',
+      [userId, answerId]
+    );
+    const existing  = rows[0] ?? null;
+    let scoreDelta  = 0;
+    let newVoted    = 0;
+
+    if (!existing) {
+      const ins = await client.query(
+        `INSERT INTO answer_votes (user_id, answer_id, delta) VALUES ($1,$2,$3)
+         ON CONFLICT (user_id, answer_id) DO NOTHING`,
+        [userId, answerId, clamped]
+      );
+      if (ins.rowCount > 0) { scoreDelta = clamped; newVoted = clamped; }
+    } else if (existing.delta === clamped) {
+      await client.query(
+        'DELETE FROM answer_votes WHERE user_id=$1 AND answer_id=$2',
+        [userId, answerId]
+      );
+      scoreDelta = -clamped; newVoted = 0;
+    } else {
+      await client.query(
+        'UPDATE answer_votes SET delta=$1 WHERE user_id=$2 AND answer_id=$3',
+        [clamped, userId, answerId]
+      );
+      scoreDelta = clamped * 2; newVoted = clamped;
+    }
+
+    const { rows: sr } = await client.query(
+      'UPDATE answers SET score=score+$1 WHERE id=$2 RETURNING score',
+      [scoreDelta, answerId]
+    );
+    await client.query('COMMIT');
+    return { score: sr[0]?.score ?? 0, voted: newVoted, scoreDelta };
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
   }
-  const row = await q1('UPDATE answers SET score=score+$1 WHERE id=$2 RETURNING score', [scoreDelta, answerId]);
-  return row?.score ?? 0;
+}
+
+async function getMyAnswerVotes(userId) {
+  const rows = await q('SELECT answer_id, delta FROM answer_votes WHERE user_id=$1', [userId]);
+  const map = {};
+  for (const r of rows) map[r.answer_id] = r.delta;
+  return map;
 }
 
 // ── View increment ────────────────────────────────────────────────────────────
@@ -647,8 +754,8 @@ module.exports = {
   getAdminStats, getAllUsersAdmin, updateUserAdmin,
   getAdminTopics, adminDeleteTopic, adminDeleteAnswer, adminUpdateTopic,
   broadcastAnnouncement, getRecentActivity,
-  // Upgrades
+  // Votes & saves
   toggleSavedTopic, getUserSavedTopicIds,
-  voteAnswer,
+  voteAnswer, voteTopic, getMyTopicVotes, getMyAnswerVotes,
   incrementTopicViews,
 };

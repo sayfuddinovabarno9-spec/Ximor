@@ -20,6 +20,7 @@ function Icon({ name, size = 18 }) {
     check:    "M20 6 9 17l-5-5",
     message:  "M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8Z",
     newspaper:"M4 22h14a2 2 0 0 0 2-2V7.5L14.5 2H6a2 2 0 0 0-2 2v4M14 2v6h6M2 15h10M2 19h10M2 11h4",
+    beaker:   "M9 3h6M10 3v6l-5 10a1 1 0 0 0 .9 1.5h12.2A1 1 0 0 0 19 19L14 9V3M8 15h8",
   };
   return (
     <svg aria-hidden fill="none" height={size} stroke="currentColor"
@@ -62,6 +63,7 @@ const NAV_ITEMS = [
   { to: '/',             label: 'Savollar',    icon: 'home',      exact: true },
   { to: '/olimpiadalar', label: 'Olimpiadalar', icon: 'trophy',   badge: 4 },
   { to: '/reyting',      label: 'Reyting',      icon: 'trophy' },
+  { to: '/asboblar',     label: 'Asboblar',     icon: 'beaker' },
   { to: '/yangiliklar',  label: 'Yangiliklar',  icon: 'newspaper' },
 ];
 
@@ -266,6 +268,10 @@ export default function Layout({ children, theme, onThemeToggle, onCompose, quer
         <Link to="/reyting" className={location.pathname.startsWith('/reyting') ? 'is-active' : ''}>
           <Icon name="trophy" size={18} />
           <span>Reyting</span>
+        </Link>
+        <Link to="/asboblar" className={location.pathname.startsWith('/asboblar') ? 'is-active' : ''}>
+          <Icon name="beaker" size={18} />
+          <span>Asboblar</span>
         </Link>
         <Link to="/yangiliklar" className={location.pathname.startsWith('/yangiliklar') ? 'is-active' : ''}>
           <Icon name="newspaper" size={18} />

@@ -13,6 +13,7 @@ import ReytingPage from "./pages/ReytingPage";
 import ProfilePage from "./pages/ProfilePage";
 import YangiliklarPage from "./pages/YangiliklarPage";
 import AdminPage from "./pages/AdminPage";
+import ToolsPage from "./pages/ToolsPage";
 import { avatarBg } from "./utils/avatarColor";
 
 const BACKEND = import.meta.env.VITE_API_URL || 'http://localhost:3002';
@@ -710,6 +711,7 @@ function ComposerModal({ onClose, onSubmit }) {
   const summaryRef = useRef(null);
   const fileInputRef = useRef(null);
   const [mode, setMode] = useState("write");
+  const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     title: "",
     summary: "",
@@ -777,10 +779,16 @@ function ComposerModal({ onClose, onSubmit }) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
-  const submit = (event) => {
+  const submit = async (event) => {
     event.preventDefault();
-    if (!form.title.trim() || !form.summary.trim()) return;
-    onSubmit(form);
+    if (!form.title.trim() || !form.summary.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      await onSubmit(form);
+      // On success, parent closes the modal — no need to reset submitting
+    } catch {
+      setSubmitting(false); // Stay open so user can retry
+    }
   };
 
   return (
@@ -964,9 +972,8 @@ function ComposerModal({ onClose, onSubmit }) {
           <button className="soft-button" type="button" onClick={onClose}>
             Bekor qilish
           </button>
-          <button className="primary-button" disabled={!form.title.trim() || !form.summary.trim()} type="submit">
-            <Icon name="plus" size={17} />
-            Mavzu yaratish
+          <button className="primary-button" disabled={!form.title.trim() || !form.summary.trim() || submitting} type="submit">
+            {submitting ? 'Saqlanmoqda…' : <><Icon name="plus" size={17} />Mavzu yaratish</>}
           </button>
         </div>
       </form>
@@ -994,6 +1001,7 @@ export default function App() {
         <Route path="/" element={<Forum theme={theme} onThemeToggle={toggleTheme} />} />
         <Route path="/olimpiadalar" element={<OlimpiadalarPage theme={theme} onThemeToggle={toggleTheme} />} />
         <Route path="/reyting" element={<ReytingPage theme={theme} onThemeToggle={toggleTheme} />} />
+        <Route path="/asboblar" element={<ToolsPage theme={theme} onThemeToggle={toggleTheme} />} />
         <Route path="/q/:id" element={<QuestionPage />} />
         <Route path="/u/:username" element={<ProfilePage theme={theme} onThemeToggle={toggleTheme} />} />
         <Route path="/yangiliklar" element={<YangiliklarPage theme={theme} onThemeToggle={toggleTheme} />} />
@@ -1004,11 +1012,12 @@ export default function App() {
 }
 
 function Forum({ theme, onThemeToggle }) {
-  const { user, logout, authHeaders } = useAuth();
+  const { user, token, logout, authHeaders } = useAuth();
   const navigate                  = useNavigate();
   const [showAuth, setShowAuth]   = useState(false);
   const [topics, setTopics] = useState([]);
   const [topicsLoaded, setTopicsLoaded] = useState(false);
+  const [usingDemoTopics, setUsingDemoTopics] = useState(false);
   const [activeCategory, setActiveCategory] = useState("all");
   const [activeSort, setActiveSort] = useState("recent");
   const [density, setDensity] = useState("comfortable");
@@ -1039,7 +1048,8 @@ function Forum({ theme, onThemeToggle }) {
 
   // Real-time: merge all server-stored topics when we first connect
   const handleInitTopics = useCallback((serverTopics) => {
-    setTopics(serverTopics);
+    setTopics(serverTopics.length ? serverTopics : INITIAL_TOPICS);
+    setUsingDemoTopics(serverTopics.length === 0);
     setTopicsLoaded(true);
   }, []);
 
@@ -1067,6 +1077,33 @@ function Forum({ theme, onThemeToggle }) {
   }, []);
 
   useForumStream(handleIncomingTopic, handleInitTopics, handleIncomingAnswer, handleIncomingVote, handleIncomingAccept);
+
+  useEffect(() => {
+    if (topicsLoaded) return;
+    const timer = window.setTimeout(() => {
+      setTopics(INITIAL_TOPICS);
+      setUsingDemoTopics(true);
+      setTopicsLoaded(true);
+    }, 2200);
+    return () => window.clearTimeout(timer);
+  }, [topicsLoaded]);
+
+  // After login or topics load, sync saved state + per-user vote state from the server
+  useEffect(() => {
+    if (!user || !token || !topicsLoaded) return;
+    const headers = { Authorization: `Bearer ${token}` };
+    Promise.all([
+      fetch(`${BACKEND}/api/forum/saved`, { headers }).then(r => r.ok ? r.json() : []).catch(() => []),
+      fetch(`${BACKEND}/api/forum/my-votes`, { headers }).then(r => r.ok ? r.json() : {}).catch(() => ({})),
+    ]).then(([savedIds, myVotes]) => {
+      const savedSet = new Set(savedIds.map(Number));
+      setTopics(prev => prev.map(t => ({
+        ...t,
+        saved:  savedSet.has(t.id),
+        voted:  myVotes[t.id] ?? t.voted,
+      })));
+    });
+  }, [user?.id, topicsLoaded, token]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const showToast = (message) => {
     setToast(message);
@@ -1103,30 +1140,43 @@ function Forum({ theme, onThemeToggle }) {
   const activeCategoryName = CATEGORIES.find((item) => item.id === activeCategory)?.name || "Hammasi";
 
   const handleVote = (topicId, direction) => {
-    setTopics((currentTopics) =>
-      currentTopics.map((topic) => {
-        if (topic.id !== topicId) return topic;
-        const alreadyVoted = topic.voted === direction;
-        const delta = alreadyVoted ? -direction : direction - topic.voted;
-        // Optimistic local update
-        const newTopic = { ...topic, score: topic.score + delta, voted: alreadyVoted ? 0 : direction };
-        // Persist + broadcast to other clients
-        fetch(`${BACKEND}/api/forum/topics/${topicId}/vote`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json', ...authHeaders() },
-          body: JSON.stringify({ delta }),
-        }).catch(() => {});
-        return newTopic;
-      })
-    );
+    if (!user) { setShowAuth(true); return; }
+    // Optimistic update
+    setTopics(prev => prev.map(t => {
+      if (t.id !== topicId) return t;
+      const toggling = t.voted === direction;
+      return { ...t, score: t.score + (toggling ? -direction : direction - t.voted), voted: toggling ? 0 : direction };
+    }));
     showToast(direction > 0 ? "Ovoz qo'shildi" : "Ovoz yangilandi");
+    // Persist — server de-dupes via topic_votes table and returns authoritative state
+    fetch(`${BACKEND}/api/forum/topics/${topicId}/vote`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ direction }),
+    }).then(r => r.ok ? r.json() : Promise.reject())
+      .then(({ score, voted }) => {
+        setTopics(prev => prev.map(t => t.id === topicId ? { ...t, score, voted } : t));
+      })
+      .catch(() => {});
   };
 
   const handleSave = (topicId) => {
-    setTopics((currentTopics) =>
-      currentTopics.map((topic) => (topic.id === topicId ? { ...topic, saved: !topic.saved } : topic))
-    );
+    if (!user) { setShowAuth(true); return; }
+    // Optimistic toggle
+    setTopics(prev => prev.map(t => t.id === topicId ? { ...t, saved: !t.saved } : t));
     showToast("Saqlanganlar yangilandi");
+    // Persist — backend toggles and returns authoritative saved state
+    fetch(`${BACKEND}/api/forum/topics/${topicId}/save`, {
+      method: 'POST',
+      headers: authHeaders(),
+    }).then(r => r.ok ? r.json() : Promise.reject())
+      .then(({ saved }) => {
+        setTopics(prev => prev.map(t => t.id === topicId ? { ...t, saved } : t));
+      })
+      .catch(() => {
+        // Revert optimistic update on error
+        setTopics(prev => prev.map(t => t.id === topicId ? { ...t, saved: !t.saved } : t));
+      });
   };
 
   const handleAddAnswer = (topicId, text) => {
@@ -1159,46 +1209,49 @@ function Forum({ theme, onThemeToggle }) {
     }).catch(() => {});
   };
 
-  const handleCreateTopic = (form) => {
+  const handleCreateTopic = async (form) => {
     const tags = form.tags
       .split(",")
       .map((tag) => tag.trim().replace(/^#/, ""))
       .filter(Boolean)
       .slice(0, 4);
 
-    const newTopic = {
-      id: Date.now(),
-      category: form.category,
-      title: form.title.trim(),
-      summary: form.summary.trim(),
-      tags: tags.length ? tags : ["savol"],
-      images: form.images,
-      author: "Siz",
-      initials: "SZ",
-      role: "Ishtirokchi",
-      score: 1,
-      answers: 0,
-      views: 1,
-      activity: "Hozir",
-      difficulty: form.difficulty,
-      participants: ["SZ"],
-      saved: false,
-      voted: 1,
-      solved: false,
-      answersList: [],
+    const payload = {
+      category:     form.category,
+      title:        form.title.trim(),
+      summary:      form.summary.trim(),
+      tags:         tags.length ? tags : ["savol"],
+      images:       form.images,
+      difficulty:   form.difficulty,
+      score:        1,
+      answers:      0,
+      views:        '1',
+      activity:     "Hozir",
+      participants: [user.initials],
+      saved:        false,
+      voted:        0,
+      solved:       false,
+      answersList:  [],
     };
 
-    setTopics((currentTopics) => [newTopic, ...currentTopics]);
-    setShowComposer(false);
-    showToast("Mavzu yaratildi");
-    navigate(`/q/${newTopic.id}`);
-
-    // Persist + broadcast
-    fetch(`${BACKEND}/api/forum/topics`, {
+    // Await the server so we get the real DB-assigned id
+    const r = await fetch(`${BACKEND}/api/forum/topics`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: JSON.stringify(newTopic),
-    }).catch(() => {});
+      body: JSON.stringify(payload),
+    });
+    if (!r.ok) {
+      showToast("Mavzu yaratishda xato. Qayta urinib ko'ring.");
+      throw new Error(`create failed: ${r.status}`);
+    }
+    const { id: realId } = await r.json();
+
+    // SSE will broadcast this topic to other clients; add it locally for the creator
+    const newTopic = { ...payload, id: realId, author: user.name, initials: user.initials, role: user.role };
+    setTopics(prev => prev.some(t => t.id === realId) ? prev : [newTopic, ...prev]);
+    setShowComposer(false);
+    showToast("Mavzu yaratildi");
+    navigate(`/q/${realId}`);
   };
 
   return (
@@ -1330,6 +1383,12 @@ function Forum({ theme, onThemeToggle }) {
           </div>
 
           <div className="topic-list">
+            {usingDemoTopics && (
+              <div className="demo-data-banner">
+                <strong>Demo rejim</strong>
+                <span>Live API sekin javob bermoqda, shuning uchun namunaviy savollar ko‘rsatilmoqda.</span>
+              </div>
+            )}
             {!topicsLoaded ? (
               <div className="empty-state">
                 <span>Yuklanmoqda…</span>

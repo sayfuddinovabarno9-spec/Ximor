@@ -1,14 +1,21 @@
+import { useEffect, useState } from 'react';
 import { avatarBg } from '../utils/avatarColor';
 
-const EXPERTS = [
-  { name: "Aziza Karimova",      role: "Organik kimyo",    score: "18.4k", initials: "AK", rank: 1, online: true  },
-  { name: "Sardor Yusupov",      role: "Anorganik kimyo",  score: "12.1k", initials: "SY", rank: 2, online: true  },
-  { name: "Nilufar Rashidova",   role: "Analitik kimyo",   score: "9.3k",  initials: "NR", rank: 3, online: false },
-  { name: "Farrux Toshpo'latov", role: "Fizikaviy kimyo",  score: "7.8k",  initials: "FT", rank: 4, online: false },
-  { name: "Nodira Saidova",      role: "Olimpiadalar",     score: "6.4k",  initials: "NS", rank: 5, online: false },
+const BACKEND = import.meta.env.VITE_API_URL || 'http://localhost:3002';
+
+const FALLBACK_EXPERTS = [
+  { name: "Aziza Karimova",      role: "Organik kimyo",   score: 18400, initials: "AK", username: "aziza_kimyo" },
+  { name: "Sardor Yusupov",      role: "Anorganik kimyo", score: 12100, initials: "SY", username: "sardor_yu"   },
+  { name: "Nilufar Rashidova",   role: "Analitik kimyo",  score: 9300,  initials: "NR", username: "nilufar_r"   },
+  { name: "Farrux Toshpo'latov", role: "Fizikaviy kimyo", score: 7800,  initials: "FT", username: "farrux_t"    },
+  { name: "Nodira Saidova",      role: "Olimpiadalar",    score: 6400,  initials: "NS", username: "nodira_s"    },
 ];
 
-const LIVE_USERS = ["AK", "JI", "NS", "MU", "SE", "IS", "MA", "AZ"];
+function formatScore(n) {
+  if (typeof n === 'string') return n;
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+  return String(n);
+}
 
 function TrophyIcon() {
   return (
@@ -28,27 +35,38 @@ function SparkIcon() {
   );
 }
 
-function Avatar({ initials, name, online = false }) {
+function Avatar({ initials, name }) {
   return (
     <span className="avatar" title={name}
       style={{ background: avatarBg(initials), color: '#fff', border: 'none' }}>
       {initials}
-      {online && <span className="avatar__status" />}
     </span>
   );
 }
 
 export default function InsightsPanel({ onSpotlightClick }) {
+  const [stats, setStats] = useState(null);
+
+  useEffect(() => {
+    fetch(`${BACKEND}/api/forum/stats`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setStats(data); })
+      .catch(() => {});
+  }, []);
+
+  const experts     = stats?.topExperts?.length ? stats.topExperts : FALLBACK_EXPERTS;
+  const connections = stats?.connections ?? 0;
+
   return (
     <aside className="insights-panel">
       <div className="panel-card live-card">
         <div className="section-heading">
           <h3><span className="live-dot" />Jonli xona</h3>
-          <span>42 onlayn</span>
+          <span>{connections} ulanish</span>
         </div>
         <div className="live-grid">
-          {LIVE_USERS.map((initials, i) => (
-            <Avatar initials={initials} key={initials} name={initials} online={i < 5} />
+          {experts.map(e => (
+            <Avatar key={e.username ?? e.initials} initials={e.initials} name={e.name} />
           ))}
         </div>
       </div>
@@ -59,15 +77,15 @@ export default function InsightsPanel({ onSpotlightClick }) {
           <TrophyIcon />
         </div>
         <div className="expert-list">
-          {EXPERTS.map((expert) => (
-            <div className="expert-row" key={expert.name}>
-              <span className={`rank-badge rank-badge--${expert.rank}`}>#{expert.rank}</span>
-              <Avatar initials={expert.initials} name={expert.name} online={expert.online} />
+          {experts.map((expert, i) => (
+            <div className="expert-row" key={expert.username ?? expert.name}>
+              <span className={`rank-badge rank-badge--${i + 1}`}>#{i + 1}</span>
+              <Avatar initials={expert.initials} name={expert.name} />
               <div>
                 <strong>{expert.name}</strong>
                 <span>{expert.role}</span>
               </div>
-              <b>{expert.score}</b>
+              <b>{formatScore(expert.score)}</b>
             </div>
           ))}
         </div>
