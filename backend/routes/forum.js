@@ -18,10 +18,30 @@ function sanitize(str) {
 }
 
 function sanitizeTopic(body) {
+  let imageBytes = 0;
+  const images = Array.isArray(body.images)
+    ? body.images
+        .slice(0, 4)
+        .map((image) => {
+          const src = typeof image?.src === 'string' ? image.src : '';
+          const valid = /^data:image\/(?:jpeg|jpg|png|webp);base64,/i.test(src);
+          if (!valid || src.length > 2_000_000 || imageBytes + src.length > 6_000_000) return null;
+          imageBytes += src.length;
+          return {
+            id: sanitize(String(image.id || '').slice(0, 180)),
+            name: sanitize(String(image.name || 'Savol rasmi').slice(0, 180)),
+            size: Math.max(0, Number(image.size) || 0),
+            src,
+          };
+        })
+        .filter(Boolean)
+    : [];
+
   return {
     ...body,
     title:   sanitize(String(body.title  || '').slice(0, 300)),
     summary: body.summary ? sanitize(String(body.summary).slice(0, 20_000)) : '',
+    images,
     tags:    Array.isArray(body.tags)
                ? body.tags.slice(0, 10).map(t => sanitize(String(t).slice(0, 50)))
                : [],

@@ -1484,64 +1484,67 @@ a { text-decoration: none; }
   color: var(--primary);
 }
 
-.image-uploader {
-  align-items: center;
-  background: var(--surface-soft);
-  border: 1.5px dashed var(--line-strong);
-  border-radius: var(--radius);
+.composer-question-field {
   display: grid;
-  gap: 12px;
-  grid-template-columns: minmax(0, 1fr) max-content;
-  padding: 14px;
-  transition: border-color 140ms;
+  gap: 6px;
 }
 
-.image-uploader:hover { border-color: var(--primary); }
-
-.image-uploader input { display: none; }
-
-.image-uploader strong,
-.image-uploader span { display: block; }
-
-.image-uploader strong { color: var(--text); font-size: 14px; font-weight: 700; }
-.image-uploader span   { color: var(--muted); font-size: 12px; line-height: 1.5; margin-top: 3px; }
-
-.upload-preview {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+.composer-question-field > label {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
 }
 
-.upload-preview figure {
-  background: var(--surface-soft);
+.composer-question-editor {
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
+  overflow: hidden;
+  transition: border-color 140ms, box-shadow 140ms;
+}
+
+.composer-question-editor:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus);
+}
+
+.composer-modal .composer-question-editor textarea {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  min-height: 140px;
+  padding: 13px;
+}
+
+.composer-editor-images {
+  background: var(--surface-soft);
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  padding: 10px;
+}
+
+.composer-editor-images figure {
+  border: 1px solid var(--line);
+  border-radius: 6px;
   margin: 0;
   min-width: 0;
   overflow: hidden;
   position: relative;
 }
 
-.upload-preview img {
+.composer-editor-images img {
   aspect-ratio: 4 / 3;
   display: block;
   object-fit: cover;
   width: 100%;
 }
 
-.upload-preview figcaption {
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 700;
-  overflow: hidden;
-  padding: 6px 8px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.upload-preview button {
+.composer-editor-images button {
   align-items: center;
-  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
   border: 1px solid var(--line);
   border-radius: 50%;
   color: var(--text);
@@ -1550,9 +1553,53 @@ a { text-decoration: none; }
   height: 26px;
   justify-content: center;
   position: absolute;
-  right: 7px;
-  top: 7px;
+  right: 6px;
+  top: 6px;
   width: 26px;
+}
+
+.composer-editor-footer {
+  align-items: center;
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: 8px;
+  min-height: 42px;
+  padding: 5px 8px;
+}
+
+.composer-editor-footer input { display: none; }
+
+.composer-editor-footer > span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  margin-left: auto;
+}
+
+.composer-attach-button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 8px;
+}
+
+.composer-attach-button:hover {
+  background: var(--surface-soft);
+  color: var(--primary);
+}
+
+.composer-attach-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .composer-preview {
@@ -1570,12 +1617,6 @@ a { text-decoration: none; }
   line-height: 1.22;
 }
 
-.form-grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: 1fr 1fr;
-}
-
 /* ─── Attachment gallery ──────────────────────────────────────────────── */
 .attachment-gallery {
   display: grid;
@@ -1583,6 +1624,14 @@ a { text-decoration: none; }
   grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
   margin-top: 10px;
 }
+
+.question-content {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.question-content .attachment-gallery { margin-top: 0; }
 
 .attachment-gallery figure {
   background: var(--surface-soft);
@@ -1710,9 +1759,6 @@ a { text-decoration: none; }
   .topic-footer { align-items: flex-start; flex-direction: column; }
   .drawer-topic { grid-template-columns: 1fr; }
   .drawer-votes { display: flex; width: max-content; }
-  .form-grid { grid-template-columns: 1fr; }
-  .image-uploader { grid-template-columns: 1fr; }
-
   .mobile-nav {
     background: color-mix(in srgb, var(--surface) 96%, transparent);
     backdrop-filter: blur(12px);
@@ -1799,10 +1845,9 @@ a { text-decoration: none; }
 }
 
 .latex-inline .katex {
-  padding: 1px 4px;
-  border-radius: 4px;
-  background: rgba(124, 58, 237, 0.07);
-  color: #5b21b6;
+  background: transparent;
+  color: inherit;
+  padding: 0;
 }
 
 .latex-display {
@@ -1812,48 +1857,37 @@ a { text-decoration: none; }
   margin: 12px 0;
   padding: 16px 22px;
   border-radius: var(--radius);
-  background: linear-gradient(135deg, rgba(124,58,237,0.04) 0%, rgba(37,99,235,0.04) 100%);
-  border: 1.5px solid rgba(124, 58, 237, 0.14);
-  position: relative;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
 }
 
-.latex-display::before {
-  content: "∑";
-  position: absolute;
-  top: 7px;
-  left: 11px;
-  font-size: 10px;
-  color: rgba(124, 58, 237, 0.38);
-  font-weight: 700;
-}
+.latex-display::before { content: none; }
 
 .latex-display .katex-display { margin: 0; font-size: 1.15em; }
 
 .katex { font-size: 1.04em; color: inherit; }
 
 [data-theme="dark"] .latex-inline .katex {
-  background: rgba(167, 139, 250, 0.12);
-  color: #c4b5fd;
+  background: transparent;
+  color: inherit;
 }
 
 [data-theme="dark"] .latex-display {
-  background: linear-gradient(135deg, rgba(124,58,237,0.09) 0%, rgba(37,99,235,0.09) 100%);
-  border-color: rgba(124, 58, 237, 0.28);
+  background: var(--surface-soft);
+  border-color: var(--line);
 }
 
-[data-theme="dark"] .latex-display::before { color: rgba(167, 139, 250, 0.5); }
-
 .latex-live-preview {
-  border: 1px dashed rgba(124, 58, 237, 0.22);
+  border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: rgba(124, 58, 237, 0.04);
+  background: var(--surface);
   margin-top: 6px;
   min-height: 38px;
   padding: 11px 14px;
 }
 
 .latex-live-preview-label {
-  color: rgba(124, 58, 237, 0.6);
+  color: var(--muted);
   font-size: 10px;
   font-weight: 900;
   letter-spacing: 0.8px;

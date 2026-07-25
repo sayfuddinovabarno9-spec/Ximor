@@ -5,6 +5,7 @@ import { LatexLine, hasLatex } from "./components/Latex";
 import { useForumStream } from "./hooks/useForumStream";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import AuthModal from "./components/AuthModal";
+import AttachmentGallery from "./components/AttachmentGallery";
 import Layout from "./components/Layout";
 import InsightsPanel from "./components/InsightsPanel";
 import QuestionPage from "./pages/QuestionPage";
@@ -250,6 +251,7 @@ function Icon({ name, size = 18 }) {
     layout: "M4 5h16v5H4V5ZM4 14h7v5H4v-5ZM15 14h5v5h-5v-5Z",
     spark: "M12 3l1.7 5.1L19 10l-5.3 1.9L12 17l-1.7-5.1L5 10l5.3-1.9L12 3Z",
     eye: "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12ZM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
+    image: "M21 15V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4ZM3 16l5-5 4 4 3-3 6 6M8.5 8.5h.01",
   };
 
   return (
@@ -484,21 +486,6 @@ function RichText({ className = "", text }) {
   );
 }
 
-function AttachmentGallery({ images = [], size = "thumb" }) {
-  if (!images.length) return null;
-
-  return (
-    <div className={`attachment-gallery attachment-gallery--${size}`}>
-      {images.map((image) => (
-        <figure key={image.id}>
-          <img alt={image.name} src={image.src} />
-          <figcaption>{image.name}</figcaption>
-        </figure>
-      ))}
-    </div>
-  );
-}
-
 function TopicCard({ density, onOpen, onSave, onVote, onTagClick, topic }) {
   const category = CATEGORIES.find((item) => item.id === topic.category) || CATEGORIES[0];
 
@@ -529,16 +516,16 @@ function TopicCard({ density, onOpen, onSave, onVote, onTagClick, topic }) {
           <CategoryMark categoryId={topic.category} />
           <span style={{ color: category.color }}>{category.name}</span>
           <span>{topic.activity}</span>
-          <span>{topic.difficulty}</span>
           {topic.pinned && <span className="pill pill--gold">Mahkamlangan</span>}
           {topic.hot && <span className="pill pill--hot">Qaynoq</span>}
           {topic.solved && <span className="pill pill--ok">Yechilgan</span>}
         </div>
 
         <h2>{topic.title}</h2>
-        <RichText className="topic-summary" text={topic.summary} />
-
-        <AttachmentGallery images={topic.images} />
+        <div className="question-content">
+          <RichText className="topic-summary" text={topic.summary} />
+          <AttachmentGallery images={topic.images} />
+        </div>
 
         <div className="topic-footer">
           <div className="tag-row" onClick={e => e.stopPropagation()}>
@@ -635,8 +622,10 @@ function ThreadDrawer({ onAddAnswer, onClose, onSave, onVote, topic }) {
               <span>{topic.role}</span>
               <span>{topic.activity}</span>
             </div>
-            <RichText className="topic-summary" text={topic.summary} />
-            <AttachmentGallery images={topic.images} size="large" />
+            <div className="question-content">
+              <RichText className="topic-summary" text={topic.summary} />
+              <AttachmentGallery images={topic.images} size="large" />
+            </div>
             <div className="tag-row">
               {topic.tags.map((tag) => (
                 <span key={tag} className="tag-chip">
@@ -707,6 +696,40 @@ function ThreadDrawer({ onAddAnswer, onClose, onSave, onVote, topic }) {
   );
 }
 
+function prepareComposerImage(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Rasmni o'qib bo'lmadi"));
+    reader.onload = () => {
+      const image = new Image();
+      image.onerror = () => reject(new Error("Rasm formati qo'llab-quvvatlanmaydi"));
+      image.onload = () => {
+        const maxDimension = 1600;
+        const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+        const width = Math.max(1, Math.round(image.naturalWidth * scale));
+        const height = Math.max(1, Math.round(image.naturalHeight * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext("2d");
+        context.fillStyle = "#fff";
+        context.fillRect(0, 0, width, height);
+        context.drawImage(image, 0, 0, width, height);
+        const src = canvas.toDataURL("image/jpeg", 0.82);
+
+        resolve({
+          id: `${file.name}-${file.lastModified}-${file.size}`,
+          name: file.name,
+          size: Math.round(src.length * 0.75),
+          src,
+        });
+      };
+      image.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 function ComposerModal({ onClose, onSubmit }) {
   const summaryRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -717,7 +740,6 @@ function ComposerModal({ onClose, onSubmit }) {
     summary: "",
     category: "organik",
     tags: "organik-kimyo, reaksiya",
-    difficulty: "O'rta",
     images: [],
   });
 
@@ -743,22 +765,10 @@ function ComposerModal({ onClose, onSubmit }) {
 
     if (!files.length) return;
 
-    const images = await Promise.all(
-      files.map(
-        (file) =>
-          new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onload = () =>
-              resolve({
-                id: `${file.name}-${file.lastModified}-${file.size}`,
-                name: file.name,
-                size: file.size,
-                src: reader.result,
-              });
-            reader.readAsDataURL(file);
-          })
-      )
-    );
+    const results = await Promise.allSettled(files.map(prepareComposerImage));
+    const images = results
+      .filter((result) => result.status === "fulfilled")
+      .map((result) => result.value);
 
     setForm((current) => ({ ...current, images: [...current.images, ...images] }));
     event.target.value = "";
@@ -862,7 +872,6 @@ function ComposerModal({ onClose, onSubmit }) {
               <span>LaTeX</span>
               {[
                 { label: "Kasr",    value: "$\\frac{[A]}{[B]}$" },
-                { label: "Daraja",  value: "$x^{2+}$" },
                 { label: "ΔH°",     value: "$$\\Delta H^\\circ = \\sum H_f(\\text{mahsulot}) - \\sum H_f(\\text{reagent})$$" },
                 { label: "Keq",     value: "$$K_{eq} = \\frac{[C]^c[D]^d}{[A]^a[B]^b}$$" },
                 { label: "pH",      value: "$\\text{pH} = -\\log[H^+]$" },
@@ -874,16 +883,56 @@ function ComposerModal({ onClose, onSubmit }) {
               ))}
             </div>
 
-            <label>
-              Savol matni
-              <textarea
-                ref={summaryRef}
-                onChange={(event) => update("summary", event.target.value)}
-                placeholder={"Savolingizni yozing — formulalarni to'g'ridan-to'g'ri qo'shing.\nMasalan: H2SO4 + CuO -> CuSO4 + H2O reaksiyasida...\n$K_{eq}$ qiymati qanday o'zgaradi?"}
-                rows={6}
-                value={form.summary}
-              />
-            </label>
+            <div className="composer-question-field">
+              <label htmlFor="composer-question">Savol matni</label>
+              <div className="composer-question-editor">
+                <textarea
+                  id="composer-question"
+                  ref={summaryRef}
+                  onChange={(event) => update("summary", event.target.value)}
+                  placeholder={"Savolingizni yozing — formulalarni to'g'ridan-to'g'ri qo'shing.\nMasalan: H2SO4 + CuO -> CuSO4 + H2O reaksiyasida...\n$K_{eq}$ qiymati qanday o'zgaradi?"}
+                  rows={6}
+                  value={form.summary}
+                />
+
+                {form.images.length > 0 && (
+                  <div className="composer-editor-images">
+                    {form.images.map((image) => (
+                      <figure key={image.id}>
+                        <img alt={image.name} src={image.src} />
+                        <button
+                          aria-label={`${image.name} rasmni olib tashlash`}
+                          onClick={() => removeImage(image.id)}
+                          type="button"
+                        >
+                          <Icon name="close" size={14} />
+                        </button>
+                      </figure>
+                    ))}
+                  </div>
+                )}
+
+                <div className="composer-editor-footer">
+                  <input
+                    accept="image/*"
+                    multiple
+                    onChange={handleImages}
+                    ref={fileInputRef}
+                    type="file"
+                  />
+                  <button
+                    className="composer-attach-button"
+                    disabled={form.images.length >= 4}
+                    onClick={() => fileInputRef.current?.click()}
+                    type="button"
+                  >
+                    <Icon name="image" size={17} />
+                    Rasm
+                  </button>
+                  <span>{form.images.length}/4</span>
+                </div>
+              </div>
+            </div>
 
             {hasLatex(form.summary) && (
               <div className="latex-live-preview">
@@ -892,51 +941,16 @@ function ComposerModal({ onClose, onSubmit }) {
               </div>
             )}
 
-            <div className="form-grid">
-              <label>
-                Bo'lim
-                <select onChange={(event) => update("category", event.target.value)} value={form.category}>
-                  {CATEGORIES.filter((item) => item.id !== "all").map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Daraja
-                <select onChange={(event) => update("difficulty", event.target.value)} value={form.difficulty}>
-                  <option>Boshlang'ich</option>
-                  <option>O'rta</option>
-                  <option>Murakkab</option>
-                </select>
-              </label>
-            </div>
-
-            <div className="image-uploader">
-              <div>
-                <strong>Rasm qo'shish</strong>
-                <span>Masala skani, chizma yoki jadval. 4 tagacha rasm.</span>
-              </div>
-              <input accept="image/*" multiple onChange={handleImages} ref={fileInputRef} type="file" />
-              <button className="soft-button" onClick={() => fileInputRef.current?.click()} type="button">
-                Rasm tanlash
-              </button>
-            </div>
-
-            {form.images.length > 0 && (
-              <div className="upload-preview">
-                {form.images.map((image) => (
-                  <figure key={image.id}>
-                    <img alt={image.name} src={image.src} />
-                    <figcaption>{image.name}</figcaption>
-                    <button aria-label={`${image.name} rasmni olib tashlash`} onClick={() => removeImage(image.id)} type="button">
-                      <Icon name="close" size={15} />
-                    </button>
-                  </figure>
+            <label>
+              Bo'lim
+              <select onChange={(event) => update("category", event.target.value)} value={form.category}>
+                {CATEGORIES.filter((item) => item.id !== "all").map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
                 ))}
-              </div>
-            )}
+              </select>
+            </label>
 
             <label>
               Teglar
@@ -948,11 +962,12 @@ function ComposerModal({ onClose, onSubmit }) {
             <div className="topic-meta">
               <CategoryMark categoryId={form.category} />
               <span>{CATEGORIES.find((item) => item.id === form.category)?.name}</span>
-              <span>{form.difficulty}</span>
             </div>
             <h3>{form.title || "Sarlavha hali yozilmagan"}</h3>
-            <RichText text={form.summary || "Savol matni yozilganda bu yerda ko'rinadi."} />
-            <AttachmentGallery images={form.images} size="large" />
+            <div className="question-content">
+              <RichText text={form.summary || "Savol matni yozilganda bu yerda ko'rinadi."} />
+              <AttachmentGallery images={form.images} size="large" />
+            </div>
             <div className="tag-row">
               {form.tags
                 .split(",")
@@ -1222,7 +1237,6 @@ function Forum({ theme, onThemeToggle }) {
       summary:      form.summary.trim(),
       tags:         tags.length ? tags : ["savol"],
       images:       form.images,
-      difficulty:   form.difficulty,
       score:        1,
       answers:      0,
       views:        '1',

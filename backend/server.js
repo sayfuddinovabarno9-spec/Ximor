@@ -43,7 +43,7 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.json({ limit: '64kb' }));
+app.use(express.json({ limit: '8mb' }));
 
 app.use('/api/auth',          authRoutes);
 app.use('/api/forum',         forumRoutes);

@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useForumStream } from '../hooks/useForumStream';
 import { LatexLine, hasLatex } from '../components/Latex';
 import AuthModal from '../components/AuthModal';
+import AttachmentGallery from '../components/AttachmentGallery';
 import Layout from '../components/Layout';
 import { avatarBg } from '../utils/avatarColor';
 
@@ -394,12 +395,14 @@ export default function QuestionPage() {
                 {topic.pinned && <span className="pill pill--gold">Mahkamlangan</span>}
                 {topic.hot    && <span className="pill pill--hot">Qaynoq 🔥</span>}
                 {topic.solved && <span className="pill pill--ok">Yechilgan ✓</span>}
-                <span>{topic.difficulty}</span>
                 <span>{topic.activity}</span>
               </div>
 
               <h1 className="qp-title">{topic.title}</h1>
-              <RichText text={topic.summary} className="qp-summary" />
+              <div className="question-content">
+                <RichText text={topic.summary} className="qp-summary" />
+                <AttachmentGallery images={topic.images} size="large" />
+              </div>
 
               {/* Tags */}
               {topic.tags?.length > 0 && (
@@ -538,7 +541,6 @@ export default function QuestionPage() {
             </div>
             <div className="qp-sidebar-stats">
               <div><span>So'radi</span><strong>{topic.author}</strong></div>
-              <div><span>Daraja</span><strong>{topic.difficulty}</strong></div>
               <div><span>Faollik</span><strong>{topic.activity}</strong></div>
               <div><span>Ko'rishlar</span><strong>{topic.views}</strong></div>
               <div><span>Javoblar</span><strong>{topic.answers}</strong></div>

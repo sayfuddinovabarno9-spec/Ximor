@@ -38,6 +38,7 @@ async function initSchema() {
       summary      TEXT    DEFAULT '',
       formula      TEXT    DEFAULT '',
       tags         TEXT    DEFAULT '[]',
+      images       TEXT    DEFAULT '[]',
       author       TEXT    DEFAULT 'Anonim',
       initials     TEXT    DEFAULT 'AN',
       role         TEXT    DEFAULT 'Ishtirokchi',
@@ -52,6 +53,7 @@ async function initSchema() {
       solved       BOOLEAN DEFAULT FALSE,
       created_at   TIMESTAMPTZ DEFAULT NOW()
     );
+    ALTER TABLE topics ADD COLUMN IF NOT EXISTS images TEXT DEFAULT '[]';
 
     CREATE TABLE IF NOT EXISTS answers (
       id         SERIAL PRIMARY KEY,
@@ -156,6 +158,7 @@ function hydrateTopic(row) {
   return {
     ...row,
     tags:         safeJson(row.tags, []),
+    images:       safeJson(row.images, []),
     participants: safeJson(row.participants, []),
     pinned:       Boolean(row.pinned),
     hot:          Boolean(row.hot),
@@ -191,9 +194,9 @@ async function getTopicWithAnswers(id) {
 async function saveTopic(topic) {
   const row = await q1(`
     INSERT INTO topics
-      (category, title, summary, formula, tags, author, initials, role,
+      (category, title, summary, formula, tags, images, author, initials, role,
        score, answers, views, activity, difficulty, participants, pinned, hot, solved, user_id)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
     RETURNING *
   `, [
     topic.category     ?? 'all',
@@ -201,6 +204,7 @@ async function saveTopic(topic) {
     topic.summary      ?? '',
     topic.formula      ?? '',
     JSON.stringify(topic.tags         ?? []),
+    JSON.stringify(topic.images       ?? []),
     topic.author       ?? 'Anonim',
     topic.initials     ?? 'AN',
     topic.role         ?? 'Ishtirokchi',
