@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { useForumStream } from '../hooks/useForumStream';
+import AnswerEditorTools from '../components/AnswerEditorTools';
 import AuthModal from '../components/AuthModal';
 import AttachmentGallery from '../components/AttachmentGallery';
 import Layout from '../components/Layout';
@@ -11,15 +13,18 @@ import copyToClipboard from '../utils/copyToClipboard';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:3002';
 
-const HELPFULNESS_LABELS = {
-  helpful: 'Foydali',
-  unhelpful: 'Foydasiz',
-};
+function getAnswerCount(topic) {
+  if (Array.isArray(topic?.answersList)) return topic.answersList.length;
+  return Number(topic?.answers) || 0;
+}
 
-const CORRECTNESS_LABELS = {
-  correct: "To'g'ri",
-  incorrect: "Noto'g'ri",
-};
+function getQuestionUrl(questionId) {
+  return `${window.location.origin}/q/${questionId}`;
+}
+
+function getAnswerUrl(questionId, answerId) {
+  return `${getQuestionUrl(questionId)}#answer-${answerId}`;
+}
 
 function Icon({ name, size=18 }) {
   const paths = {
@@ -60,8 +65,10 @@ function Avatar({ initials, name, online=false }) {
 /* ── QuestionPage ──────────────────────────────────────────────────────────── */
 export default function QuestionPage() {
   const { id }              = useParams();
+  const location            = useLocation();
   const navigate            = useNavigate();
   const { user, authHeaders } = useAuth();
+  const { t } = useLanguage();
 
   // Theme must be first — before any early returns
   const [theme, setTheme]   = useState(() => localStorage.getItem('ximor_theme') || 'light');
@@ -81,7 +88,12 @@ export default function QuestionPage() {
   const [answerVotes, setAnswerVotes] = useState({});   // { [answerId]: 1 | -1 | 0 }
   const [showAuth, setShowAuth] = useState(false);
   const [toast, setToast]       = useState('');
+  const [copiedPermalink, setCopiedPermalink] = useState('');
+  const [highlightAnswerId, setHighlightAnswerId] = useState('');
   const toastRef                = useRef(null);
+  const answerRef               = useRef(null);
+  const copiedTimerRef          = useRef(null);
+  const highlightTimerRef       = useRef(null);
 
   const showToast = (msg) => {
     setToast(msg);
@@ -91,10 +103,25 @@ export default function QuestionPage() {
 
   const handleCopyLink = async () => {
     try {
-      await copyToClipboard(window.location.href);
-      showToast('Havola nusxalandi');
+      await copyToClipboard(getQuestionUrl(id));
+      setCopiedPermalink('question');
+      clearTimeout(copiedTimerRef.current);
+      copiedTimerRef.current = setTimeout(() => setCopiedPermalink(''), 1800);
+      showToast(t('question.questionLinkCopied'));
     } catch {
-      showToast('Havolani nusxalab bo‘lmadi');
+      showToast(t('question.copyFailed'));
+    }
+  };
+
+  const handleCopyAnswerLink = async (answerId) => {
+    try {
+      await copyToClipboard(getAnswerUrl(id, answerId));
+      setCopiedPermalink(`answer-${answerId}`);
+      clearTimeout(copiedTimerRef.current);
+      copiedTimerRef.current = setTimeout(() => setCopiedPermalink(''), 1800);
+      showToast(t('question.answerLinkCopied'));
+    } catch {
+      showToast(t('question.copyFailed'));
     }
   };
 
@@ -103,9 +130,24 @@ export default function QuestionPage() {
     setLoading(true);
     fetch(`${API}/api/forum/topics/${id}`)
       .then(r => r.ok ? r.json() : Promise.reject('Topilmadi'))
-      .then(data => { setTopic(data); setLoading(false); })
+      .then(data => { setTopic({ ...data, answers: getAnswerCount(data) }); setLoading(false); })
       .catch(e  => { setError(String(e)); setLoading(false); });
   }, [id]);
+
+  useEffect(() => {
+    if (!topic?.answersList?.length || !location.hash.startsWith('#answer-')) return;
+
+    const answerId = decodeURIComponent(location.hash.replace('#answer-', ''));
+    const target = document.getElementById(`answer-${answerId}`);
+    if (!target) return;
+
+    window.requestAnimationFrame(() => {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setHighlightAnswerId(answerId);
+      clearTimeout(highlightTimerRef.current);
+      highlightTimerRef.current = setTimeout(() => setHighlightAnswerId(''), 2600);
+    });
+  }, [location.hash, topic?.answersList?.length]);
 
   /* Hydrate per-user vote state after login or topic change */
   useEffect(() => {
@@ -130,7 +172,8 @@ export default function QuestionPage() {
     setTopic(prev => {
       if (!prev) return prev;
       const already = prev.answersList.some(x => x.id === a.id);
-      return { ...prev, answers, answersList: already ? prev.answersList : [...prev.answersList, a] };
+      const answersList = already ? prev.answersList : [...prev.answersList, a];
+      return { ...prev, answers: answersList.length, answersList };
     });
   }, [id]);
 
@@ -191,12 +234,16 @@ export default function QuestionPage() {
 
   const onAnswerDeleted = useCallback(({ topicId, answerId, answers, solved }) => {
     if (String(topicId) !== String(id)) return;
-    setTopic(prev => prev ? {
-      ...prev,
-      answers: answers ?? Math.max((prev.answers || 1) - 1, 0),
-      solved,
-      answersList: prev.answersList.filter(a => a.id !== answerId),
-    } : prev);
+    setTopic(prev => {
+      if (!prev) return prev;
+      const answersList = prev.answersList.filter(a => a.id !== answerId);
+      return {
+        ...prev,
+        answers: answersList.length,
+        solved,
+        answersList,
+      };
+    });
   }, [id]);
 
   useForumStream(
@@ -245,11 +292,11 @@ export default function QuestionPage() {
 
       setVoted(serverVoted);
       setTopic(prev => prev ? { ...prev, score: serverScore } : prev);
-      showToast(serverVoted === 0 ? 'Ovoz olib tashlandi' : 'Ovoz saqlandi');
+      showToast(serverVoted === 0 ? t('forum.voteRemoved') : t('forum.voteSaved'));
     } catch {
       setVoted(prevVoted);
       setTopic(prev => prev ? { ...prev, score: prevScore } : prev);
-      showToast("Ovoz saqlanmadi. Qayta urinib ko'ring");
+      showToast(t('forum.voteFailed'));
     } finally {
       setVotePending(false);
     }
@@ -315,11 +362,11 @@ export default function QuestionPage() {
     // Optimistic
     setTopic(prev => prev ? {
       ...prev,
-      answers: prev.answers + 1,
+      answers: prev.answersList.length + 1,
       answersList: [...prev.answersList, newAnswer],
     } : prev);
     setAnswer('');
-    showToast('Javob yuborildi');
+    showToast(t('forum.answerSent'));
 
     try {
       await fetch(`${API}/api/forum/topics/${id}/answers`, {
@@ -340,7 +387,7 @@ export default function QuestionPage() {
     }).then(r => r.ok ? r.json() : Promise.reject())
       .catch(() => {
         setTopic(snapshot);
-        showToast('Xato yuz berdi');
+        showToast(t('question.genericError'));
       });
     setTopic(prev => prev ? {
       ...prev,
@@ -351,7 +398,7 @@ export default function QuestionPage() {
           : { ...a, accepted: false }
       )),
     } : prev);
-    showToast('Javob qabul qilindi ✓');
+    showToast(t('question.answerAccepted'));
   };
 
   const handleSolvedToggle = () => {
@@ -368,10 +415,10 @@ export default function QuestionPage() {
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ solved }),
     }).then(r => r.ok ? r.json() : Promise.reject())
-      .then(() => showToast(solved ? 'Savol yechildi' : 'Savol ochiq qilindi'))
+      .then(() => showToast(solved ? t('question.questionSolved') : t('question.questionOpened')))
       .catch(() => {
         setTopic(snapshot);
-        showToast('Xato yuz berdi');
+        showToast(t('question.genericError'));
       });
   };
 
@@ -414,17 +461,17 @@ export default function QuestionPage() {
           solved: updated.topic_solved ?? prev.solved,
           answersList: prev.answersList.map(a => a.id === answerId ? { ...a, ...updated } : a),
         } : prev);
-        showToast('Javob belgilandi');
+        showToast(t('question.answerMarked'));
       })
       .catch(() => {
         setTopic(snapshot);
-        showToast('Xato yuz berdi');
+        showToast(t('question.genericError'));
       });
   };
 
   const handleDeleteAnswer = (answerId) => {
     if (!user?.is_admin && !user?.is_moderator) return;
-    if (!confirm("Bu javobni o'chirasizmi?")) return;
+    if (!confirm(t('question.confirmDelete'))) return;
 
     const snapshot = topic;
     setTopic(prev => {
@@ -432,7 +479,7 @@ export default function QuestionPage() {
       const answersList = prev.answersList.filter(a => a.id !== answerId);
       return {
         ...prev,
-        answers: Math.max((prev.answers || 1) - 1, 0),
+        answers: answersList.length,
         solved: answersList.some(a => a.accepted),
         answersList,
       };
@@ -444,11 +491,11 @@ export default function QuestionPage() {
     }).then(r => r.ok ? r.json() : Promise.reject())
       .then(({ answers, solved }) => {
         setTopic(prev => prev ? { ...prev, answers, solved } : prev);
-        showToast("Javob o'chirildi");
+        showToast(t('question.answerDeleted'));
       })
       .catch(() => {
         setTopic(snapshot);
-        showToast('Xato yuz berdi');
+        showToast(t('question.genericError'));
       });
   };
 
@@ -456,7 +503,7 @@ export default function QuestionPage() {
   if (loading) return (
     <Layout theme={theme} onThemeToggle={toggleTheme}>
       <div className="qp-shell">
-        <div className="qp-loading">Yuklanmoqda…</div>
+        <div className="qp-loading">{t('common.loading')}</div>
       </div>
     </Layout>
   );
@@ -465,15 +512,16 @@ export default function QuestionPage() {
     <Layout theme={theme} onThemeToggle={toggleTheme}>
       <div className="qp-shell">
         <button className="soft-button qp-back" onClick={() => navigate(-1)}>
-          <Icon name="arrowLeft" size={16} /> Orqaga
+          <Icon name="arrowLeft" size={16} /> {t('common.back')}
         </button>
-        <div className="qp-loading" style={{ color: 'var(--rose)' }}>Savol topilmadi</div>
+        <div className="qp-loading" style={{ color: 'var(--rose)' }}>{t('question.notFound')}</div>
       </div>
     </Layout>
   );
 
   const isAuthor = user && (topic.user_id === user.id || topic.author === user.name);
   const canModerate = Boolean(user?.is_admin || user?.is_moderator);
+  const answerCount = getAnswerCount(topic);
 
   return (
     <Layout theme={theme} onThemeToggle={toggleTheme}>
@@ -482,7 +530,7 @@ export default function QuestionPage() {
 
       {/* Back */}
       <button className="soft-button qp-back" onClick={() => navigate(-1)}>
-        <Icon name="arrowLeft" size={15} /> Forum
+        <Icon name="arrowLeft" size={15} /> {t('question.forum')}
       </button>
 
       <div className="qp-layout">
@@ -497,7 +545,7 @@ export default function QuestionPage() {
                 className={`qp-vote-btn ${voted===1?'is-active':''}`}
                 disabled={votePending}
                 onClick={() => handleVote(1)}
-                title="Yuqoriga ovoz"
+                title={t('forum.voteUp')}
               >
                 <Icon name="arrowUp" size={18} />
               </button>
@@ -507,12 +555,12 @@ export default function QuestionPage() {
                 className={`qp-vote-btn ${voted===-1?'is-danger':''}`}
                 disabled={votePending}
                 onClick={() => handleVote(-1)}
-                title="Pastga ovoz"
+                title={t('forum.voteDown')}
               >
                 <Icon name="arrowDown" size={18} />
               </button>
               {topic.solved && (
-                <span className="qp-solved-badge" title="Yechilgan">
+                <span className="qp-solved-badge" title={t('common.solved')}>
                   <Icon name="check" size={14} />
                 </span>
               )}
@@ -523,16 +571,16 @@ export default function QuestionPage() {
               <div className="topic-meta" style={{ marginBottom: 10 }}>
                 {topic.pinned && (
                   <span
-                    aria-label="Mahkamlangan mavzu"
+                    aria-label={t('forum.pinned')}
                     className="pinned-indicator"
-                    data-tooltip="Mahkamlangan mavzu"
+                    data-tooltip={t('forum.pinned')}
                     role="img"
                   >
                     <Icon name="pin" size={14} />
                   </span>
                 )}
-                {topic.hot    && <span className="pill pill--hot">Qaynoq 🔥</span>}
-                {topic.solved && <span className="pill pill--ok">Yechilgan ✓</span>}
+                {topic.hot    && <span className="pill pill--hot">{t('forum.hot')} 🔥</span>}
+                {topic.solved && <span className="pill pill--ok">{t('common.solved')} ✓</span>}
                 <span>{topic.activity}</span>
               </div>
 
@@ -559,7 +607,7 @@ export default function QuestionPage() {
                     type="button"
                   >
                     <Icon name={topic.solved ? 'x' : 'check'} size={15} />
-                    {topic.solved ? 'Ochiq qilish' : 'Yechildi'}
+                    {topic.solved ? t('question.markOpen') : t('question.markSolved')}
                   </button>
                 </div>
               )}
@@ -567,12 +615,12 @@ export default function QuestionPage() {
               {/* Author footer */}
               <div className="qp-author-row">
                 <div className="qp-meta-stats">
-                  <span><Icon name="message" size={14} /> {topic.answers} javob</span>
-                  <span><Icon name="eye" size={14} /> {topic.views} ko'rish</span>
+                  <span><Icon name="message" size={14} /> {answerCount} {t('forum.answers').toLowerCase()}</span>
+                  <span><Icon name="eye" size={14} /> {topic.views} {t('forum.views').toLowerCase()}</span>
                   <button
-                    aria-label="Savol havolasini nusxalash"
-                    className="permalink-button"
-                    data-tooltip="Savol havolasini nusxalash"
+                    aria-label={t('forum.copyLink')}
+                    className={`permalink-button ${copiedPermalink === 'question' ? 'is-copied' : ''}`}
+                    data-tooltip={copiedPermalink === 'question' ? t('forum.linkCopied') : t('forum.copyLink')}
                     onClick={handleCopyLink}
                     type="button"
                   >
@@ -580,7 +628,7 @@ export default function QuestionPage() {
                   </button>
                 </div>
                 <div className="qp-author-card">
-                  <span className="qp-author-label">So'radi</span>
+                  <span className="qp-author-label">{t('question.asked')}</span>
                   <Avatar initials={topic.initials} name={topic.author} />
                   <div>
                     <strong>{topic.author}</strong>
@@ -593,15 +641,15 @@ export default function QuestionPage() {
 
           {/* ── Answers ── */}
           <div className="qp-answers-head">
-            <h2>{topic.answersList.length} ta javob</h2>
-            {topic.solved && <span className="pill pill--ok">Yechilgan</span>}
+            <h2>{t('forum.answerCount', { count: answerCount })}</h2>
+            {topic.solved && <span className="pill pill--ok">{t('common.solved')}</span>}
           </div>
 
           {topic.answersList.length === 0 ? (
             <div className="empty-state" style={{ minHeight: 140 }}>
               <Icon name="message" size={22} />
-              <strong>Hali javob yo'q</strong>
-              <span>Birinchi javob yozing!</span>
+              <strong>{t('forum.noAnswers')}</strong>
+              <span>{t('question.firstAnswer')}</span>
             </div>
           ) : (
             <div className="qp-answers-list">
@@ -609,14 +657,15 @@ export default function QuestionPage() {
                 .sort((a, b) => (b.accepted - a.accepted) || (b.score - a.score))
                 .map(ans => (
                   <article
+                    id={`answer-${ans.id}`}
                     key={ans.id}
-                    className={`qp-answer ${ans.accepted ? 'is-accepted' : ''} ${ans.moderation_correctness === 'incorrect' ? 'is-incorrect' : ''}`}
+                    className={`qp-answer ${ans.accepted ? 'is-accepted' : ''} ${ans.moderation_correctness === 'incorrect' ? 'is-incorrect' : ''} ${highlightAnswerId === String(ans.id) ? 'is-linked' : ''}`}
                   >
                     <div className="qp-vote-col qp-vote-col--answer">
                       <button
                         className={`qp-vote-btn ${(answerVotes[ans.id] ?? 0) === 1 ? 'is-active' : ''}`}
                         onClick={() => handleAnswerVote(ans.id, 1)}
-                        title="Foydali"
+                        title={t('question.helpful')}
                       >
                         <Icon name="arrowUp" size={15} />
                       </button>
@@ -624,12 +673,12 @@ export default function QuestionPage() {
                       <button
                         className={`qp-vote-btn ${(answerVotes[ans.id] ?? 0) === -1 ? 'is-danger' : ''}`}
                         onClick={() => handleAnswerVote(ans.id, -1)}
-                        title="Foydali emas"
+                        title={t('question.unhelpful')}
                       >
                         <Icon name="arrowDown" size={15} />
                       </button>
                       {ans.accepted && (
-                        <span className="qp-accepted-tick" title="Qabul qilingan javob">
+                        <span className="qp-accepted-tick" title={t('question.accepted')}>
                           <Icon name="check" size={15} />
                         </span>
                       )}
@@ -637,7 +686,7 @@ export default function QuestionPage() {
                         <button
                           className="qp-accept-btn"
                           onClick={() => handleAccept(ans.id)}
-                          title="Bu javobni qabul qilish"
+                          title={t('question.acceptAnswer')}
                         >
                           <Icon name="check" size={14} />
                         </button>
@@ -649,17 +698,26 @@ export default function QuestionPage() {
                         <Avatar initials={ans.initials} name={ans.author} />
                         <strong>{ans.author}</strong>
                         <span>{ans.role}</span>
-                        {ans.accepted && <span className="pill pill--ok">Qabul qilindi</span>}
+                        {ans.accepted && <span className="pill pill--ok">{t('question.accepted')}</span>}
                         {ans.moderation_correctness && !ans.accepted && (
                           <span className={`pill ${ans.moderation_correctness === 'correct' ? 'pill--ok' : 'pill--bad'}`}>
-                            {CORRECTNESS_LABELS[ans.moderation_correctness]}
+                            {t(`question.${ans.moderation_correctness}`)}
                           </span>
                         )}
                         {ans.moderation_helpfulness && (
                           <span className={`pill ${ans.moderation_helpfulness === 'helpful' ? 'pill--info' : 'pill--bad'}`}>
-                            {HELPFULNESS_LABELS[ans.moderation_helpfulness]}
+                            {t(`question.${ans.moderation_helpfulness}`)}
                           </span>
                         )}
+                        <button
+                          aria-label={t('question.copyAnswerLink')}
+                          className={`permalink-button qp-answer-permalink ${copiedPermalink === `answer-${ans.id}` ? 'is-copied' : ''}`}
+                          data-tooltip={copiedPermalink === `answer-${ans.id}` ? t('forum.linkCopied') : t('question.copyAnswerLink')}
+                          onClick={() => handleCopyAnswerLink(ans.id)}
+                          type="button"
+                        >
+                          <Icon name="link" size={15} />
+                        </button>
                       </div>
                       <RichText className="qp-answer-text" text={ans.text} />
                       {canModerate && (
@@ -726,12 +784,20 @@ export default function QuestionPage() {
                   <Avatar initials={user.initials} name={user.name} online />
                   <strong>{user.name}</strong>
                 </div>
+                <AnswerEditorTools onChange={setAnswer} textareaRef={answerRef} value={answer} />
                 <textarea
+                  ref={answerRef}
                   value={answer}
                   onChange={e => setAnswer(e.target.value)}
-                  placeholder="Qisqa ishora, formula yoki to'liq yechim yozing…"
+                  placeholder={"Qisqa ishora, formula yoki to'liq yechim yozing...\nMasalan: $K_{eq}$ yoki H2SO4 + CuO -> CuSO4 + H2O"}
                   rows={5}
                 />
+                {answer.trim() && (
+                  <div className="latex-live-preview answer-live-preview">
+                    <div className="latex-live-preview-label">Ko'rinishi</div>
+                    <RichText className="qp-answer-text" text={answer} />
+                  </div>
+                )}
                 <button
                   className="primary-button"
                   disabled={!answer.trim() || busy}
@@ -762,7 +828,7 @@ export default function QuestionPage() {
               <div><span>So'radi</span><strong>{topic.author}</strong></div>
               <div><span>Faollik</span><strong>{topic.activity}</strong></div>
               <div><span>Ko'rishlar</span><strong>{topic.views}</strong></div>
-              <div><span>Javoblar</span><strong>{topic.answers}</strong></div>
+              <div><span>Javoblar</span><strong>{answerCount}</strong></div>
               <div><span>Holat</span><strong>{topic.solved ? '✓ Yechilgan' : 'Ochiq'}</strong></div>
             </div>
           </div>

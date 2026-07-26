@@ -1,40 +1,34 @@
 import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import BrandMark from "../components/BrandMark";
+import LanguageSwitcher from "../components/LanguageSwitcher";
+import { useLanguage } from "../context/LanguageContext";
 
 const FEATURE_CARDS = [
   {
     code: "01",
-    title: "Chat birinchi o'rinda",
-    text: "Savol, yechim, formula va rasm bitta jonli oqimda. Hozircha asosiy markaz chat, keyin darslar ham shu joyga ulanadi.",
+    titleKey: "home.feature1Title",
+    textKey: "home.feature1Text",
     accent: "teal",
   },
   {
     code: "02",
-    title: "Kimyo formulalari tayyor",
-    text: "Reaksiya, LaTeX, subscript va bosqichma-bosqich yechimlar ko'rinishi chiroyli chiqadi.",
+    titleKey: "home.feature2Title",
+    textKey: "home.feature2Text",
     accent: "blue",
   },
   {
     code: "03",
-    title: "Mentorlar va reyting",
-    text: "Foydali javoblar yuqoriga ko'tariladi, faol yordamchilar esa community ichida ko'rinib turadi.",
+    titleKey: "home.feature3Title",
+    textKey: "home.feature3Text",
     accent: "amber",
   },
   {
     code: "04",
-    title: "Darslar uchun joy bor",
-    text: "Olimpiada, mini-kurs, test va practice mode keyin qo'shilsa ham dizayn ularni ko'tara oladi.",
+    titleKey: "home.feature4Title",
+    textKey: "home.feature4Text",
     accent: "violet",
   },
-];
-
-const COMMUNITY_ITEMS = [
-  "Organik kimyo",
-  "DTM tayyorgarlik",
-  "Olimpiada sprint",
-  "Reaksiya mexanizmlari",
-  "Analitik masalalar",
-  "Mentor javoblari",
 ];
 
 const FLOATING_SYMBOLS = ["H2SO4", "NaCl", "pH", "CuSO4", "K_eq", "NH3", "C6H6", "Delta G"];
@@ -56,7 +50,9 @@ function HomeIcon({ name }) {
 
 export default function HomePage() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const pageRef = useRef(null);
+  const communityItems = t('home.communityItems');
 
   useEffect(() => {
     const node = pageRef.current;
@@ -95,26 +91,27 @@ export default function HomePage() {
       </div>
 
       <header className="landing-header">
-        <button className="landing-brand" type="button" onClick={openChat} aria-label="Ximor chatga o'tish">
+        <button className="landing-brand" type="button" onClick={openChat} aria-label={t('home.openChat')}>
           <span className="landing-brand-mark">
-            <HomeIcon name="atom" />
+            <BrandMark />
           </span>
           <span>
             <strong>Ximor</strong>
-            <small>Kimyo chat</small>
+            <small>{t('home.chemistryChat')}</small>
           </span>
         </button>
 
-        <nav className="landing-nav" aria-label="Landing navigatsiya">
-          <a href="#home">Главная</a>
-          <a href="#features">Возможности</a>
-          <a href="#about">О нас</a>
-          <a href="#community">Community</a>
+        <nav className="landing-nav" aria-label={t('nav.main')}>
+          <a href="#home">{t('home.home')}</a>
+          <a href="#features">{t('home.features')}</a>
+          <a href="#about">{t('home.about')}</a>
+          <a href="#community">{t('home.community')}</a>
         </nav>
 
+        <LanguageSwitcher className="landing-language-switcher" />
         <button className="landing-header-cta" type="button" onClick={openChat}>
           <HomeIcon name="message" />
-          Chat
+          {t('nav.chat')}
         </button>
       </header>
 
@@ -123,45 +120,44 @@ export default function HomePage() {
           <div className="landing-hero-copy">
             <div className="landing-eyebrow">
               <span />
-              Beyond curriculum · live chemistry help
+              {t('home.eyebrow')}
             </div>
             <h1>
-              <span>Самый живой</span>
-              <span>kimyo chat</span>
-              <span>uchun yangi start</span>
+              <span>{t('home.title1')}</span>
+              <span>{t('home.title2')}</span>
+              <span>{t('home.title3')}</span>
             </h1>
             <p>
-              Ximor - savollar, mentor javoblari, formulalar va community energiyasi bitta joyda.
-              Hozir asosiy sahna chat, keyin darslar va practice bo'limlari ham qo'shiladi.
+              {t('home.intro')}
             </p>
 
             <div className="landing-actions">
               <button className="landing-primary" type="button" onClick={openChat}>
-                Chatni ochish
+                {t('home.openChat')}
                 <HomeIcon name="arrow" />
               </button>
               <a className="landing-secondary" href="#features">
-                Возможности
+                {t('home.features')}
               </a>
             </div>
 
-            <div className="landing-metrics" aria-label="Platforma statistikasi">
+            <div className="landing-metrics" aria-label="Ximor">
               <div>
                 <strong>24/7</strong>
-                <span>Savol oqimi</span>
+                <span>{t('home.questionFlow')}</span>
               </div>
               <div>
                 <strong>4+</strong>
-                <span>Kimyo bo'limi</span>
+                <span>{t('home.chemistrySections')}</span>
               </div>
               <div>
                 <strong>soon</strong>
-                <span>Lessons mode</span>
+                <span>{t('home.lessonsMode')}</span>
               </div>
             </div>
           </div>
 
-          <button className="landing-chat-preview" type="button" onClick={openChat} aria-label="Chat sahifasiga o'tish">
+          <button className="landing-chat-preview" type="button" onClick={openChat} aria-label={t('home.openChat')}>
             <div className="preview-reactor" aria-hidden="true">
               <span />
               <span />
@@ -169,38 +165,38 @@ export default function HomePage() {
             </div>
             <div className="preview-notice preview-notice--top">
               <span className="notice-dot" />
-              Mentor javob berdi
+              {t('home.mentorAnswered')}
             </div>
             <div className="preview-notice preview-notice--bottom">
               <span className="notice-dot" />
-              12 yangi muhokama
+              {t('home.newDiscussions', { count: 12 })}
             </div>
             <div className="preview-phone">
               <div className="preview-phone-top">
                 <span>9:41</span>
                 <span>Ximor live</span>
               </div>
-              <div className="preview-search">H2SO4 + CuO reaksiyasi...</div>
+              <div className="preview-search">{t('home.reactionSearch')}</div>
               <div className="preview-thread preview-thread--hot">
                 <span className="preview-badge">Hot</span>
-                <strong>Grignard mexanizmi qanday ishlaydi?</strong>
+                <strong>{t('home.grignardQuestion')}</strong>
                 <p>CH3CH2MgBr + HCHO {"->"} ?</p>
               </div>
               <div className="preview-message preview-message--left">
                 <span>AK</span>
-                <p>Karbonil uglerodiga nukleofil hujum bo'ladi.</p>
+                <p>{t('home.mentorMessage')}</p>
               </div>
               <div className="preview-message preview-message--right">
                 <span>KT</span>
-                <p>Demak birlamchi spirt hosil bo'ladimi?</p>
+                <p>{t('home.learnerMessage')}</p>
               </div>
               <div className="preview-thread">
                 <span className="preview-badge preview-badge--green">Solved</span>
-                <strong>Le Chatelier: bosim oshsa?</strong>
+                <strong>{t('home.pressureQuestion')}</strong>
                 <p>N2 + 3H2 ⇌ 2NH3</p>
               </div>
               <div className="preview-composer">
-                <span>Savol yozish...</span>
+                <span>{t('home.writeQuestion')}</span>
                 <b>+</b>
               </div>
             </div>
@@ -209,7 +205,7 @@ export default function HomePage() {
 
         <div className="landing-marquee" aria-hidden="true">
           <div>
-            {COMMUNITY_ITEMS.concat(COMMUNITY_ITEMS).map((item, index) => (
+            {communityItems.concat(communityItems).map((item, index) => (
               <span key={`${item}-${index}`}>{item}</span>
             ))}
           </div>
@@ -219,17 +215,17 @@ export default function HomePage() {
           <div className="landing-section-head">
             <span className="landing-eyebrow">
               <span />
-              Возможности
+              {t('home.features')}
             </span>
-            <h2>Chat hozir ishlaydi, keyingi bo'limlar uchun joy allaqachon tayyor.</h2>
+            <h2>{t('home.featuresHeading')}</h2>
           </div>
 
           <div className="landing-feature-grid">
             {FEATURE_CARDS.map((feature) => (
               <article className={`landing-feature landing-feature--${feature.accent}`} key={feature.code}>
                 <span>{feature.code}</span>
-                <h3>{feature.title}</h3>
-                <p>{feature.text}</p>
+                <h3>{t(feature.titleKey)}</h3>
+                <p>{t(feature.textKey)}</p>
               </article>
             ))}
           </div>
@@ -239,27 +235,24 @@ export default function HomePage() {
           <div className="landing-about-copy">
             <span className="landing-eyebrow">
               <span />
-              О нас
+              {t('home.about')}
             </span>
-            <h2>Ximor - kimyoni birga tushunadigan community.</h2>
-            <p>
-              Maqsad oddiy: quruq javob emas, tushunarli yo'l. Har bir savol formulasi,
-              urinishlari va muhokamasi bilan saqlanadi, shunda yangi o'quvchi ham undan foyda oladi.
-            </p>
+            <h2>{t('home.aboutHeading')}</h2>
+            <p>{t('home.aboutText')}</p>
           </div>
 
-          <div className="landing-lab-board" aria-label="Ximor rivojlanish rejasi">
+          <div className="landing-lab-board" aria-label={t('home.roadmap')}>
             <div>
-              <strong>Now</strong>
-              <span>Chat, savollar, javoblar, reyting</span>
+              <strong>{t('home.now')}</strong>
+              <span>{t('home.nowItems')}</span>
             </div>
             <div>
-              <strong>Next</strong>
-              <span>Darslar, practice sets, mini olimpiadalar</span>
+              <strong>{t('home.next')}</strong>
+              <span>{t('home.nextItems')}</span>
             </div>
             <div>
-              <strong>Later</strong>
-              <span>Mentor rooms, cohort, progress map</span>
+              <strong>{t('home.later')}</strong>
+              <span>{t('home.laterItems')}</span>
             </div>
           </div>
         </section>
@@ -269,18 +262,18 @@ export default function HomePage() {
             <div>
               <span className="landing-eyebrow">
                 <span />
-                Community
+                {t('home.community')}
               </span>
-              <h2>Birinchi muhokamani oching. Qolgan animatsiya ichkarida davom etadi.</h2>
+              <h2>{t('home.communityHeading')}</h2>
             </div>
             <button className="landing-primary" type="button" onClick={openChat}>
-              Community chat
+              {t('home.communityChat')}
               <HomeIcon name="arrow" />
             </button>
           </div>
 
-          <div className="landing-community-feed" aria-label="Community bo'limlari">
-            {COMMUNITY_ITEMS.map((item, index) => (
+          <div className="landing-community-feed" aria-label={t('home.communitySections')}>
+            {communityItems.map((item, index) => (
               <div key={item} style={{ "--feed-index": index }}>
                 <span>0{index + 1}</span>
                 <strong>{item}</strong>

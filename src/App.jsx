@@ -3,6 +3,8 @@ import { Navigate, Routes, Route, useNavigate, useSearchParams } from "react-rou
 import "./App.css";
 import { useForumStream } from "./hooks/useForumStream";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { useLanguage } from "./context/LanguageContext";
+import AnswerEditorTools from "./components/AnswerEditorTools";
 import AuthModal from "./components/AuthModal";
 import AttachmentGallery from "./components/AttachmentGallery";
 import RichText from "./components/RichText";
@@ -22,19 +24,19 @@ import copyToClipboard from "./utils/copyToClipboard";
 const BACKEND = import.meta.env.VITE_API_URL || 'http://localhost:3002';
 
 const CATEGORIES = [
-  { id: "all",       name: "Hammasi",       short: "∑",  color: "#36584d", count: 0 },
-  { id: "organik",   name: "Organik kimyo", short: "Or", color: "#4d5b55", count: 0 },
-  { id: "anorganik", name: "Anorganik",     short: "An", color: "#5c625f", count: 0 },
-  { id: "fizikaviy", name: "Fizikaviy",     short: "Fk", color: "#59616d", count: 0 },
-  { id: "analitik",  name: "Analitik",      short: "Al", color: "#6c6258", count: 0 },
-  { id: "dtm",       name: "DTM / Olimp.",  short: "DT", color: "#7b6847", count: 0 },
+  { id: "all",       labelKey: "forum.all",        short: "∑",  color: "#36584d", count: 0 },
+  { id: "organik",   labelKey: "forum.organic",    short: "Or", color: "#4d5b55", count: 0 },
+  { id: "anorganik", labelKey: "forum.inorganic",  short: "An", color: "#5c625f", count: 0 },
+  { id: "fizikaviy", labelKey: "forum.physical",   short: "Fk", color: "#59616d", count: 0 },
+  { id: "analitik",  labelKey: "forum.analytical", short: "Al", color: "#6c6258", count: 0 },
+  { id: "dtm",       labelKey: "nav.olympiads",    short: "DT", color: "#7b6847", count: 0 },
 ];
 
 const SORTS = [
-  { id: "recent", label: "So'nggi", icon: "clock" },
-  { id: "hot", label: "Qaynoq", icon: "flame" },
-  { id: "unanswered", label: "Javobsiz", icon: "message" },
-  { id: "saved", label: "Saqlangan", icon: "bookmark" },
+  { id: "recent", labelKey: "forum.recent", icon: "clock" },
+  { id: "hot", labelKey: "forum.hot", icon: "flame" },
+  { id: "unanswered", labelKey: "forum.unanswered", icon: "message" },
+  { id: "saved", labelKey: "forum.saved", icon: "bookmark" },
 ];
 
 const TRENDING_TAGS = [
@@ -306,6 +308,7 @@ function CategoryMark({ categoryId }) {
 }
 
 function TopicCard({ density, onOpen, onSave, onVote, onTagClick, topic, votePending }) {
+  const { t } = useLanguage();
   const category = CATEGORIES.find((item) => item.id === topic.category) || CATEGORIES[0];
   const [copied, setCopied] = useState(false);
 
@@ -323,22 +326,22 @@ function TopicCard({ density, onOpen, onSave, onVote, onTagClick, topic, votePen
     <article className={`topic-card topic-card--${density}`} onClick={() => onOpen(topic.id)}>
       <div className="vote-rail" onClick={(event) => event.stopPropagation()}>
         <button
-          aria-label="Yuqoriga ovoz berish"
+          aria-label={t('forum.upvote')}
           aria-busy={votePending}
           className={topic.voted === 1 ? "is-active" : ""}
           disabled={votePending}
-          title="Yuqoriga ovoz"
+          title={t('forum.voteUp')}
           onClick={() => onVote(topic.id, 1)}
         >
           <Icon name="arrowUp" size={17} />
         </button>
         <strong>{topic.score}</strong>
         <button
-          aria-label="Pastga ovoz berish"
+          aria-label={t('forum.downvote')}
           aria-busy={votePending}
           className={topic.voted === -1 ? "is-danger" : ""}
           disabled={votePending}
-          title="Pastga ovoz"
+          title={t('forum.voteDown')}
           onClick={() => onVote(topic.id, -1)}
         >
           <Icon name="arrowDown" size={17} />
@@ -348,20 +351,20 @@ function TopicCard({ density, onOpen, onSave, onVote, onTagClick, topic, votePen
       <div className="topic-body">
         <div className="topic-meta">
           <CategoryMark categoryId={topic.category} />
-          <span style={{ color: category.color }}>{category.name}</span>
+          <span style={{ color: category.color }}>{t(category.labelKey)}</span>
           <span>{topic.activity}</span>
           {topic.pinned && (
             <span
-              aria-label="Mahkamlangan mavzu"
+              aria-label={t('forum.pinned')}
               className="pinned-indicator"
-              data-tooltip="Mahkamlangan mavzu"
+              data-tooltip={t('forum.pinned')}
               role="img"
             >
               <Icon name="pin" size={14} />
             </span>
           )}
-          {topic.hot && <span className="pill pill--hot">Qaynoq</span>}
-          {topic.solved && <span className="pill pill--ok">Yechilgan</span>}
+          {topic.hot && <span className="pill pill--hot">{t('forum.hot')}</span>}
+          {topic.solved && <span className="pill pill--ok">{t('common.solved')}</span>}
         </div>
 
         <h2>{topic.title}</h2>
@@ -381,10 +384,10 @@ function TopicCard({ density, onOpen, onSave, onVote, onTagClick, topic, votePen
           </div>
 
           <div className="topic-actions" onClick={(event) => event.stopPropagation()}>
-            <span title="Javoblar">
+            <span title={t('forum.answers')}>
               <Icon name="message" size={16} /> {topic.answers}
             </span>
-            <span title="Ko'rishlar">
+            <span title={t('forum.views')}>
               <Icon name="eye" size={16} /> {topic.views}
             </span>
             <div className="avatar-stack">
@@ -393,18 +396,18 @@ function TopicCard({ density, onOpen, onSave, onVote, onTagClick, topic, votePen
               ))}
             </div>
             <button
-              aria-label="Savol havolasini nusxalash"
+              aria-label={t('forum.copyLink')}
               className={`permalink-button ${copied ? "is-copied" : ""}`}
-              data-tooltip={copied ? "Havola nusxalandi" : "Savol havolasini nusxalash"}
+              data-tooltip={copied ? t('forum.linkCopied') : t('forum.copyLink')}
               onClick={handleCopyLink}
               type="button"
             >
               <Icon name="link" size={17} />
             </button>
             <button
-              aria-label="Saqlash"
+              aria-label={t('common.save')}
               className={`icon-button ${topic.saved ? "is-saved" : ""}`}
-              title="Saqlash"
+              title={t('common.save')}
               onClick={() => onSave(topic.id)}
             >
               <Icon name="bookmark" size={17} />
@@ -416,8 +419,19 @@ function TopicCard({ density, onOpen, onSave, onVote, onTagClick, topic, votePen
   );
 }
 
-function ThreadDrawer({ onAddAnswer, onClose, onSave, onVote, topic }) {
+function ThreadDrawer({
+  answerVotes = {},
+  onAddAnswer,
+  onAnswerVote,
+  onClose,
+  onSave,
+  onVote,
+  pendingAnswerVoteIds = new Set(),
+  topic,
+}) {
+  const { t } = useLanguage();
   const [answer, setAnswer] = useState("");
+  const answerRef = useRef(null);
 
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -441,10 +455,10 @@ function ThreadDrawer({ onAddAnswer, onClose, onSave, onVote, topic }) {
       <aside aria-modal="true" className="thread-drawer" onClick={(event) => event.stopPropagation()} role="dialog">
         <div className="drawer-header">
           <div>
-            <span className="eyebrow">Muhokama</span>
+            <span className="eyebrow">{t('forum.discussion')}</span>
             <h2>{topic.title}</h2>
           </div>
-          <button aria-label="Yopish" className="icon-button" title="Yopish" onClick={onClose}>
+          <button aria-label={t('common.close')} className="icon-button" title={t('common.close')} onClick={onClose}>
             <Icon name="close" size={19} />
           </button>
         </div>
@@ -452,7 +466,7 @@ function ThreadDrawer({ onAddAnswer, onClose, onSave, onVote, topic }) {
         <div className="drawer-topic">
           <div className="drawer-votes">
             <button
-              aria-label="Yuqoriga ovoz berish"
+              aria-label={t('forum.upvote')}
               className={topic.voted === 1 ? "is-active" : ""}
               onClick={() => onVote(topic.id, 1)}
             >
@@ -460,7 +474,7 @@ function ThreadDrawer({ onAddAnswer, onClose, onSave, onVote, topic }) {
             </button>
             <strong>{topic.score}</strong>
             <button
-              aria-label="Pastga ovoz berish"
+              aria-label={t('forum.downvote')}
               className={topic.voted === -1 ? "is-danger" : ""}
               onClick={() => onVote(topic.id, -1)}
             >
@@ -491,56 +505,93 @@ function ThreadDrawer({ onAddAnswer, onClose, onSave, onVote, topic }) {
         <div className="drawer-actions">
           <button className="soft-button" onClick={() => onSave(topic.id)}>
             <Icon name="bookmark" size={17} />
-            {topic.saved ? "Saqlangan" : "Saqlash"}
+            {topic.saved ? t('common.saved') : t('common.save')}
           </button>
           <button className="soft-button">
             <Icon name="star" size={17} />
-            Kuzatish
+            {t('forum.follow')}
           </button>
         </div>
 
         <section className="answers-list">
           <div className="section-heading">
-            <h3>{topic.answersList.length || topic.answers} ta javob</h3>
-            <span>Eng foydalilari yuqorida</span>
+            <h3>{t('forum.answerCount', { count: topic.answersList.length || topic.answers })}</h3>
+            <span>{t('forum.usefulFirst')}</span>
           </div>
           {topic.answersList.length === 0 ? (
             <div className="empty-answer">
               <Icon name="message" size={22} />
-              <strong>Hali javob yo'q</strong>
-              <span>Birinchi aniq javob shu muhokamani boshlab beradi.</span>
+              <strong>{t('forum.noAnswers')}</strong>
+              <span>{t('forum.noAnswersHint')}</span>
             </div>
           ) : (
-            topic.answersList.map((item, index) => (
-              <article className={`answer-card ${item.accepted ? "is-accepted" : ""}`} key={`${item.author}-${index}`}>
+            topic.answersList.map((item, index) => {
+              const voted = answerVotes[item.id] ?? 0;
+              const votePending = pendingAnswerVoteIds.has(item.id);
+
+              return (
+              <article className={`answer-card ${item.accepted ? "is-accepted" : ""}`} key={item.id ?? `${item.author}-${index}`}>
                 <div className="answer-head">
                   <Avatar initials={item.initials} name={item.author} online={item.accepted} />
                   <div>
                     <strong>{item.author}</strong>
                     <span>{item.role}</span>
                   </div>
-                  <div className="answer-score">
-                    {item.accepted && <Icon name="check" size={16} />}
-                    {item.score}
+                  <div className="answer-score answer-score--votable">
+                    <button
+                      aria-label={t('forum.upvote')}
+                      className={`answer-vote-btn ${voted === 1 ? "is-active" : ""}`}
+                      disabled={votePending}
+                      onClick={() => onAnswerVote?.(item.id, 1)}
+                      title={t('question.helpful')}
+                      type="button"
+                    >
+                      <Icon name="arrowUp" size={14} />
+                    </button>
+                    <strong>{item.score}</strong>
+                    <button
+                      aria-label={t('forum.downvote')}
+                      className={`answer-vote-btn ${voted === -1 ? "is-danger" : ""}`}
+                      disabled={votePending}
+                      onClick={() => onAnswerVote?.(item.id, -1)}
+                      title={t('question.unhelpful')}
+                      type="button"
+                    >
+                      <Icon name="arrowDown" size={14} />
+                    </button>
+                    {item.accepted && (
+                      <span className="answer-accepted-icon" title={t('question.accepted')}>
+                        <Icon name="check" size={15} />
+                      </span>
+                    )}
                   </div>
                 </div>
                 <RichText text={item.text} />
               </article>
-            ))
+              );
+            })
           )}
         </section>
 
         <form className="answer-box" onSubmit={submitAnswer}>
-          <label htmlFor="answer">Javob yozish</label>
+          <label htmlFor="answer">{t('forum.writeAnswer')}</label>
+          <AnswerEditorTools onChange={setAnswer} textareaRef={answerRef} value={answer} />
           <textarea
             id="answer"
+            ref={answerRef}
             onChange={(event) => setAnswer(event.target.value)}
-            placeholder="Qisqa ishora, formula yoki to'liq yechim yozing..."
+            placeholder={t('forum.answerPlaceholder')}
             value={answer}
           />
+          {answer.trim() && (
+            <div className="latex-live-preview answer-live-preview">
+              <div className="latex-live-preview-label">{t('composer.previewLabel')}</div>
+              <RichText text={answer} />
+            </div>
+          )}
           <button className="primary-button" disabled={!answer.trim()} type="submit">
             <Icon name="send" size={17} />
-            Javob yuborish
+            {t('forum.sendAnswer')}
           </button>
         </form>
       </aside>
@@ -583,6 +634,7 @@ function prepareComposerImage(file) {
 }
 
 function ComposerModal({ onClose, onSubmit }) {
+  const { t } = useLanguage();
   const summaryRef = useRef(null);
   const fileInputRef = useRef(null);
   const [mode, setMode] = useState("write");
@@ -679,10 +731,10 @@ function ComposerModal({ onClose, onSubmit }) {
       >
         <div className="modal-head">
           <div>
-            <span className="eyebrow">Yangi mavzu</span>
-            <h2>Yangi kimyo savoli</h2>
+            <span className="eyebrow">{t('composer.newTopic')}</span>
+            <h2>{t('composer.newQuestion')}</h2>
           </div>
-          <button aria-label="Yopish" className="icon-button" title="Yopish" type="button" onClick={onClose}>
+          <button aria-label={t('common.close')} className="icon-button" title={t('common.close')} type="button" onClick={onClose}>
             <Icon name="close" size={19} />
           </button>
         </div>
@@ -695,7 +747,7 @@ function ComposerModal({ onClose, onSubmit }) {
             role="tab"
             type="button"
           >
-            Yozish
+            {t('composer.write')}
           </button>
           <button
             aria-selected={mode === "preview"}
@@ -704,33 +756,33 @@ function ComposerModal({ onClose, onSubmit }) {
             role="tab"
             type="button"
           >
-            Ko'rib chiqish
+            {t('composer.preview')}
           </button>
         </div>
 
         {mode === "write" ? (
           <>
             <label>
-              Sarlavha
+              {t('composer.title')}
               <input
                 onChange={(event) => update("title", event.target.value)}
-                placeholder="Masalan: sulfat kislotaning CuO bilan reaksiyasi qanday boradi?"
+                placeholder={t('composer.titlePlaceholder')}
                 value={form.title}
               />
             </label>
 
-            <div className="chem-toolbar" aria-label="Kimyo formulalari asboblari">
-              <span>Kimyo</span>
+            <div className="chem-toolbar" aria-label={t('composer.chemistry')}>
+              <span>{t('composer.chemistry')}</span>
               {[
-                { label: "Formula", value: "H2SO4" },
-                { label: "Reaksiya", value: "H2SO4 + CuO -> CuSO4 + H2O" },
-                { label: "Qaytar", value: "N2 + 3H2 <-> 2NH3" },
-                { label: "Zaryad", value: "SO4^2-" },
-                { label: "Holat", value: "(aq)" },
-                { label: "Cho'kma", value: "Ag+ + Cl- -> AgCl(s)" },
+                { labelKey: "composer.formula", value: "H2SO4" },
+                { labelKey: "composer.reaction", value: "H2SO4 + CuO -> CuSO4 + H2O" },
+                { labelKey: "composer.reversible", value: "N2 + 3H2 <-> 2NH3" },
+                { labelKey: "composer.charge", value: "SO4^2-" },
+                { labelKey: "composer.state", value: "(aq)" },
+                { labelKey: "composer.precipitate", value: "Ag+ + Cl- -> AgCl(s)" },
               ].map((item) => (
-                <button key={item.label} onClick={() => insertSnippet(item.value)} type="button">
-                  {item.label}
+                <button key={item.labelKey} onClick={() => insertSnippet(item.value)} type="button">
+                  {t(item.labelKey)}
                 </button>
               ))}
             </div>
@@ -750,52 +802,52 @@ function ComposerModal({ onClose, onSubmit }) {
               ))}
             </div>
 
-            <div className="chem-toolbar markdown-toolbar" aria-label="Markdown formatlash">
+            <div className="chem-toolbar markdown-toolbar" aria-label={t('composer.formatting')}>
               <span>Markdown</span>
               <button
-                aria-label="Qalin"
+                aria-label={t('composer.bold')}
                 onClick={() => wrapSelection("**", "**", "qalin matn")}
-                title="Qalin"
+                title={t('composer.bold')}
                 type="button"
               >
                 <strong>B</strong>
               </button>
               <button
-                aria-label="Kursiv"
+                aria-label={t('composer.italic')}
                 onClick={() => wrapSelection("*", "*", "kursiv matn")}
-                title="Kursiv"
+                title={t('composer.italic')}
                 type="button"
               >
                 <em>I</em>
               </button>
               <button
-                aria-label="Ro'yxat"
+                aria-label={t('composer.list')}
                 onClick={() => insertSnippet("- Birinchi band\n- Ikkinchi band")}
-                title="Ro'yxat"
+                title={t('composer.list')}
                 type="button"
               >
                 •
               </button>
               <button
-                aria-label="Iqtibos"
+                aria-label={t('composer.quote')}
                 onClick={() => insertSnippet("> Iqtibos")}
-                title="Iqtibos"
+                title={t('composer.quote')}
                 type="button"
               >
                 “
               </button>
               <button
-                aria-label="Kod"
+                aria-label={t('composer.code')}
                 onClick={() => wrapSelection("`", "`", "kod")}
-                title="Kod"
+                title={t('composer.code')}
                 type="button"
               >
                 &lt;/&gt;
               </button>
               <button
-                aria-label="Havola"
+                aria-label={t('composer.link')}
                 onClick={() => wrapSelection("[", "](https://)", "havola matni")}
-                title="Havola"
+                title={t('composer.link')}
                 type="button"
               >
                 <Icon name="link" size={15} />
@@ -803,13 +855,13 @@ function ComposerModal({ onClose, onSubmit }) {
             </div>
 
             <div className="composer-question-field">
-              <label htmlFor="composer-question">Savol matni</label>
+              <label htmlFor="composer-question">{t('composer.questionText')}</label>
               <div className="composer-question-editor">
                 <textarea
                   id="composer-question"
                   ref={summaryRef}
                   onChange={(event) => update("summary", event.target.value)}
-                  placeholder={"Savolingizni yozing — formulalarni to'g'ridan-to'g'ri qo'shing.\nMasalan: H2SO4 + CuO -> CuSO4 + H2O reaksiyasida...\n$K_{eq}$ qiymati qanday o'zgaradi?"}
+                  placeholder={t('composer.questionPlaceholder')}
                   rows={6}
                   value={form.summary}
                 />
@@ -820,7 +872,7 @@ function ComposerModal({ onClose, onSubmit }) {
                       <figure key={image.id}>
                         <img alt={image.name} src={image.src} />
                         <button
-                          aria-label={`${image.name} rasmni olib tashlash`}
+                          aria-label={t('composer.removeImage', { name: image.name })}
                           onClick={() => removeImage(image.id)}
                           type="button"
                         >
@@ -846,7 +898,7 @@ function ComposerModal({ onClose, onSubmit }) {
                     type="button"
                   >
                     <Icon name="image" size={17} />
-                    Rasm
+                    {t('composer.image')}
                   </button>
                   <span>{form.images.length}/4</span>
                 </div>
@@ -855,7 +907,7 @@ function ComposerModal({ onClose, onSubmit }) {
 
             {(form.summary || form.images.length > 0) && (
               <div className="latex-live-preview">
-                <div className="latex-live-preview-label">Ko'rinishi</div>
+                <div className="latex-live-preview-label">{t('composer.previewLabel')}</div>
                 <div className="question-content">
                   <RichText text={form.summary} />
                   <AttachmentGallery images={form.images} />
@@ -864,18 +916,18 @@ function ComposerModal({ onClose, onSubmit }) {
             )}
 
             <label>
-              Bo'lim
+              {t('composer.category')}
               <select onChange={(event) => update("category", event.target.value)} value={form.category}>
                 {CATEGORIES.filter((item) => item.id !== "all").map((item) => (
                   <option key={item.id} value={item.id}>
-                    {item.name}
+                    {t(item.labelKey)}
                   </option>
                 ))}
               </select>
             </label>
 
             <label>
-              Teglar
+              {t('composer.tags')}
               <input onChange={(event) => update("tags", event.target.value)} value={form.tags} />
             </label>
           </>
@@ -883,11 +935,11 @@ function ComposerModal({ onClose, onSubmit }) {
           <div className="composer-preview">
             <div className="topic-meta">
               <CategoryMark categoryId={form.category} />
-              <span>{CATEGORIES.find((item) => item.id === form.category)?.name}</span>
+              <span>{t(CATEGORIES.find((item) => item.id === form.category)?.labelKey || 'forum.all')}</span>
             </div>
-            <h3>{form.title || "Sarlavha hali yozilmagan"}</h3>
+            <h3>{form.title || t('composer.emptyTitle')}</h3>
             <div className="question-content">
-              <RichText text={form.summary || "Savol matni yozilganda bu yerda ko'rinadi."} />
+              <RichText text={form.summary || t('composer.emptyPreview')} />
               <AttachmentGallery images={form.images} size="large" />
             </div>
             <div className="tag-row">
@@ -907,10 +959,10 @@ function ComposerModal({ onClose, onSubmit }) {
 
         <div className="modal-actions">
           <button className="soft-button" type="button" onClick={onClose}>
-            Bekor qilish
+            {t('composer.cancel')}
           </button>
           <button className="primary-button" disabled={!form.title.trim() || !form.summary.trim() || submitting} type="submit">
-            {submitting ? 'Saqlanmoqda…' : <><Icon name="plus" size={17} />Mavzu yaratish</>}
+            {submitting ? t('composer.creating') : <><Icon name="plus" size={17} />{t('composer.create')}</>}
           </button>
         </div>
       </form>
@@ -952,6 +1004,7 @@ export default function App() {
 
 function Forum({ theme, onThemeToggle }) {
   const { user, token, logout, authHeaders } = useAuth();
+  const { t } = useLanguage();
   const navigate                  = useNavigate();
   const [searchParams] = useSearchParams();
   const [showAuth, setShowAuth]   = useState(false);
@@ -959,8 +1012,11 @@ function Forum({ theme, onThemeToggle }) {
   const [topicsLoaded, setTopicsLoaded] = useState(false);
   const [usingDemoTopics, setUsingDemoTopics] = useState(false);
   const [pendingVoteIds, setPendingVoteIds] = useState(() => new Set());
+  const [answerVotes, setAnswerVotes] = useState({});
+  const [pendingAnswerVoteIds, setPendingAnswerVoteIds] = useState(() => new Set());
   const voteStateRef = useRef({});
   const pendingVoteIdsRef = useRef(new Set());
+  const pendingAnswerVoteIdsRef = useRef(new Set());
   const [activeCategory, setActiveCategory] = useState("all");
   const [activeSort, setActiveSort] = useState("recent");
   const [density, setDensity] = useState("comfortable");
@@ -1053,13 +1109,22 @@ function Forum({ theme, onThemeToggle }) {
     }));
   }, []);
 
+  const handleIncomingAnswerVote = useCallback(({ answerId, score }) => {
+    setTopics(prev => prev.map(t => ({
+      ...t,
+      answersList: t.answersList.map(a => (
+        String(a.id) === String(answerId) ? { ...a, score } : a
+      )),
+    })));
+  }, []);
+
   useForumStream(
     handleIncomingTopic,
     handleInitTopics,
     handleIncomingAnswer,
     handleIncomingVote,
     handleIncomingAccept,
-    null,
+    handleIncomingAnswerVote,
     handleIncomingTopicModeration,
     null,
     handleIncomingAnswerDeleted
@@ -1084,6 +1149,7 @@ function Forum({ theme, onThemeToggle }) {
     if (!topicsLoaded) return undefined;
     if (!user || !token) {
       voteStateRef.current = {};
+      setAnswerVotes({});
       setTopics((current) => current.map((topic) => ({ ...topic, saved: false, voted: 0 })));
       return undefined;
     }
@@ -1099,12 +1165,19 @@ function Forum({ theme, onThemeToggle }) {
         if (!response.ok) throw new Error('vote state failed');
         return response.json();
       }),
-    ]).then(([savedIds, myVotes]) => {
+      fetch(`${BACKEND}/api/forum/my-answer-votes`, { headers }).then((response) => {
+        if (!response.ok) throw new Error('answer vote state failed');
+        return response.json();
+      }),
+    ]).then(([savedIds, myVotes, myAnswerVotes]) => {
       if (!active) return;
       const savedSet = new Set(savedIds.map(Number));
       voteStateRef.current = Object.fromEntries(
         Object.entries(myVotes).map(([topicId, direction]) => [Number(topicId), Number(direction)])
       );
+      setAnswerVotes(Object.fromEntries(
+        Object.entries(myAnswerVotes).map(([answerId, direction]) => [Number(answerId), Number(direction)])
+      ));
       setTopics(prev => prev.map(t => ({
         ...t,
         saved:  savedSet.has(t.id),
@@ -1113,6 +1186,7 @@ function Forum({ theme, onThemeToggle }) {
     }).catch(() => {
       if (!active) return;
       voteStateRef.current = {};
+      setAnswerVotes({});
       setTopics((current) => current.map((topic) => ({ ...topic, saved: false, voted: 0 })));
     });
 
@@ -1153,12 +1227,14 @@ function Forum({ theme, onThemeToggle }) {
     });
   }, [activeCategory, activeSort, query, topics]);
 
-  const activeCategoryName = CATEGORIES.find((item) => item.id === activeCategory)?.name || "Hammasi";
+  const activeCategoryName = t(
+    CATEGORIES.find((item) => item.id === activeCategory)?.labelKey || 'forum.all'
+  );
 
   const handleVote = async (topicId, direction) => {
     if (!user) { setShowAuth(true); return; }
     if (usingDemoTopics) {
-      showToast("Demo rejimda ovozlar saqlanmaydi");
+      showToast(t('forum.demoVote'));
       return;
     }
     if (pendingVoteIdsRef.current.has(topicId)) return;
@@ -1198,16 +1274,92 @@ function Forum({ theme, onThemeToggle }) {
       setTopics((current) => current.map((topic) => (
         topic.id === topicId ? { ...topic, score: serverScore, voted: serverVoted } : topic
       )));
-      showToast(serverVoted === 0 ? "Ovoz olib tashlandi" : "Ovoz saqlandi");
+      showToast(serverVoted === 0 ? t('forum.voteRemoved') : t('forum.voteSaved'));
     } catch {
       voteStateRef.current = { ...voteStateRef.current, [topicId]: previous.voted };
       setTopics((current) => current.map((topic) => (
         topic.id === topicId ? { ...topic, ...previous } : topic
       )));
-      showToast("Ovoz saqlanmadi. Qayta urinib ko'ring");
+      showToast(t('forum.voteFailed'));
     } finally {
       pendingVoteIdsRef.current.delete(topicId);
       setPendingVoteIds(new Set(pendingVoteIdsRef.current));
+    }
+  };
+
+  const handleAnswerVote = async (answerId, direction) => {
+    if (!user) { setShowAuth(true); return; }
+    if (usingDemoTopics) {
+      showToast(t('forum.demoVote'));
+      return;
+    }
+    if (pendingAnswerVoteIdsRef.current.has(answerId)) return;
+
+    const topicWithAnswer = topics.find((topic) => (
+      topic.answersList.some((answerItem) => String(answerItem.id) === String(answerId))
+    ));
+    const currentAnswer = topicWithAnswer?.answersList.find((answerItem) => String(answerItem.id) === String(answerId));
+    if (!currentAnswer) return;
+
+    const previous = {
+      score: currentAnswer.score,
+      voted: answerVotes[answerId] ?? 0,
+    };
+    const toggling = previous.voted === direction;
+    const optimisticVoted = toggling ? 0 : direction;
+    const scoreDelta = toggling ? -direction : direction - previous.voted;
+
+    pendingAnswerVoteIdsRef.current.add(answerId);
+    setPendingAnswerVoteIds(new Set(pendingAnswerVoteIdsRef.current));
+    setAnswerVotes((current) => ({ ...current, [answerId]: optimisticVoted }));
+    setTopics((current) => current.map((topic) => ({
+      ...topic,
+      answersList: topic.answersList.map((answerItem) => (
+        String(answerItem.id) === String(answerId)
+          ? { ...answerItem, score: answerItem.score + scoreDelta }
+          : answerItem
+      )),
+    })));
+
+    try {
+      const response = await fetch(`${BACKEND}/api/forum/answers/${answerId}/vote`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ delta: direction }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'answer vote failed');
+
+      const serverScore = Number(result.score);
+      const serverVoted = Number(result.voted);
+      if (!Number.isFinite(serverScore) || ![-1, 0, 1].includes(serverVoted)) {
+        throw new Error('invalid answer vote response');
+      }
+
+      setAnswerVotes((current) => ({ ...current, [answerId]: serverVoted }));
+      setTopics((current) => current.map((topic) => ({
+        ...topic,
+        answersList: topic.answersList.map((answerItem) => (
+          String(answerItem.id) === String(answerId)
+            ? { ...answerItem, score: serverScore }
+            : answerItem
+        )),
+      })));
+      showToast(serverVoted === 0 ? t('forum.voteRemoved') : t('forum.voteSaved'));
+    } catch {
+      setAnswerVotes((current) => ({ ...current, [answerId]: previous.voted }));
+      setTopics((current) => current.map((topic) => ({
+        ...topic,
+        answersList: topic.answersList.map((answerItem) => (
+          String(answerItem.id) === String(answerId)
+            ? { ...answerItem, score: previous.score }
+            : answerItem
+        )),
+      })));
+      showToast(t('forum.voteFailed'));
+    } finally {
+      pendingAnswerVoteIdsRef.current.delete(answerId);
+      setPendingAnswerVoteIds(new Set(pendingAnswerVoteIdsRef.current));
     }
   };
 
@@ -1215,7 +1367,7 @@ function Forum({ theme, onThemeToggle }) {
     if (!user) { setShowAuth(true); return; }
     // Optimistic toggle
     setTopics(prev => prev.map(t => t.id === topicId ? { ...t, saved: !t.saved } : t));
-    showToast("Saqlanganlar yangilandi");
+    showToast(t('forum.savedUpdated'));
     // Persist — backend toggles and returns authoritative saved state
     fetch(`${BACKEND}/api/forum/topics/${topicId}/save`, {
       method: 'POST',
@@ -1232,6 +1384,7 @@ function Forum({ theme, onThemeToggle }) {
 
   const handleAddAnswer = (topicId, text) => {
     if (!user) { setShowAuth(true); return; }
+    const nowLabel = t('common.now');
 
     const answer = {
       id:       Date.now(),
@@ -1246,11 +1399,11 @@ function Forum({ theme, onThemeToggle }) {
     // Optimistic update
     setTopics(prev => prev.map(t =>
       t.id === topicId
-        ? { ...t, answers: t.answers + 1, activity: "Hozir",
+        ? { ...t, answers: t.answers + 1, activity: nowLabel,
             answersList: [...t.answersList, answer] }
         : t
     ));
-    showToast("Javob yuborildi");
+    showToast(t('forum.answerSent'));
 
     // Persist + broadcast
     fetch(`${BACKEND}/api/forum/topics/${topicId}/answers`, {
@@ -1276,7 +1429,7 @@ function Forum({ theme, onThemeToggle }) {
       score:        1,
       answers:      0,
       views:        '1',
-      activity:     "Hozir",
+      activity:     t('common.now'),
       participants: [user.initials],
       saved:        false,
       voted:        0,
@@ -1291,7 +1444,7 @@ function Forum({ theme, onThemeToggle }) {
       body: JSON.stringify(payload),
     });
     if (!r.ok) {
-      showToast("Mavzu yaratishda xato. Qayta urinib ko'ring.");
+      showToast(t('forum.topicCreateError'));
       throw new Error(`create failed: ${r.status}`);
     }
     const { id: realId } = await r.json();
@@ -1300,7 +1453,7 @@ function Forum({ theme, onThemeToggle }) {
     const newTopic = { ...payload, id: realId, author: user.name, initials: user.initials, role: user.role };
     setTopics(prev => prev.some(t => t.id === realId) ? prev : [newTopic, ...prev]);
     setShowComposer(false);
-    showToast("Mavzu yaratildi");
+    showToast(t('forum.topicCreated'));
     navigate(`/q/${realId}`);
   };
 
@@ -1317,7 +1470,7 @@ function Forum({ theme, onThemeToggle }) {
       <main className="layout" id="forum">
         <aside className="side-panel">
           <div className="panel-section">
-            <span className="panel-label">Bo'limlar</span>
+            <span className="panel-label">{t('forum.categories')}</span>
             <div className="category-list">
               {CATEGORIES.map((category) => (
                 <button
@@ -1327,7 +1480,7 @@ function Forum({ theme, onThemeToggle }) {
                   type="button"
                 >
                   <CategoryMark categoryId={category.id} />
-                  <span>{category.name}</span>
+                  <span>{t(category.labelKey)}</span>
                   <strong>{category.count}</strong>
                 </button>
               ))}
@@ -1353,7 +1506,7 @@ function Forum({ theme, onThemeToggle }) {
               </div>
               <div className="mastery-info">
                 <strong>Elementalist</strong>
-                <span>Mastery darajasi</span>
+                <span>{t('forum.masteryLevel')}</span>
               </div>
             </div>
             <div className="mastery-bar-wrap">
@@ -1362,32 +1515,32 @@ function Forum({ theme, onThemeToggle }) {
             <div className="mastery-stats">
               <div className="mastery-stat">
                 <strong>245</strong>
-                <span>Upvotes</span>
+                <span>{t('forum.upvotes')}</span>
               </div>
               <div className="mastery-stat">
                 <strong>38</strong>
-                <span>Javoblar</span>
+                <span>{t('forum.answers')}</span>
               </div>
               <div className="mastery-stat">
                 <strong>50</strong>
-                <span>Ulashdi</span>
+                <span>{t('forum.shared')}</span>
               </div>
             </div>
           </div>
 
           <div className="panel-card sprint-card">
             <div className="section-heading">
-              <h3>Kunlik sprint</h3>
+              <h3>{t('forum.dailySprint')}</h3>
               <span>2 / 3</span>
             </div>
-            <p>Bugun uchta kimyo muhokamada foydali izoh qoldiring.</p>
+            <p>{t('forum.sprintText')}</p>
             <div className="progress">
               <span style={{ width: "66%" }} />
             </div>
           </div>
 
           <div className="panel-section mobile-hidden">
-            <span className="panel-label">Ommabop teglar</span>
+            <span className="panel-label">{t('forum.trendingTags')}</span>
             <div className="trend-tags">
               {TRENDING_TAGS.map((tag) => (
                 <button key={tag} onClick={() => setQuery(tag)} type="button">
@@ -1402,7 +1555,7 @@ function Forum({ theme, onThemeToggle }) {
           <div className="feed-toolbar">
             <div>
               <span className="eyebrow">{activeCategoryName}</span>
-              <h2>Savollar oqimi</h2>
+              <h2>{t('forum.feed')}</h2>
             </div>
 
             <div className="toolbar-actions">
@@ -1417,7 +1570,7 @@ function Forum({ theme, onThemeToggle }) {
                     type="button"
                   >
                     <Icon name={sort.icon} size={15} />
-                    {sort.label}
+                    {t(sort.labelKey)}
                   </button>
                 ))}
               </div>
@@ -1427,7 +1580,7 @@ function Forum({ theme, onThemeToggle }) {
                 type="button"
               >
                 <Icon name="layout" size={16} />
-                {density === "comfortable" ? "Ixcham" : "Keng"}
+                {density === "comfortable" ? t('forum.compact') : t('forum.spacious')}
               </button>
             </div>
           </div>
@@ -1435,19 +1588,19 @@ function Forum({ theme, onThemeToggle }) {
           <div className="topic-list">
             {usingDemoTopics && (
               <div className="demo-data-banner">
-                <strong>Demo rejim</strong>
-                <span>Live API sekin javob bermoqda, shuning uchun namunaviy savollar ko‘rsatilmoqda.</span>
+                <strong>{t('forum.demoMode')}</strong>
+                <span>{t('forum.demoText')}</span>
               </div>
             )}
             {!topicsLoaded ? (
               <div className="empty-state">
-                <span>Yuklanmoqda…</span>
+                <span>{t('common.loading')}</span>
               </div>
             ) : filteredTopics.length === 0 ? (
               <div className="empty-state">
                 <Icon name="filter" size={24} />
-                <strong>Natija topilmadi</strong>
-                <span>Boshqa so'z yoki fan bilan qidirib ko'ring.</span>
+                <strong>{t('forum.noResults')}</strong>
+                <span>{t('forum.noResultsHint')}</span>
               </div>
             ) : (
               filteredTopics.map((topic) => (
@@ -1470,9 +1623,9 @@ function Forum({ theme, onThemeToggle }) {
       </main>
 
       <button
-        aria-label="Savol berish"
+        aria-label={t('header.askQuestion')}
         className="floating-compose"
-        title="Savol berish"
+        title={t('header.askQuestion')}
         type="button"
         onClick={() => user ? setShowComposer(true) : setShowAuth(true)}
       >
@@ -1489,13 +1642,13 @@ function Forum({ theme, onThemeToggle }) {
             type="button"
           >
             <Icon name={sort.icon} size={15} />
-            {sort.label}
+            {t(sort.labelKey)}
           </button>
         ))}
       </div>
 
       {showComposer && <ComposerModal onClose={() => setShowComposer(false)} onSubmit={handleCreateTopic} />}
-      {showAuth && <AuthModal onClose={() => setShowAuth(false)} onSuccess={() => showToast("Xush kelibsiz!")} />}
+      {showAuth && <AuthModal onClose={() => setShowAuth(false)} onSuccess={() => showToast(t('auth.welcome'))} />}
     </Layout>
   );
 }

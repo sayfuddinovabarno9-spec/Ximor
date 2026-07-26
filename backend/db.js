@@ -187,7 +187,16 @@ function hydrateAnswer(row) {
 
 // ── Topics ────────────────────────────────────────────────────────────────────
 async function getAllTopics() {
-  const rows = await q('SELECT * FROM topics ORDER BY pinned DESC, id DESC');
+  const rows = await q(`
+    SELECT t.*, COALESCE(a.answers, 0)::INTEGER AS answers
+    FROM topics t
+    LEFT JOIN (
+      SELECT topic_id, COUNT(*)::INTEGER AS answers
+      FROM answers
+      GROUP BY topic_id
+    ) a ON a.topic_id = t.id
+    ORDER BY t.pinned DESC, t.id DESC
+  `);
   return rows.map(hydrateTopic);
 }
 
@@ -199,6 +208,7 @@ async function getTopicWithAnswers(id) {
     [id]
   );
   topic.answersList = answers.map(hydrateAnswer);
+  topic.answers = topic.answersList.length;
   return topic;
 }
 
@@ -851,10 +861,21 @@ async function searchTopics(q_text) {
   if (!q_text || q_text.trim().length < 2) return [];
   const like = `%${q_text.trim().toLowerCase()}%`;
   const rows = await q(`
-    SELECT id, category, title, summary, tags, author, score, answers, views, activity, difficulty, solved, hot, pinned
-    FROM topics
-    WHERE LOWER(title) LIKE $1 OR LOWER(summary) LIKE $1 OR LOWER(tags) LIKE $1 OR LOWER(author) LIKE $1
-    ORDER BY score DESC
+    SELECT
+      t.id, t.category, t.title, t.summary, t.tags, t.author, t.score,
+      COALESCE(a.answers, 0)::INTEGER AS answers,
+      t.views, t.activity, t.difficulty, t.solved, t.hot, t.pinned
+    FROM topics t
+    LEFT JOIN (
+      SELECT topic_id, COUNT(*)::INTEGER AS answers
+      FROM answers
+      GROUP BY topic_id
+    ) a ON a.topic_id = t.id
+    WHERE LOWER(t.title) LIKE $1
+       OR LOWER(t.summary) LIKE $1
+       OR LOWER(t.tags) LIKE $1
+       OR LOWER(t.author) LIKE $1
+    ORDER BY t.score DESC
     LIMIT 20
   `, [like]);
   return rows.map(hydrateTopic);
@@ -915,7 +936,7 @@ async function seedDemo() {
       ["O'zbekiston Kimyo Olimpiadasi — Final", 'respublika', 'Toshkent',  '2026-06-28T09:00:00Z', '2026-06-25T23:59:59Z', "12 000 000 so'm", "10-11 sinflar uchun ochiq. 3 bosqich: test, yozma, amaliy. O'zRFA bilan hamkorlikda.", 200],
       ["Mendeleev Xalqaro Turniri — Saralash",  'xalqaro',   'Toshkent',  '2026-07-06T09:00:00Z', '2026-07-03T23:59:59Z', "$2 500",          "IChO oldidan eng muhim tayyorlov musobaqasi. 9-11 sinflar.",                            50 ],
       ["IChO 2026 Milliy Jamoa Tanlovi",         'xalqaro',   'Samarqand', '2026-07-12T09:00:00Z', '2026-07-09T23:59:59Z', "IChO sayohati",  "Xalqaro kimyo olimpiadasiga seleksiya. Faqat 11-sinf.",                                  30 ],
-      ["So'ra! Tezkor Turnir — Ekvivalent",      'tezkor',    'Online',    '2026-07-20T09:00:00Z', '2026-07-19T23:59:59Z', "200 000 so'm",   "1v1 tezkor reaksiya aniqlash. Top-32 format. Barcha sinflar.",                          64 ],
+      ["Ximor Tezkor Turnir — Ekvivalent",       'tezkor',    'Online',    '2026-07-20T09:00:00Z', '2026-07-19T23:59:59Z', "200 000 so'm",   "1v1 tezkor reaksiya aniqlash. Top-32 format. Barcha sinflar.",                          64 ],
       ["Onlayn Kimyo Sprint",                    'onlayn',    'Online',    '2026-06-22T14:00:00Z', '2026-06-21T23:59:59Z', "Sertifikat + ball","24 soatlik tezkor masalalar. Onlayn format, barcha sinf.",                              310],
     ];
     for (const t of tours) {

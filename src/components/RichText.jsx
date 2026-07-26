@@ -170,6 +170,20 @@ function isChemistryText(text) {
   return candidates.some((candidate) => parseChemicalFormula(candidate));
 }
 
+function getInternalQuestionHref(href) {
+  if (!href) return "";
+  if (/^\/q\/\d+(?:[#?].*)?$/.test(href)) return href;
+  if (typeof window === "undefined") return "";
+
+  try {
+    const url = new URL(href, window.location.origin);
+    if (url.origin !== window.location.origin || !/^\/q\/\d+$/.test(url.pathname)) return "";
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return "";
+  }
+}
+
 const markdownComponents = {
   p: ({ children }) => (
     <p className={isChemistryText(childrenText(children)) ? "chem-line" : ""}>
@@ -179,11 +193,18 @@ const markdownComponents = {
   li: ({ children }) => <li>{renderChildren(children, "li")}</li>,
   strong: ({ children }) => <strong>{renderChildren(children, "strong")}</strong>,
   em: ({ children }) => <em>{renderChildren(children, "em")}</em>,
-  a: ({ children, href }) => (
-    <a href={href} rel="noreferrer" target="_blank">
-      {renderChildren(children, "link")}
-    </a>
-  ),
+  a: ({ children, href }) => {
+    const internalHref = getInternalQuestionHref(href);
+    return (
+      <a
+        href={internalHref || href}
+        rel={internalHref ? undefined : "noreferrer"}
+        target={internalHref ? undefined : "_blank"}
+      >
+        {renderChildren(children, "link")}
+      </a>
+    );
+  },
   code: ({ children, className }) => <code className={className}>{children}</code>,
   img: ({ alt, src }) => <img alt={alt || ""} loading="lazy" src={src} />,
   td: ({ children }) => <td>{renderChildren(children, "td")}</td>,

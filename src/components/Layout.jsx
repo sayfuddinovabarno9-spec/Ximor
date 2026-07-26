@@ -2,7 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import AuthModal from './AuthModal';
+import BrandMark from './BrandMark';
+import LanguageSwitcher from './LanguageSwitcher';
 import { avatarBg } from '../utils/avatarColor';
+import { useLanguage } from '../context/LanguageContext';
 
 const BACKEND = import.meta.env.VITE_API_URL || 'http://localhost:3002';
 
@@ -41,34 +44,25 @@ function Avatar({ initials, name, online = false }) {
   );
 }
 
-function FlaskIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-         strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 3h6M9 3v7l-5 9a1 1 0 0 0 .9 1.5h12.2A1 1 0 0 0 21 19l-5-9V3" />
-      <path d="M7.5 15h9" opacity=".5" />
-    </svg>
-  );
-}
-
-function timeAgo(iso) {
+function timeAgo(iso, t) {
   const diff = (Date.now() - new Date(iso)) / 1000;
-  if (diff < 60)  return 'Hozir';
-  if (diff < 3600) return `${Math.floor(diff/60)} daq oldin`;
-  if (diff < 86400) return `${Math.floor(diff/3600)} soat oldin`;
-  return `${Math.floor(diff/86400)} kun oldin`;
+  if (diff < 60) return t('time.now');
+  if (diff < 3600) return t('time.minutesAgo', { count: Math.floor(diff / 60) });
+  if (diff < 86400) return t('time.hoursAgo', { count: Math.floor(diff / 3600) });
+  return t('time.daysAgo', { count: Math.floor(diff / 86400) });
 }
 
 const NAV_ITEMS = [
-  { to: '/chat',         label: 'Chat',         icon: 'home',      exact: true },
-  { to: '/olimpiadalar', label: 'Hamjamiyat',   icon: 'person' },
-  { to: '/reyting',      label: 'Reyting',      icon: 'trophy' },
-  { to: '/asboblar',     label: 'Asboblar',     icon: 'beaker' },
-  { to: '/yangiliklar',  label: 'Yangiliklar',  icon: 'newspaper' },
+  { to: '/chat',         labelKey: 'nav.chat',      icon: 'home', exact: true },
+  { to: '/olimpiadalar', labelKey: 'nav.community', icon: 'person' },
+  { to: '/reyting',      labelKey: 'nav.ranking',   icon: 'trophy' },
+  { to: '/asboblar',     labelKey: 'nav.tools',     icon: 'beaker' },
+  { to: '/yangiliklar',  labelKey: 'nav.news',      icon: 'newspaper' },
 ];
 
 export default function Layout({ children, theme, onThemeToggle, onCompose, query, onQuery }) {
   const { user, token, logout, authHeaders } = useAuth();
+  const { t } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
   const [showAuth, setShowAuth] = useState(false);
@@ -136,21 +130,21 @@ export default function Layout({ children, theme, onThemeToggle, onCompose, quer
     <div className="app" data-theme={theme}>
       <header className="topbar">
         <Link to="/" className="brand">
-          <div className="brand-icon"><FlaskIcon /></div>
+          <div className="brand-icon"><BrandMark /></div>
           <div className="brand-text">
-            <strong>So'ra!</strong>
-            <small>Beyond Curriculum · Kimyo</small>
+            <strong>Ximor</strong>
+            <small>Kimyo chat</small>
           </div>
         </Link>
 
-        <nav className="topnav" aria-label="Asosiy bo'limlar">
+        <nav className="topnav" aria-label={t('nav.main')}>
           {NAV_ITEMS.map(item => {
             const active = item.exact
               ? location.pathname === item.to
               : location.pathname.startsWith(item.to);
             return (
               <Link key={item.to} to={item.to} className={active ? 'is-active' : ''}>
-                {item.label}
+                {t(item.labelKey)}
                 {item.badge != null && (
                   <span className="nav-badge">{item.badge}</span>
                 )}
@@ -164,20 +158,21 @@ export default function Layout({ children, theme, onThemeToggle, onCompose, quer
           <input
             value={query ?? ''}
             onChange={e => onQuery?.(e.target.value)}
-            placeholder="Savol, teg yoki reaksiya qidiring"
+            placeholder={t('header.search')}
           />
           <span className="search-kbd">⌘K</span>
         </label>
 
         <div className="top-actions">
-          <button className="icon-button" title="Mavzuni almashtirish" type="button"
+          <LanguageSwitcher />
+          <button className="icon-button" title={t('header.theme')} type="button"
                   onClick={onThemeToggle}>
             <Icon name={theme === 'light' ? 'moon' : 'sun'} size={17} />
           </button>
 
           {/* ── Bell / Notifications ── */}
           <div className="bell-wrap" ref={bellRef}>
-            <button className="icon-button bell-btn" title="Bildirishnomalar"
+            <button className="icon-button bell-btn" title={t('header.notifications')}
                     type="button" onClick={user ? openBell : () => setShowAuth(true)}>
               <Icon name="bell" size={17} />
               {unread > 0 && <span className="bell-dot">{unread > 9 ? '9+' : unread}</span>}
@@ -187,13 +182,15 @@ export default function Layout({ children, theme, onThemeToggle, onCompose, quer
             {bellOpen && (
               <div className="notif-dropdown">
                 <div className="notif-header">
-                  <strong>Bildirishnomalar</strong>
-                  <span>{notifications.filter(n => !n.read).length > 0 ? `${notifications.filter(n=>!n.read).length} yangi` : 'hammasi o\'qilgan'}</span>
+                  <strong>{t('header.notifications')}</strong>
+                  <span>{notifications.filter(n => !n.read).length > 0
+                    ? t('header.newCount', { count: notifications.filter(n => !n.read).length })
+                    : t('header.allRead')}</span>
                 </div>
                 {notifications.length === 0 ? (
                   <div className="notif-empty">
                     <Icon name="bell" size={20} />
-                    <span>Hali bildirishnoma yo'q</span>
+                    <span>{t('header.noNotifications')}</span>
                   </div>
                 ) : (
                   <ul className="notif-list">
@@ -206,7 +203,7 @@ export default function Layout({ children, theme, onThemeToggle, onCompose, quer
                         </span>
                         <div className="notif-body">
                           <p>{n.message}</p>
-                          <time>{timeAgo(n.created_at)}</time>
+                          <time>{timeAgo(n.created_at, t)}</time>
                         </div>
                       </li>
                     ))}
@@ -217,7 +214,7 @@ export default function Layout({ children, theme, onThemeToggle, onCompose, quer
           </div>
 
           <button className="primary-button" type="button" onClick={handleCompose}>
-            <Icon name="plus" size={16} /> Savol berish
+            <Icon name="plus" size={16} /> {t('header.askQuestion')}
           </button>
 
           {user ? (
@@ -229,24 +226,24 @@ export default function Layout({ children, theme, onThemeToggle, onCompose, quer
               {menuOpen && (
                 <div className="user-dropdown">
                   <Link to={`/u/${user.username}`} onClick={() => setMenuOpen(false)}>
-                    <span>Profilim</span>
+                    <span>{t('nav.myProfile')}</span>
                     <span className="dropdown-kbd">@{user.username}</span>
                   </Link>
                   {(user.is_admin || user.is_moderator) && (
                     <Link to="/admin" onClick={() => setMenuOpen(false)} style={{ color: 'var(--amber)' }}>
-                      <span>{user.is_admin ? 'Admin Panel' : 'Moderator Panel'}</span>
+                      <span>{user.is_admin ? t('nav.adminPanel') : t('nav.moderatorPanel')}</span>
                       <span className="dropdown-kbd">{user.is_admin ? '★' : 'Mod'}</span>
                     </Link>
                   )}
                   <button type="button" onClick={() => { logout(); setMenuOpen(false); }}>
-                    Chiqish
+                    {t('nav.logout')}
                   </button>
                 </div>
               )}
             </div>
           ) : (
             <button className="avatar-btn" type="button" onClick={() => setShowAuth(true)}
-                    title="Kirish" style={{ background: 'var(--surface-soft)', border: '1.5px solid var(--line-strong)', borderRadius: '50%', width: 36, height: 36, cursor: 'pointer', fontWeight: 900, fontSize: 13, color: 'var(--muted)' }}>
+                    title={t('nav.login')} style={{ background: 'var(--surface-soft)', border: '1.5px solid var(--line-strong)', borderRadius: '50%', width: 36, height: 36, cursor: 'pointer', fontWeight: 900, fontSize: 13, color: 'var(--muted)' }}>
               N
             </button>
           )}
@@ -256,36 +253,36 @@ export default function Layout({ children, theme, onThemeToggle, onCompose, quer
       {children}
 
       {/* ── Mobile bottom nav ── */}
-      <nav className="mobile-nav" aria-label="Mobil navigatsiya">
+      <nav className="mobile-nav" aria-label={t('nav.mobile')}>
         <Link to="/chat" className={location.pathname === '/chat' ? 'is-active' : ''}>
           <Icon name="home" size={18} />
-          <span>Chat</span>
+          <span>{t('nav.chat')}</span>
         </Link>
         <Link to="/olimpiadalar" className={location.pathname.startsWith('/olimpiadalar') ? 'is-active' : ''}>
           <Icon name="person" size={18} />
-          <span>Hamjamiyat</span>
+          <span>{t('nav.community')}</span>
         </Link>
         <Link to="/reyting" className={location.pathname.startsWith('/reyting') ? 'is-active' : ''}>
           <Icon name="trophy" size={18} />
-          <span>Reyting</span>
+          <span>{t('nav.ranking')}</span>
         </Link>
         <Link to="/asboblar" className={location.pathname.startsWith('/asboblar') ? 'is-active' : ''}>
           <Icon name="beaker" size={18} />
-          <span>Asboblar</span>
+          <span>{t('nav.tools')}</span>
         </Link>
         <Link to="/yangiliklar" className={location.pathname.startsWith('/yangiliklar') ? 'is-active' : ''}>
           <Icon name="newspaper" size={18} />
-          <span>Yangilik</span>
+          <span>{t('nav.news')}</span>
         </Link>
         {user ? (
           <Link to={`/u/${user.username}`} className={location.pathname.startsWith('/u/') ? 'is-active' : ''}>
             <Icon name="person" size={18} />
-            <span>Profil</span>
+            <span>{t('nav.profile')}</span>
           </Link>
         ) : (
           <button type="button" onClick={() => setShowAuth(true)}>
             <Icon name="person" size={18} />
-            <span>Kirish</span>
+            <span>{t('nav.login')}</span>
           </button>
         )}
       </nav>

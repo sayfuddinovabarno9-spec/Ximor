@@ -4,11 +4,14 @@ import { BrowserRouter } from 'react-router-dom';
 import 'katex/dist/katex.min.css';
 import './index.css';
 import App from './App';
+import { LanguageProvider } from './context/LanguageContext';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
+    <LanguageProvider>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </LanguageProvider>
   </React.StrictMode>
 );

@@ -193,7 +193,7 @@ export default function OlimpiadalarPage({ theme, onThemeToggle }) {
             <span className="eyebrow">Maqsad</span>
             <h3>Foydali kimyo sahifalari</h3>
             <p>
-              Bu bo'limda So'ra! foydalanuvchilari uchun kerakli community saytlar,
+              Bu bo'limda Ximor foydalanuvchilari uchun kerakli community saytlar,
               materiallar va rasmiy kanallar bir joyga yig'iladi.
             </p>
           </div>

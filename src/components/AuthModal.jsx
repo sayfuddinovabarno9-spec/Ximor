@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
+import BrandMark from './BrandMark';
 
 export default function AuthModal({ onClose, onSuccess }) {
   const { login, register } = useAuth();
+  const { t } = useLanguage();
   const [mode, setMode]     = useState('login');
   const [busy, setBusy]     = useState(false);
   const [error, setError]   = useState('');
@@ -46,25 +49,21 @@ export default function AuthModal({ onClose, onSuccess }) {
         {/* Header */}
         <div className="auth-modal__head">
           <div className="brand-icon" style={{ width: 36, height: 36 }}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                 strokeLinecap="round" strokeLinejoin="round" style={{ width: 20, height: 20 }}>
-              <path d="M9 3h6M9 3v7l-5 9a1 1 0 0 0 .9 1.5h12.2A1 1 0 0 0 21 19l-5-9V3" />
-              <path d="M7.5 15h9" opacity=".5" />
-            </svg>
+            <BrandMark />
           </div>
           <div>
-            <strong>So'ra!</strong>
-            <span>{mode === 'login' ? 'Xush kelibsiz' : 'Hisob yaratish'}</span>
+            <strong>Ximor</strong>
+            <span>Kimyo chat</span>
           </div>
         </div>
 
         {/* Tabs */}
         <div className="auth-modal__tabs">
           <button type="button" className={mode === 'login' ? 'is-active' : ''} onClick={() => switchMode('login')}>
-            Kirish
+            {t('auth.login')}
           </button>
           <button type="button" className={mode === 'register' ? 'is-active' : ''} onClick={() => switchMode('register')}>
-            Ro'yxatdan o'tish
+            {t('auth.register')}
           </button>
         </div>
 
@@ -72,12 +71,12 @@ export default function AuthModal({ onClose, onSuccess }) {
         {mode === 'register' && (
           <>
             <label>
-              To'liq ism
+              {t('auth.fullName')}
               <input ref={firstRef} placeholder="Aziza Karimova" value={form.name}
                      onChange={e => set('name', e.target.value)} required autoComplete="name" />
             </label>
             <label>
-              Email <span style={{ opacity: 0.5, fontWeight: 400 }}>(ixtiyoriy)</span>
+              Email <span style={{ opacity: 0.5, fontWeight: 400 }}>({t('common.optional')})</span>
               <input type="email" placeholder="aziza@example.com" value={form.email}
                      onChange={e => set('email', e.target.value)} autoComplete="email" />
             </label>
@@ -85,7 +84,7 @@ export default function AuthModal({ onClose, onSuccess }) {
         )}
 
         <label>
-          Username
+          {t('auth.username')}
           <input ref={mode === 'login' ? firstRef : null}
                  placeholder="aziza_kimyo" value={form.username}
                  onChange={e => set('username', e.target.value)}
@@ -93,8 +92,8 @@ export default function AuthModal({ onClose, onSuccess }) {
         </label>
 
         <label>
-          Parol
-          <input type="password" placeholder={mode === 'register' ? 'kamida 6 ta belgi' : '••••••'}
+          {t('auth.password')}
+          <input type="password" placeholder={mode === 'register' ? t('auth.minPassword') : '••••••'}
                  value={form.password} onChange={e => set('password', e.target.value)}
                  required autoComplete={mode === 'login' ? 'current-password' : 'new-password'} />
         </label>
@@ -103,13 +102,13 @@ export default function AuthModal({ onClose, onSuccess }) {
 
         <button className="primary-button" type="submit" disabled={busy}
                 style={{ width: '100%', justifyContent: 'center', minHeight: 44 }}>
-          {busy ? 'Yuklanmoqda…' : mode === 'login' ? 'Kirish' : 'Hisob yaratish'}
+          {busy ? t('common.loading') : mode === 'login' ? t('auth.login') : t('auth.createAccount')}
         </button>
 
         <p className="auth-modal__hint">
           {mode === 'login'
-            ? <>Hisob yo'qmi? <button type="button" onClick={() => switchMode('register')}>Ro'yxatdan o'ting</button></>
-            : <>Hisob bormi? <button type="button" onClick={() => switchMode('login')}>Kiring</button></>}
+            ? <>{t('auth.noAccount')} <button type="button" onClick={() => switchMode('register')}>{t('auth.registerAction')}</button></>
+            : <>{t('auth.haveAccount')} <button type="button" onClick={() => switchMode('login')}>{t('auth.loginAction')}</button></>}
         </p>
       </form>
     </div>

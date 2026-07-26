@@ -104,6 +104,7 @@ a { text-decoration: none; }
   background: var(--primary);
   border: 1px solid color-mix(in srgb, var(--primary-strong) 45%, transparent);
   border-radius: 10px;
+  color: #07131f;
   display: flex;
   flex: 0 0 auto;
   height: 38px;
@@ -115,11 +116,19 @@ a { text-decoration: none; }
 .brand-icon svg {
   width: 22px;
   height: 22px;
-  stroke: #fff;
+  stroke: currentColor;
   fill: none;
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.brand-mark {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
 }
 
 .brand-text strong {
@@ -1805,6 +1814,61 @@ a { text-decoration: none; }
   font-size: 13px;
 }
 
+.answer-score--votable {
+  align-items: center;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  gap: 3px;
+  padding: 3px;
+}
+
+.answer-score--votable strong {
+  font-size: 13px;
+  min-width: 20px;
+  text-align: center;
+}
+
+.answer-vote-btn {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  height: 25px;
+  justify-content: center;
+  transition: background 140ms, color 140ms, opacity 140ms;
+  width: 27px;
+}
+
+.answer-vote-btn:hover,
+.answer-vote-btn.is-active {
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  color: var(--primary);
+}
+
+.answer-vote-btn.is-danger {
+  background: color-mix(in srgb, var(--rose) 12%, transparent);
+  color: var(--rose);
+}
+
+.answer-vote-btn:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
+.answer-accepted-icon {
+  align-items: center;
+  color: var(--green);
+  display: inline-flex;
+  height: 25px;
+  justify-content: center;
+  width: 25px;
+}
+
 /* ─── Answer box ──────────────────────────────────────────────────────── */
 .answer-box {
   background: var(--surface-raised);
@@ -1852,6 +1916,39 @@ a { text-decoration: none; }
 .composer-modal textarea { min-height: 100px; }
 
 .answer-box .primary-button { justify-self: end; }
+
+.answer-editor-tools {
+  display: grid;
+  gap: 8px;
+}
+
+.answer-box .chem-toolbar,
+.qp-answer-box .chem-toolbar {
+  background: transparent;
+  border-color: var(--line-soft);
+  padding: 7px;
+}
+
+.answer-box .chem-toolbar button,
+.qp-answer-box .chem-toolbar button {
+  background: var(--surface-soft);
+  border-color: var(--line-soft);
+}
+
+.answer-box .chem-toolbar button:hover,
+.qp-answer-box .chem-toolbar button:hover {
+  background: var(--surface);
+}
+
+.answer-live-preview {
+  margin-top: 0;
+}
+
+.answer-live-preview .rich-text {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.65;
+}
 
 #forum ~ .floating-compose {
   background: var(--primary);
@@ -2783,6 +2880,12 @@ a { text-decoration: none; }
   background: color-mix(in srgb, var(--rose) 3%, var(--surface));
 }
 
+.qp-answer.is-linked {
+  border-color: color-mix(in srgb, var(--primary) 58%, var(--line));
+  box-shadow: 0 0 0 3px var(--focus), var(--shadow-md);
+  animation: qpLinkedAnswerPulse 900ms ease-in-out 2;
+}
+
 [data-theme="dark"] .qp-answer:hover {
   border-color: color-mix(in srgb, var(--primary) 35%, var(--line));
 }
@@ -2823,12 +2926,20 @@ a { text-decoration: none; }
 .qp-answer-meta {
   align-items: center;
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 10px;
 }
 
 .qp-answer-meta strong { font-size: 14px; font-weight: 700; }
 .qp-answer-meta span   { color: var(--muted); font-size: 12px; }
+
+.qp-answer-permalink {
+  flex: 0 0 auto;
+  height: 30px;
+  margin-left: auto;
+  width: 30px;
+}
 
 .qp-answer-body { min-width: 0; }
 
@@ -2873,6 +2984,15 @@ a { text-decoration: none; }
   background: color-mix(in srgb, var(--rose) 10%, transparent);
   border-color: color-mix(in srgb, var(--rose) 35%, var(--line));
   color: var(--rose);
+}
+
+@keyframes qpLinkedAnswerPulse {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
 }
 
 /* Answer box */
@@ -5353,6 +5473,11 @@ a { text-decoration: none; }
   width: 30px;
 }
 
+.landing-brand-mark .brand-mark {
+  height: 18px;
+  width: 18px;
+}
+
 .landing-icon {
   height: 18px;
   stroke: currentColor;
@@ -6358,5 +6483,70 @@ a { text-decoration: none; }
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+.language-switcher {
+  align-items: center;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  padding: 3px;
+}
+
+.language-switcher button {
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 800;
+  height: 26px;
+  letter-spacing: 0;
+  min-width: 29px;
+  padding: 0 6px;
+}
+
+.language-switcher button:hover {
+  color: var(--ink);
+}
+
+.language-switcher button.is-active {
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgba(20, 34, 31, 0.12);
+  color: var(--primary-strong);
+}
+
+.landing-language-switcher {
+  background: rgba(8, 20, 24, 0.62);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.landing-language-switcher button {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.landing-language-switcher button:hover,
+.landing-language-switcher button.is-active {
+  color: #fff;
+}
+
+.landing-language-switcher button.is-active {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+@media (max-width: 760px) {
+  .top-actions .language-switcher {
+    order: -1;
+  }
+
+  .language-switcher button {
+    height: 28px;
+    min-width: 27px;
+    padding: 0 4px;
   }
 }
