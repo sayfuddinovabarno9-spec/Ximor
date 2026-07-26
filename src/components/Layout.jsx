@@ -126,6 +126,11 @@ export default function Layout({ children, theme, onThemeToggle, onCompose, quer
     if (!user) { setShowAuth(true); return; }
     onCompose?.();
   };
+  const staffRole = user?.is_admin
+    ? { type: 'admin', label: t('nav.adminRole') }
+    : user?.is_moderator
+      ? { type: 'moderator', label: t('nav.moderatorRole') }
+      : null;
 
   return (
     <div className="app" data-theme={theme}>
@@ -223,6 +228,16 @@ export default function Layout({ children, theme, onThemeToggle, onCompose, quer
           </button>
 
           {user ? (
+            <>
+            {staffRole && (
+              <Link
+                className={`staff-status-pill staff-status-pill--${staffRole.type}`}
+                title={staffRole.type === 'admin' ? t('nav.adminPanel') : t('nav.moderatorPanel')}
+                to="/admin"
+              >
+                {staffRole.label}
+              </Link>
+            )}
             <div className="user-menu-wrap" ref={menuRef}>
               <button className="icon-button" type="button" title={user.name}
                       style={{ gap: 0 }} onClick={() => setMenuOpen(o => !o)}>
@@ -230,6 +245,20 @@ export default function Layout({ children, theme, onThemeToggle, onCompose, quer
               </button>
               {menuOpen && (
                 <div className="user-dropdown">
+                  <div className="user-dropdown-summary">
+                    <div>
+                      <strong>{user.name}</strong>
+                      <span>@{user.username}</span>
+                    </div>
+                    <div className="user-dropdown-roles">
+                      <span className="user-role-chip">{user.role}</span>
+                      {staffRole && (
+                        <span className={`staff-badge staff-badge--${staffRole.type}`}>
+                          {staffRole.label}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                   <Link to={`/u/${user.username}`} onClick={() => setMenuOpen(false)}>
                     <span>{t('nav.myProfile')}</span>
                     <span className="dropdown-kbd">@{user.username}</span>
@@ -246,6 +275,7 @@ export default function Layout({ children, theme, onThemeToggle, onCompose, quer
                 </div>
               )}
             </div>
+            </>
           ) : (
             <button className="avatar-btn" type="button" onClick={() => setShowAuth(true)}
                     title={t('nav.login')} style={{ background: 'var(--surface-soft)', border: '1.5px solid var(--line-strong)', borderRadius: '50%', width: 36, height: 36, cursor: 'pointer', fontWeight: 900, fontSize: 13, color: 'var(--muted)' }}>

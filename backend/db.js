@@ -427,7 +427,7 @@ async function addUserScore(id, delta, reason = 'answer_accepted') {
 async function getUserProfile(username) {
   const profile = await q1(`
     SELECT
-      u.id, u.username, u.name, u.initials, u.role, u.score, u.created_at,
+      u.id, u.username, u.name, u.initials, u.role, u.score, u.is_admin, u.is_moderator, u.created_at,
       u.bio, u.avatar_url, u.cover_url, u.headline, u.location, u.website, u.study_goal, u.interests,
       (SELECT COUNT(*) FROM topics  WHERE user_id = u.id OR author = u.name)::INTEGER AS topics_count,
       (SELECT COUNT(*) FROM answers WHERE user_id = u.id OR author = u.name)::INTEGER AS answers_count,

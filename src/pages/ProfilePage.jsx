@@ -307,6 +307,13 @@ export default function ProfilePage({ theme, onThemeToggle }) {
 
   const tier = scoreTier(profile.score, t);
   const isOwnProfile = user?.id === profile.id || user?.username?.toLowerCase() === profile.username?.toLowerCase();
+  const profileIsAdmin = Boolean(profile.is_admin || (isOwnProfile && user?.is_admin));
+  const profileIsModerator = Boolean(profile.is_moderator || (isOwnProfile && user?.is_moderator));
+  const staffRole = profileIsAdmin
+    ? { type: 'admin', label: t('nav.adminRole') }
+    : profileIsModerator
+      ? { type: 'moderator', label: t('nav.moderatorRole') }
+      : null;
   const solvedRate = profile.answers_count > 0
     ? Math.round((profile.accepted_count / profile.answers_count) * 100)
     : 0;
@@ -329,6 +336,11 @@ export default function ProfilePage({ theme, onThemeToggle }) {
               <div className="profile-username">@{profile.username}</div>
               <div className="profile-role-row">
                 <span className="profile-role">{profile.role}</span>
+                {staffRole && (
+                  <span className={`staff-badge staff-badge--${staffRole.type}`}>
+                    {staffRole.label}
+                  </span>
+                )}
                 <span className="profile-joined">· {t('profile.since', { date: joinDate(profile.created_at, language) })}</span>
               </div>
               {profile.headline && <p className="profile-headline">{profile.headline}</p>}
