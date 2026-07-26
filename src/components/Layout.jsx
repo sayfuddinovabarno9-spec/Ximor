@@ -61,7 +61,7 @@ function timeAgo(iso) {
 
 const NAV_ITEMS = [
   { to: '/chat',         label: 'Chat',         icon: 'home',      exact: true },
-  { to: '/olimpiadalar', label: 'Olimpiadalar', icon: 'trophy',   badge: 4 },
+  { to: '/olimpiadalar', label: 'Hamjamiyat',   icon: 'person' },
   { to: '/reyting',      label: 'Reyting',      icon: 'trophy' },
   { to: '/asboblar',     label: 'Asboblar',     icon: 'beaker' },
   { to: '/yangiliklar',  label: 'Yangiliklar',  icon: 'newspaper' },
@@ -262,8 +262,8 @@ export default function Layout({ children, theme, onThemeToggle, onCompose, quer
           <span>Chat</span>
         </Link>
         <Link to="/olimpiadalar" className={location.pathname.startsWith('/olimpiadalar') ? 'is-active' : ''}>
-          <Icon name="trophy" size={18} />
-          <span>Olimpiadalar</span>
+          <Icon name="person" size={18} />
+          <span>Hamjamiyat</span>
         </Link>
         <Link to="/reyting" className={location.pathname.startsWith('/reyting') ? 'is-active' : ''}>
           <Icon name="trophy" size={18} />
