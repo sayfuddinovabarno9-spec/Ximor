@@ -76,6 +76,7 @@ export default function QuestionPage() {
   const [error, setError]       = useState('');
   const [answer, setAnswer]     = useState('');
   const [busy, setBusy]         = useState(false);
+  const [votePending, setVotePending] = useState(false);
   const [voted, setVoted]       = useState(0);          // current user's vote on the topic
   const [answerVotes, setAnswerVotes] = useState({});   // { [answerId]: 1 | -1 | 0 }
   const [showAuth, setShowAuth] = useState(false);
@@ -211,8 +212,10 @@ export default function QuestionPage() {
   );
 
   /* Vote on the topic */
-  const handleVote = (direction) => {
+  const handleVote = async (direction) => {
     if (!user) { setShowAuth(true); return; }
+    if (votePending) return;
+
     // Snapshot for revert
     const prevVoted = voted;
     const prevScore = topic?.score ?? 0;
@@ -223,20 +226,33 @@ export default function QuestionPage() {
       ...prev,
       score: prev.score + (toggling ? -direction : direction - voted),
     } : prev);
-    // Persist — server uses topic_votes table to deduplicate
-    fetch(`${API}/api/forum/topics/${id}/vote`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: JSON.stringify({ direction }),
-    }).then(r => r.ok ? r.json() : Promise.reject())
-      .then(({ score, voted: serverVoted }) => {
-        setVoted(serverVoted);
-        setTopic(prev => prev ? { ...prev, score } : prev);
-      })
-      .catch(() => {
-        setVoted(prevVoted);
-        setTopic(prev => prev ? { ...prev, score: prevScore } : prev);
+    setVotePending(true);
+
+    try {
+      const response = await fetch(`${API}/api/forum/topics/${id}/vote`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ direction }),
       });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'vote failed');
+
+      const serverScore = Number(result.score);
+      const serverVoted = Number(result.voted);
+      if (!Number.isFinite(serverScore) || ![-1, 0, 1].includes(serverVoted)) {
+        throw new Error('invalid vote response');
+      }
+
+      setVoted(serverVoted);
+      setTopic(prev => prev ? { ...prev, score: serverScore } : prev);
+      showToast(serverVoted === 0 ? 'Ovoz olib tashlandi' : 'Ovoz saqlandi');
+    } catch {
+      setVoted(prevVoted);
+      setTopic(prev => prev ? { ...prev, score: prevScore } : prev);
+      showToast("Ovoz saqlanmadi. Qayta urinib ko'ring");
+    } finally {
+      setVotePending(false);
+    }
   };
 
   /* Vote on an answer */
@@ -477,7 +493,9 @@ export default function QuestionPage() {
           <article className="qp-question">
             <div className="qp-vote-col">
               <button
+                aria-busy={votePending}
                 className={`qp-vote-btn ${voted===1?'is-active':''}`}
+                disabled={votePending}
                 onClick={() => handleVote(1)}
                 title="Yuqoriga ovoz"
               >
@@ -485,7 +503,9 @@ export default function QuestionPage() {
               </button>
               <strong className="qp-score">{topic.score}</strong>
               <button
+                aria-busy={votePending}
                 className={`qp-vote-btn ${voted===-1?'is-danger':''}`}
+                disabled={votePending}
                 onClick={() => handleVote(-1)}
                 title="Pastga ovoz"
               >
