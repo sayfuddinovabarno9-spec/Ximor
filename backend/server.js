@@ -10,6 +10,7 @@ const leaderboardRoutes   = require('./routes/leaderboard');
 const notificationsRoutes = require('./routes/notifications');
 const newsRoutes           = require('./routes/news');
 const adminRoutes          = require('./routes/admin');
+const messagesRoutes       = require('./routes/messages');
 
 const app  = express();
 const PORT = process.env.BACKEND_PORT || 3002;
@@ -53,6 +54,7 @@ app.use('/api/leaderboard',   leaderboardRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/news',          newsRoutes);
 app.use('/api/admin',         adminRoutes);
+app.use('/api/messages',      messagesRoutes);
 
 let dbReady = false;
 

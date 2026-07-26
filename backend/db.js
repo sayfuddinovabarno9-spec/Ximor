@@ -150,6 +150,29 @@ async function initSchema() {
 
     CREATE INDEX IF NOT EXISTS idx_topic_votes_user  ON topic_votes(user_id);
     CREATE INDEX IF NOT EXISTS idx_answer_votes_user ON answer_votes(user_id);
+
+    CREATE TABLE IF NOT EXISTS conversations (
+      id           SERIAL PRIMARY KEY,
+      user_low_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      user_high_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at   TIMESTAMPTZ DEFAULT NOW(),
+      updated_at   TIMESTAMPTZ DEFAULT NOW(),
+      CHECK (user_low_id < user_high_id),
+      UNIQUE(user_low_id, user_high_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id              SERIAL PRIMARY KEY,
+      conversation_id INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+      sender_id       INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      body            TEXT NOT NULL,
+      read_at         TIMESTAMPTZ,
+      created_at      TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_conversations_low  ON conversations(user_low_id, updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_conversations_high ON conversations(user_high_id, updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_chat_messages_conversation ON chat_messages(conversation_id, id DESC);
   `);
 }
 
@@ -512,6 +535,231 @@ async function getUserAnswers(username) {
     LIMIT 50
   `, [user.id]);
   return rows;
+}
+
+// ── Direct messages ──────────────────────────────────────────────────────────
+function hydrateConversation(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    updated_at: row.updated_at,
+    otherUser: {
+      id: row.other_user_id,
+      username: row.other_username,
+      name: row.other_name,
+      initials: row.other_initials,
+      role: row.other_role,
+      score: row.other_score,
+    },
+    lastMessage: row.last_message_id ? {
+      id: row.last_message_id,
+      body: row.last_message_body,
+      sender_id: row.last_message_sender_id,
+      created_at: row.last_message_at,
+      is_mine: row.last_message_sender_id === row.viewer_id,
+    } : null,
+    unread_count: Number(row.unread_count || 0),
+  };
+}
+
+function hydrateChatMessage(row, viewerId) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    conversation_id: row.conversation_id,
+    sender_id: row.sender_id,
+    body: row.body,
+    read_at: row.read_at,
+    created_at: row.created_at,
+    is_mine: row.sender_id === viewerId,
+    sender: {
+      id: row.sender_id,
+      username: row.sender_username,
+      name: row.sender_name,
+      initials: row.sender_initials,
+      role: row.sender_role,
+    },
+  };
+}
+
+async function getChatUsers(currentUserId, search = '') {
+  const term = String(search || '').trim().toLowerCase();
+  const like = `%${term}%`;
+  const rows = await q(`
+    SELECT id, username, name, initials, role, score
+    FROM users
+    WHERE id <> $1
+      AND banned_at IS NULL
+      AND (
+        $2 = ''
+        OR LOWER(username) LIKE $3
+        OR LOWER(name) LIKE $3
+        OR LOWER(role) LIKE $3
+      )
+    ORDER BY score DESC, name ASC
+    LIMIT 40
+  `, [currentUserId, term, like]);
+  return rows;
+}
+
+async function getConversationForUser(conversationId, userId) {
+  const row = await q1(`
+    SELECT
+      c.id, c.updated_at,
+      $2::INTEGER AS viewer_id,
+      u.id AS other_user_id,
+      u.username AS other_username,
+      u.name AS other_name,
+      u.initials AS other_initials,
+      u.role AS other_role,
+      u.score AS other_score,
+      m.id AS last_message_id,
+      m.body AS last_message_body,
+      m.sender_id AS last_message_sender_id,
+      m.created_at AS last_message_at,
+      COALESCE(unread.unread_count, 0)::INTEGER AS unread_count
+    FROM conversations c
+    JOIN users u ON u.id = CASE WHEN c.user_low_id = $2 THEN c.user_high_id ELSE c.user_low_id END
+    LEFT JOIN LATERAL (
+      SELECT id, body, sender_id, created_at
+      FROM chat_messages
+      WHERE conversation_id = c.id
+      ORDER BY id DESC
+      LIMIT 1
+    ) m ON TRUE
+    LEFT JOIN LATERAL (
+      SELECT COUNT(*)::INTEGER AS unread_count
+      FROM chat_messages
+      WHERE conversation_id = c.id
+        AND sender_id <> $2
+        AND read_at IS NULL
+    ) unread ON TRUE
+    WHERE c.id = $1
+      AND (c.user_low_id = $2 OR c.user_high_id = $2)
+  `, [conversationId, userId]);
+  return hydrateConversation(row);
+}
+
+async function getOrCreateConversation(userId, otherUserId) {
+  const targetId = Number(otherUserId);
+  if (!Number.isInteger(targetId) || targetId <= 0 || targetId === userId) return null;
+  const other = await q1('SELECT id FROM users WHERE id = $1 AND banned_at IS NULL', [targetId]);
+  if (!other) return null;
+
+  const low = Math.min(userId, targetId);
+  const high = Math.max(userId, targetId);
+  const row = await q1(`
+    INSERT INTO conversations (user_low_id, user_high_id)
+    VALUES ($1, $2)
+    ON CONFLICT (user_low_id, user_high_id)
+    DO UPDATE SET updated_at = conversations.updated_at
+    RETURNING id
+  `, [low, high]);
+  return getConversationForUser(row.id, userId);
+}
+
+async function getConversationsForUser(userId) {
+  const rows = await q(`
+    SELECT
+      c.id, c.updated_at,
+      $1::INTEGER AS viewer_id,
+      u.id AS other_user_id,
+      u.username AS other_username,
+      u.name AS other_name,
+      u.initials AS other_initials,
+      u.role AS other_role,
+      u.score AS other_score,
+      m.id AS last_message_id,
+      m.body AS last_message_body,
+      m.sender_id AS last_message_sender_id,
+      m.created_at AS last_message_at,
+      COALESCE(unread.unread_count, 0)::INTEGER AS unread_count
+    FROM conversations c
+    JOIN users u ON u.id = CASE WHEN c.user_low_id = $1 THEN c.user_high_id ELSE c.user_low_id END
+    LEFT JOIN LATERAL (
+      SELECT id, body, sender_id, created_at
+      FROM chat_messages
+      WHERE conversation_id = c.id
+      ORDER BY id DESC
+      LIMIT 1
+    ) m ON TRUE
+    LEFT JOIN LATERAL (
+      SELECT COUNT(*)::INTEGER AS unread_count
+      FROM chat_messages
+      WHERE conversation_id = c.id
+        AND sender_id <> $1
+        AND read_at IS NULL
+    ) unread ON TRUE
+    WHERE c.user_low_id = $1 OR c.user_high_id = $1
+    ORDER BY COALESCE(m.created_at, c.updated_at) DESC, c.id DESC
+  `, [userId]);
+  return rows.map(hydrateConversation);
+}
+
+async function getConversationMessages(conversationId, userId, options = {}) {
+  const conversation = await q1(
+    'SELECT id FROM conversations WHERE id = $1 AND (user_low_id = $2 OR user_high_id = $2)',
+    [conversationId, userId]
+  );
+  if (!conversation) return null;
+
+  const beforeId = Number(options.before);
+  const limit = Math.min(Math.max(Number(options.limit) || 80, 1), 120);
+  const rows = await q(`
+    SELECT
+      m.id, m.conversation_id, m.sender_id, m.body, m.read_at, m.created_at,
+      u.username AS sender_username,
+      u.name AS sender_name,
+      u.initials AS sender_initials,
+      u.role AS sender_role
+    FROM chat_messages m
+    LEFT JOIN users u ON u.id = m.sender_id
+    WHERE m.conversation_id = $1
+      AND ($2::INTEGER IS NULL OR m.id < $2)
+    ORDER BY m.id DESC
+    LIMIT $3
+  `, [conversationId, Number.isInteger(beforeId) && beforeId > 0 ? beforeId : null, limit]);
+  return rows.reverse().map((row) => hydrateChatMessage(row, userId));
+}
+
+async function sendConversationMessage(conversationId, userId, body) {
+  const conversation = await q1(
+    'SELECT id FROM conversations WHERE id = $1 AND (user_low_id = $2 OR user_high_id = $2)',
+    [conversationId, userId]
+  );
+  if (!conversation) return null;
+
+  const row = await q1(`
+    INSERT INTO chat_messages (conversation_id, sender_id, body)
+    VALUES ($1, $2, $3)
+    RETURNING *
+  `, [conversationId, userId, body]);
+  await pool.query('UPDATE conversations SET updated_at = NOW() WHERE id = $1', [conversationId]);
+
+  const sender = await q1('SELECT username, name, initials, role FROM users WHERE id = $1', [userId]);
+  return hydrateChatMessage({
+    ...row,
+    sender_username: sender?.username,
+    sender_name: sender?.name,
+    sender_initials: sender?.initials,
+    sender_role: sender?.role,
+  }, userId);
+}
+
+async function markConversationRead(conversationId, userId) {
+  const result = await pool.query(`
+    UPDATE chat_messages
+    SET read_at = NOW()
+    WHERE conversation_id = $1
+      AND sender_id <> $2
+      AND read_at IS NULL
+      AND EXISTS (
+        SELECT 1 FROM conversations c
+        WHERE c.id = $1
+          AND (c.user_low_id = $2 OR c.user_high_id = $2)
+      )
+  `, [conversationId, userId]);
+  return result.rowCount;
 }
 
 // ── Notifications ─────────────────────────────────────────────────────────────
@@ -960,6 +1208,8 @@ module.exports = {
   getAllTournaments, getTournamentById, registerForTournament,
   getLeaderboard,
   createNotification, getNotifications, markNotificationsRead,
+  getChatUsers, getConversationForUser, getOrCreateConversation, getConversationsForUser,
+  getConversationMessages, sendConversationMessage, markConversationRead,
   searchTopics,
   // Admin
   getAdminStats, getAllUsersAdmin, updateUserAdmin, hasAnyAdmin, promoteUserToAdmin, bootstrapConfiguredStaff,
