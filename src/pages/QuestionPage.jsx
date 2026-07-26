@@ -723,45 +723,45 @@ export default function QuestionPage() {
                       {canModerate && (
                         <div className="qp-mod-controls">
                           <button
-                            aria-label="Foydali deb belgilash"
+                            aria-label={t('question.helpful')}
                             className={`qp-mod-chip ${ans.moderation_helpfulness === 'helpful' ? 'is-active' : ''}`}
-                            data-tooltip="Foydali"
+                            data-tooltip={t('question.helpful')}
                             onClick={() => handleAnswerModeration(ans.id, 'helpfulness', 'helpful')}
                             type="button"
                           >
                             <Icon name="thumbsUp" size={14} />
                           </button>
                           <button
-                            aria-label="Foydasiz deb belgilash"
+                            aria-label={t('question.unhelpful')}
                             className={`qp-mod-chip ${ans.moderation_helpfulness === 'unhelpful' ? 'is-danger' : ''}`}
-                            data-tooltip="Foydasiz"
+                            data-tooltip={t('question.unhelpful')}
                             onClick={() => handleAnswerModeration(ans.id, 'helpfulness', 'unhelpful')}
                             type="button"
                           >
                             <Icon name="thumbsDown" size={14} />
                           </button>
                           <button
-                            aria-label="To'g'ri javob deb belgilash"
+                            aria-label={t('question.correct')}
                             className={`qp-mod-chip ${ans.accepted || ans.moderation_correctness === 'correct' ? 'is-active' : ''}`}
-                            data-tooltip="To'g'ri"
+                            data-tooltip={t('question.correct')}
                             onClick={() => handleAnswerModeration(ans.id, 'correctness', 'correct')}
                             type="button"
                           >
                             <Icon name="check" size={14} />
                           </button>
                           <button
-                            aria-label="Noto'g'ri javob deb belgilash"
+                            aria-label={t('question.incorrect')}
                             className={`qp-mod-chip ${ans.moderation_correctness === 'incorrect' ? 'is-danger' : ''}`}
-                            data-tooltip="Noto'g'ri"
+                            data-tooltip={t('question.incorrect')}
                             onClick={() => handleAnswerModeration(ans.id, 'correctness', 'incorrect')}
                             type="button"
                           >
                             <Icon name="x" size={14} />
                           </button>
                           <button
-                            aria-label="Javobni o'chirish"
+                            aria-label={t('question.delete')}
                             className="qp-mod-chip is-danger"
-                            data-tooltip="O'chirish"
+                            data-tooltip={t('question.delete')}
                             onClick={() => handleDeleteAnswer(ans.id)}
                             type="button"
                           >
@@ -777,7 +777,7 @@ export default function QuestionPage() {
 
           {/* ── Answer box ── */}
           <div className="qp-answer-box">
-            <h3>Javob yozish</h3>
+            <h3>{t('forum.writeAnswer')}</h3>
             {user ? (
               <form onSubmit={submitAnswer}>
                 <div className="qp-answerer">
@@ -789,12 +789,12 @@ export default function QuestionPage() {
                   ref={answerRef}
                   value={answer}
                   onChange={e => setAnswer(e.target.value)}
-                  placeholder={"Qisqa ishora, formula yoki to'liq yechim yozing...\nMasalan: $K_{eq}$ yoki H2SO4 + CuO -> CuSO4 + H2O"}
+                  placeholder={t('forum.answerPlaceholder')}
                   rows={5}
                 />
                 {answer.trim() && (
                   <div className="latex-live-preview answer-live-preview">
-                    <div className="latex-live-preview-label">Ko'rinishi</div>
+                    <div className="latex-live-preview-label">{t('composer.previewLabel')}</div>
                     <RichText className="qp-answer-text" text={answer} />
                   </div>
                 )}
@@ -804,14 +804,14 @@ export default function QuestionPage() {
                   type="submit"
                 >
                   <Icon name="send" size={16} />
-                  {busy ? 'Yuborilmoqda…' : 'Javob yuborish'}
+                  {busy ? t('forum.sending') : t('forum.sendAnswer')}
                 </button>
               </form>
             ) : (
               <div className="qp-auth-prompt">
-                <p>Javob berish uchun tizimga kiring</p>
+                <p>{t('question.signInToAnswer')}</p>
                 <button className="primary-button" onClick={() => setShowAuth(true)}>
-                  Kirish / Ro'yxatdan o'tish
+                  {t('question.loginOrRegister')}
                 </button>
               </div>
             )}
@@ -822,20 +822,20 @@ export default function QuestionPage() {
         <aside className="qp-sidebar">
           <div className="panel-card">
             <div className="section-heading">
-              <h3>Savol haqida</h3>
+              <h3>{t('question.about')}</h3>
             </div>
             <div className="qp-sidebar-stats">
-              <div><span>So'radi</span><strong>{topic.author}</strong></div>
-              <div><span>Faollik</span><strong>{topic.activity}</strong></div>
-              <div><span>Ko'rishlar</span><strong>{topic.views}</strong></div>
-              <div><span>Javoblar</span><strong>{answerCount}</strong></div>
-              <div><span>Holat</span><strong>{topic.solved ? '✓ Yechilgan' : 'Ochiq'}</strong></div>
+              <div><span>{t('question.asked')}</span><strong>{topic.author}</strong></div>
+              <div><span>{t('question.activity')}</span><strong>{topic.activity}</strong></div>
+              <div><span>{t('forum.views')}</span><strong>{topic.views}</strong></div>
+              <div><span>{t('forum.answers')}</span><strong>{answerCount}</strong></div>
+              <div><span>{t('question.status')}</span><strong>{topic.solved ? `✓ ${t('common.solved')}` : t('common.open')}</strong></div>
             </div>
           </div>
 
           {topic.tags?.length > 0 && (
             <div className="panel-card">
-              <div className="section-heading"><h3>Teglar</h3></div>
+              <div className="section-heading"><h3>{t('question.tags')}</h3></div>
               <div className="tag-row">
                 {topic.tags.map(tag => (
                   <span className="tag-chip" key={tag}>#{tag}</span>

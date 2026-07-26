@@ -3,12 +3,20 @@ import { avatarBg } from '../utils/avatarColor';
 
 const BACKEND = import.meta.env.VITE_API_URL || 'http://localhost:3002';
 
-const FALLBACK_EXPERTS = [
-  { name: "Aziza Karimova",      role: "Organik kimyo",   score: 18400, initials: "AK", username: "aziza_kimyo" },
-  { name: "Sardor Yusupov",      role: "Anorganik kimyo", score: 12100, initials: "SY", username: "sardor_yu"   },
-  { name: "Nilufar Rashidova",   role: "Analitik kimyo",  score: 9300,  initials: "NR", username: "nilufar_r"   },
-  { name: "Farrux Toshpo'latov", role: "Fizikaviy kimyo", score: 7800,  initials: "FT", username: "farrux_t"    },
-  { name: "Nodira Saidova",      role: "Olimpiadalar",    score: 6400,  initials: "NS", username: "nodira_s"    },
+const FALLBACK_USERS = [
+  { name: "Aziza Karimova",      score: 18400, initials: "AK", username: "aziza_kimyo" },
+  { name: "Sardor Yusupov",      score: 12100, initials: "SY", username: "sardor_yu"   },
+  { name: "Nilufar Rashidova",   score: 9300,  initials: "NR", username: "nilufar_r"   },
+  { name: "Farrux Toshpo'latov", score: 7800,  initials: "FT", username: "farrux_t"    },
+  { name: "Nodira Saidova",      score: 6400,  initials: "NS", username: "nodira_s"    },
+];
+
+const USER_BADGES = [
+  'Eng faol javobchi',
+  "Ko'p yordam bergan",
+  'Foydali yechimlar',
+  'Muhokamada faol',
+  'Haftaning ishtirokchisi',
 ];
 
 function formatScore(n) {
@@ -17,11 +25,11 @@ function formatScore(n) {
   return String(n);
 }
 
-function TrophyIcon() {
+function UsersIcon() {
   return (
     <svg fill="none" height={17} stroke="currentColor" strokeLinecap="round"
          strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width={17}>
-      <path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4ZM5 5H3v3a4 4 0 0 0 4 4M19 5h2v3a4 4 0 0 1-4 4" />
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8" />
     </svg>
   );
 }
@@ -54,7 +62,7 @@ export default function InsightsPanel({ onSpotlightClick }) {
       .catch(() => {});
   }, []);
 
-  const experts     = stats?.topExperts?.length ? stats.topExperts : FALLBACK_EXPERTS;
+  const users       = stats?.topExperts?.length ? stats.topExperts : FALLBACK_USERS;
   const connections = stats?.connections ?? 0;
 
   return (
@@ -65,27 +73,30 @@ export default function InsightsPanel({ onSpotlightClick }) {
           <span>{connections} ulanish</span>
         </div>
         <div className="live-grid">
-          {experts.map(e => (
+          {users.map(e => (
             <Avatar key={e.username ?? e.initials} initials={e.initials} name={e.name} />
           ))}
         </div>
       </div>
 
-      <div className="panel-card">
+      <div className="panel-card best-users-card">
         <div className="section-heading">
-          <h3>Eng faol mentorlar</h3>
-          <TrophyIcon />
+          <div>
+            <span className="eyebrow">Community</span>
+            <h3>Eng faol foydalanuvchilar</h3>
+          </div>
+          <UsersIcon />
         </div>
-        <div className="expert-list">
-          {experts.map((expert, i) => (
-            <div className="expert-row" key={expert.username ?? expert.name}>
-              <span className={`rank-badge rank-badge--${i + 1}`}>#{i + 1}</span>
-              <Avatar initials={expert.initials} name={expert.name} />
+        <div className="best-user-list">
+          {users.map((user, i) => (
+            <div className="best-user-row" key={user.username ?? user.name}>
+              <span className={`rank-badge rank-badge--${i + 1}`}>{i + 1}</span>
+              <Avatar initials={user.initials} name={user.name} />
               <div>
-                <strong>{expert.name}</strong>
-                <span>{expert.role}</span>
+                <strong>{user.name}</strong>
+                <span>{USER_BADGES[i] ?? 'Faol ishtirokchi'}</span>
               </div>
-              <b>{formatScore(expert.score)}</b>
+              <b>{formatScore(user.score)}</b>
             </div>
           ))}
         </div>
@@ -94,7 +105,7 @@ export default function InsightsPanel({ onSpotlightClick }) {
       <div className="panel-card spotlight-card">
         <span className="eyebrow">Hafta chaqiruvi</span>
         <h3>Reaksiya marafoni</h3>
-        <p>Har kuni bitta kimyo reaksiyasini to'liq mexanizm bilan yozing. Yakshanba — mentor tahlili.</p>
+        <p>Har kuni bitta kimyo reaksiyasini to'liq mexanizm bilan yozing va community bilan muhokama qiling.</p>
         <button className="primary-button" type="button" onClick={onSpotlightClick}>
           <SparkIcon />
           Ko'rish
