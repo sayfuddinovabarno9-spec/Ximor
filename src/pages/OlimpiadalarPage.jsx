@@ -8,11 +8,11 @@ import { useAuth } from '../context/AuthContext';
 const BACKEND = import.meta.env.VITE_API_URL || 'http://localhost:3002';
 
 const FILTERS = [
-  { id: 'all',        label: 'Hammasi',    short: '∑',  color: '#0f766e' },
-  { id: 'respublika', label: 'Respublika', short: 'Re', color: '#2563eb' },
-  { id: 'xalqaro',   label: 'Xalqaro',    short: 'Xa', color: '#7c3aed' },
-  { id: 'onlayn',    label: 'Onlayn',     short: 'On', color: '#0284c7' },
-  { id: 'tezkor',    label: 'Tezkor',     short: 'Tz', color: '#9a6a20' },
+  { id: 'all',        label: 'Hammasi',    short: '∑',  color: '#36584d' },
+  { id: 'respublika', label: 'Respublika', short: 'Re', color: '#4d5b55' },
+  { id: 'xalqaro',   label: 'Xalqaro',    short: 'Xa', color: '#5c625f' },
+  { id: 'onlayn',    label: 'Onlayn',     short: 'On', color: '#59616d' },
+  { id: 'tezkor',    label: 'Tezkor',     short: 'Tz', color: '#7b6847' },
 ];
 
 const OY = ['YAN','FEV','MAR','APR','MAY','IYUN','IYUL','AVG','SEP','OKT','NOY','DEK'];
@@ -283,7 +283,7 @@ export default function OlimpiadalarPage({ theme, onThemeToggle }) {
           )}
         </section>
 
-        <InsightsPanel onSpotlightClick={() => navigate('/?q=reaksiya')} />
+        <InsightsPanel onSpotlightClick={() => navigate('/chat?q=reaksiya')} />
       </main>
 
       {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}

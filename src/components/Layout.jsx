@@ -60,7 +60,7 @@ function timeAgo(iso) {
 }
 
 const NAV_ITEMS = [
-  { to: '/',             label: 'Savollar',    icon: 'home',      exact: true },
+  { to: '/chat',         label: 'Chat',         icon: 'home',      exact: true },
   { to: '/olimpiadalar', label: 'Olimpiadalar', icon: 'trophy',   badge: 4 },
   { to: '/reyting',      label: 'Reyting',      icon: 'trophy' },
   { to: '/asboblar',     label: 'Asboblar',     icon: 'beaker' },
@@ -232,10 +232,10 @@ export default function Layout({ children, theme, onThemeToggle, onCompose, quer
                     <span>Profilim</span>
                     <span className="dropdown-kbd">@{user.username}</span>
                   </Link>
-                  {user.is_admin && (
+                  {(user.is_admin || user.is_moderator) && (
                     <Link to="/admin" onClick={() => setMenuOpen(false)} style={{ color: 'var(--amber)' }}>
-                      <span>Admin Panel</span>
-                      <span className="dropdown-kbd">★</span>
+                      <span>{user.is_admin ? 'Admin Panel' : 'Moderator Panel'}</span>
+                      <span className="dropdown-kbd">{user.is_admin ? '★' : 'Mod'}</span>
                     </Link>
                   )}
                   <button type="button" onClick={() => { logout(); setMenuOpen(false); }}>
@@ -257,9 +257,9 @@ export default function Layout({ children, theme, onThemeToggle, onCompose, quer
 
       {/* ── Mobile bottom nav ── */}
       <nav className="mobile-nav" aria-label="Mobil navigatsiya">
-        <Link to="/" className={location.pathname === '/' ? 'is-active' : ''}>
+        <Link to="/chat" className={location.pathname === '/chat' ? 'is-active' : ''}>
           <Icon name="home" size={18} />
-          <span>Savollar</span>
+          <span>Chat</span>
         </Link>
         <Link to="/olimpiadalar" className={location.pathname.startsWith('/olimpiadalar') ? 'is-active' : ''}>
           <Icon name="trophy" size={18} />

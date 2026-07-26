@@ -2,7 +2,16 @@ import { useEffect } from 'react';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:3002';
 
-export function useForumStream(onNewTopic, onInit, onAnswer, onVote, onAccept, onAnswerVote) {
+export function useForumStream(
+  onNewTopic,
+  onInit,
+  onAnswer,
+  onVote,
+  onAccept,
+  onAnswerVote,
+  onTopicModeration,
+  onAnswerModeration
+) {
   useEffect(() => {
     let es;
     let retryTimeout;
@@ -42,9 +51,21 @@ export function useForumStream(onNewTopic, onInit, onAnswer, onVote, onAccept, o
         catch { /* ignore */ }
       });
 
+      // Topic moderation update — { topicId, solved }
+      es.addEventListener('topicModeration', (e) => {
+        try { if (onTopicModeration) onTopicModeration(JSON.parse(e.data)); }
+        catch { /* ignore */ }
+      });
+
       // Answer vote update — { answerId, score }
       es.addEventListener('answerVote', (e) => {
         try { if (onAnswerVote) onAnswerVote(JSON.parse(e.data)); }
+        catch { /* ignore */ }
+      });
+
+      // Answer moderation update — { answerId, moderation_helpfulness, moderation_correctness }
+      es.addEventListener('answerModeration', (e) => {
+        try { if (onAnswerModeration) onAnswerModeration(JSON.parse(e.data)); }
         catch { /* ignore */ }
       });
 

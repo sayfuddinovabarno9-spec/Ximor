@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Routes, Route, useNavigate } from "react-router-dom";
+import { Navigate, Routes, Route, useNavigate, useSearchParams } from "react-router-dom";
 import "./App.css";
-import { LatexLine, hasLatex } from "./components/Latex";
 import { useForumStream } from "./hooks/useForumStream";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import AuthModal from "./components/AuthModal";
 import AttachmentGallery from "./components/AttachmentGallery";
+import RichText from "./components/RichText";
 import Layout from "./components/Layout";
 import InsightsPanel from "./components/InsightsPanel";
 import QuestionPage from "./pages/QuestionPage";
@@ -15,17 +15,19 @@ import ProfilePage from "./pages/ProfilePage";
 import YangiliklarPage from "./pages/YangiliklarPage";
 import AdminPage from "./pages/AdminPage";
 import ToolsPage from "./pages/ToolsPage";
+import HomePage from "./pages/HomePage";
 import { avatarBg } from "./utils/avatarColor";
+import copyToClipboard from "./utils/copyToClipboard";
 
 const BACKEND = import.meta.env.VITE_API_URL || 'http://localhost:3002';
 
 const CATEGORIES = [
-  { id: "all",       name: "Hammasi",       short: "∑",  color: "#0f766e", count: 0 },
-  { id: "organik",   name: "Organik kimyo", short: "Or", color: "#2563eb", count: 0 },
-  { id: "anorganik", name: "Anorganik",     short: "An", color: "#7c3aed", count: 0 },
-  { id: "fizikaviy", name: "Fizikaviy",     short: "Fk", color: "#0284c7", count: 0 },
-  { id: "analitik",  name: "Analitik",      short: "Al", color: "#b42318", count: 0 },
-  { id: "dtm",       name: "DTM / Olimp.",  short: "DT", color: "#9a6a20", count: 0 },
+  { id: "all",       name: "Hammasi",       short: "∑",  color: "#36584d", count: 0 },
+  { id: "organik",   name: "Organik kimyo", short: "Or", color: "#4d5b55", count: 0 },
+  { id: "anorganik", name: "Anorganik",     short: "An", color: "#5c625f", count: 0 },
+  { id: "fizikaviy", name: "Fizikaviy",     short: "Fk", color: "#59616d", count: 0 },
+  { id: "analitik",  name: "Analitik",      short: "Al", color: "#6c6258", count: 0 },
+  { id: "dtm",       name: "DTM / Olimp.",  short: "DT", color: "#7b6847", count: 0 },
 ];
 
 const SORTS = [
@@ -239,6 +241,8 @@ function Icon({ name, size = 18 }) {
     arrowUp: "M12 19V5M5 12l7-7 7 7",
     arrowDown: "M12 5v14M19 12l-7 7-7-7",
     bookmark: "M6 4h12v17l-6-4-6 4V4Z",
+    link: "M9 17H7A5 5 0 0 1 7 7h3M15 7h2a5 5 0 1 1 0 10h-3M8 12h8",
+    pin: "M12 17v5M5 17h14M6 3h12l-2 8 3 3H5l3-3-2-8Z",
     message: "M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8Z",
     flame: "M8.5 14.5A4.5 4.5 0 0 0 13 19c2.8 0 5-2.2 5-5 0-4-4-6-4-10-2 2.5-6 4.3-6 10.5Z",
     star: "m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.8 6.5 20.7l1-6.2L3 10.1l6.2-.9L12 3Z",
@@ -301,193 +305,19 @@ function CategoryMark({ categoryId }) {
   );
 }
 
-const ELEMENT_SYMBOLS = new Set([
-  "H", "He", "Li", "Be", "B", "C", "N", "O", "F", "Ne", "Na", "Mg", "Al", "Si", "P", "S", "Cl",
-  "Ar", "K", "Ca", "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn", "Ga", "Ge", "As",
-  "Se", "Br", "Kr", "Rb", "Sr", "Y", "Zr", "Nb", "Mo", "Tc", "Ru", "Rh", "Pd", "Ag", "Cd", "In",
-  "Sn", "Sb", "Te", "I", "Xe", "Cs", "Ba", "La", "Ce", "Pr", "Nd", "Pm", "Sm", "Eu", "Gd", "Tb",
-  "Dy", "Ho", "Er", "Tm", "Yb", "Lu", "Hf", "Ta", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg", "Tl",
-  "Pb", "Bi", "Po", "At", "Rn", "Fr", "Ra", "Ac", "Th", "Pa", "U", "Np", "Pu",
-]);
-
-const SUBSCRIPT = { 0: "₀", 1: "₁", 2: "₂", 3: "₃", 4: "₄", 5: "₅", 6: "₆", 7: "₇", 8: "₈", 9: "₉" };
-const SUPERSCRIPT = { 0: "⁰", 1: "¹", 2: "²", 3: "³", 4: "⁴", 5: "⁵", 6: "⁶", 7: "⁷", 8: "⁸", 9: "⁹", "+": "⁺", "-": "⁻" };
-
-function toSubscript(value) {
-  return value.replace(/[0-9]/g, (digit) => SUBSCRIPT[digit]);
-}
-
-function toSuperscript(value) {
-  return value.replace(/[0-9+-]/g, (char) => SUPERSCRIPT[char] || char);
-}
-
-function parseChemicalFormula(rawToken) {
-  const stateMatch = rawToken.match(/(\((?:aq|s|l|g)\))$/i);
-  const state = stateMatch?.[1];
-  const token = (state ? rawToken.slice(0, -state.length) : rawToken).replace(/[•.]/g, "·");
-  if (!token) return null;
-
-  const pieces = [];
-  let elementCount = 0;
-  let i = 0;
-  let afterHydrateDot = false;
-
-  while (i < token.length) {
-    const char = token[i];
-
-    if (char === "·") {
-      pieces.push({ text: "·", type: "dot" });
-      afterHydrateDot = true;
-      i += 1;
-      continue;
-    }
-
-    if (/[0-9]/.test(char)) {
-      let number = "";
-      while (/[0-9]/.test(token[i])) {
-        number += token[i];
-        i += 1;
-      }
-
-      if ((token[i] === "+" || token[i] === "-") && i === token.length - 1) {
-        pieces.push({ text: toSuperscript(`${number}${token[i]}`), type: "sup" });
-        i += 1;
-      } else if (afterHydrateDot || (pieces.length === 0 && /[A-Z([]/.test(token[i] || ""))) {
-        pieces.push({ text: number, type: "coeff" });
-      } else {
-        pieces.push({ text: toSubscript(number), type: "sub" });
-      }
-      afterHydrateDot = false;
-      continue;
-    }
-
-    if (char === "^") {
-      i += 1;
-      let charge = "";
-      while (/[0-9+-]/.test(token[i])) {
-        charge += token[i];
-        i += 1;
-      }
-      if (!charge) return null;
-      pieces.push({ text: toSuperscript(charge), type: "sup" });
-      afterHydrateDot = false;
-      continue;
-    }
-
-    if ((char === "+" || char === "-") && i === token.length - 1) {
-      pieces.push({ text: toSuperscript(char), type: "sup" });
-      i += 1;
-      afterHydrateDot = false;
-      continue;
-    }
-
-    if (char === "(" || char === ")" || char === "[" || char === "]") {
-      pieces.push({ text: char, type: "plain" });
-      i += 1;
-      afterHydrateDot = false;
-      continue;
-    }
-
-    if (/[A-Z]/.test(char)) {
-      let symbol = char;
-      if (/[a-z]/.test(token[i + 1] || "")) {
-        symbol += token[i + 1];
-      }
-      if (!ELEMENT_SYMBOLS.has(symbol)) return null;
-      pieces.push({ text: symbol, type: "element" });
-      elementCount += 1;
-      i += symbol.length;
-      afterHydrateDot = false;
-      continue;
-    }
-
-    return null;
-  }
-
-  const hasChemMarker = /[0-9()[\]^+\-·]/.test(token) || elementCount > 1;
-  if (!elementCount || !hasChemMarker) return null;
-
-  if (state) pieces.push({ text: state.toLowerCase(), type: "state" });
-  return pieces;
-}
-
-function renderChemistryToken(part, key) {
-  const arrowMap = { "->": "→", "=>": "→", "<-": "←", "<->": "⇌", "=": "→", "⇌": "⇌", "→": "→", "←": "←" };
-  if (arrowMap[part]) {
-    return (
-      <span className="chem-arrow" key={key}>
-        {arrowMap[part]}
-      </span>
-    );
-  }
-
-  if (part === "+") {
-    return (
-      <span className="chem-plus" key={key}>
-        +
-      </span>
-    );
-  }
-
-  if (/^\((aq|s|l|g)\)$/i.test(part)) {
-    return (
-      <span className="chem-state" key={key}>
-        {part.toLowerCase()}
-      </span>
-    );
-  }
-
-  const formula = parseChemicalFormula(part);
-  if (!formula) return <span key={key}>{part}</span>;
-
-  return (
-    <span className="chem-formula" key={key}>
-      {formula.map((piece, index) => (
-        <span className={`chem-part chem-part--${piece.type}`} key={`${piece.text}-${index}`}>
-          {piece.text}
-        </span>
-      ))}
-    </span>
-  );
-}
-
-function renderChemistryLine(line, lineIndex) {
-  return line
-    .split(/(<->|->|=>|<-|=|⇌|→|←|\+|\((?:aq|s|l|g)\)|\d*[A-Z][A-Za-z0-9()[\]^·.-]*(?:[0-9]*[+\-](?![0-9A-Z]))?)/g)
-    .map((part, index) => (part ? renderChemistryToken(part, `${lineIndex}-${index}`) : null));
-}
-
-function isChemistryLine(line) {
-  return /(->|=>|<->|=|⇌|→|←)|\d*[A-Z][A-Za-z0-9()[\]^·.-]*/.test(line);
-}
-
-function RichText({ className = "", text }) {
-  if (!text) return null;
-
-  return (
-    <div className={`rich-text ${className}`}>
-      {text.split("\n").map((line, lineIndex) => {
-        const isChem = isChemistryLine(line);
-        const isLatex = hasLatex(line);
-        return (
-          <p className={isChem ? "chem-line" : ""} key={lineIndex}>
-            {isLatex ? (
-              <LatexLine
-                text={line}
-                renderText={(chunk, i) => renderChemistryLine(chunk, `${lineIndex}-plain-${i}`)}
-              />
-            ) : (
-              renderChemistryLine(line, lineIndex)
-            )}
-          </p>
-        );
-      })}
-    </div>
-  );
-}
-
 function TopicCard({ density, onOpen, onSave, onVote, onTagClick, topic }) {
   const category = CATEGORIES.find((item) => item.id === topic.category) || CATEGORIES[0];
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyLink = async () => {
+    try {
+      await copyToClipboard(`${window.location.origin}/q/${topic.id}`);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setCopied(false);
+    }
+  };
 
   return (
     <article className={`topic-card topic-card--${density}`} onClick={() => onOpen(topic.id)}>
@@ -516,7 +346,16 @@ function TopicCard({ density, onOpen, onSave, onVote, onTagClick, topic }) {
           <CategoryMark categoryId={topic.category} />
           <span style={{ color: category.color }}>{category.name}</span>
           <span>{topic.activity}</span>
-          {topic.pinned && <span className="pill pill--gold">Mahkamlangan</span>}
+          {topic.pinned && (
+            <span
+              aria-label="Mahkamlangan mavzu"
+              className="pinned-indicator"
+              data-tooltip="Mahkamlangan mavzu"
+              role="img"
+            >
+              <Icon name="pin" size={14} />
+            </span>
+          )}
           {topic.hot && <span className="pill pill--hot">Qaynoq</span>}
           {topic.solved && <span className="pill pill--ok">Yechilgan</span>}
         </div>
@@ -549,6 +388,15 @@ function TopicCard({ density, onOpen, onSave, onVote, onTagClick, topic }) {
                 <Avatar key={initials} initials={initials} name={initials} />
               ))}
             </div>
+            <button
+              aria-label="Savol havolasini nusxalash"
+              className={`permalink-button ${copied ? "is-copied" : ""}`}
+              data-tooltip={copied ? "Havola nusxalandi" : "Savol havolasini nusxalash"}
+              onClick={handleCopyLink}
+              type="button"
+            >
+              <Icon name="link" size={17} />
+            </button>
             <button
               aria-label="Saqlash"
               className={`icon-button ${topic.saved ? "is-saved" : ""}`}
@@ -672,7 +520,7 @@ function ThreadDrawer({ onAddAnswer, onClose, onSave, onVote, topic }) {
                     {item.score}
                   </div>
                 </div>
-                <p>{item.text}</p>
+                <RichText text={item.text} />
               </article>
             ))
           )}
@@ -755,6 +603,21 @@ function ComposerModal({ onClose, onSubmit }) {
     window.requestAnimationFrame(() => {
       summaryRef.current?.focus();
       summaryRef.current?.setSelectionRange(start + snippet.length, start + snippet.length);
+    });
+  };
+
+  const wrapSelection = (before, after, placeholder) => {
+    const element = summaryRef.current;
+    const currentValue = form.summary;
+    const start = element?.selectionStart ?? currentValue.length;
+    const end = element?.selectionEnd ?? currentValue.length;
+    const selected = currentValue.slice(start, end) || placeholder;
+    const replacement = `${before}${selected}${after}`;
+    const nextValue = `${currentValue.slice(0, start)}${replacement}${currentValue.slice(end)}`;
+    update("summary", nextValue);
+    window.requestAnimationFrame(() => {
+      summaryRef.current?.focus();
+      summaryRef.current?.setSelectionRange(start + before.length, start + before.length + selected.length);
     });
   };
 
@@ -883,6 +746,58 @@ function ComposerModal({ onClose, onSubmit }) {
               ))}
             </div>
 
+            <div className="chem-toolbar markdown-toolbar" aria-label="Markdown formatlash">
+              <span>Markdown</span>
+              <button
+                aria-label="Qalin"
+                onClick={() => wrapSelection("**", "**", "qalin matn")}
+                title="Qalin"
+                type="button"
+              >
+                <strong>B</strong>
+              </button>
+              <button
+                aria-label="Kursiv"
+                onClick={() => wrapSelection("*", "*", "kursiv matn")}
+                title="Kursiv"
+                type="button"
+              >
+                <em>I</em>
+              </button>
+              <button
+                aria-label="Ro'yxat"
+                onClick={() => insertSnippet("- Birinchi band\n- Ikkinchi band")}
+                title="Ro'yxat"
+                type="button"
+              >
+                •
+              </button>
+              <button
+                aria-label="Iqtibos"
+                onClick={() => insertSnippet("> Iqtibos")}
+                title="Iqtibos"
+                type="button"
+              >
+                “
+              </button>
+              <button
+                aria-label="Kod"
+                onClick={() => wrapSelection("`", "`", "kod")}
+                title="Kod"
+                type="button"
+              >
+                &lt;/&gt;
+              </button>
+              <button
+                aria-label="Havola"
+                onClick={() => wrapSelection("[", "](https://)", "havola matni")}
+                title="Havola"
+                type="button"
+              >
+                <Icon name="link" size={15} />
+              </button>
+            </div>
+
             <div className="composer-question-field">
               <label htmlFor="composer-question">Savol matni</label>
               <div className="composer-question-editor">
@@ -934,10 +849,13 @@ function ComposerModal({ onClose, onSubmit }) {
               </div>
             </div>
 
-            {hasLatex(form.summary) && (
+            {(form.summary || form.images.length > 0) && (
               <div className="latex-live-preview">
                 <div className="latex-live-preview-label">Ko'rinishi</div>
-                <RichText text={form.summary} />
+                <div className="question-content">
+                  <RichText text={form.summary} />
+                  <AttachmentGallery images={form.images} />
+                </div>
               </div>
             )}
 
@@ -1013,7 +931,9 @@ export default function App() {
   return (
     <AuthProvider>
       <Routes>
-        <Route path="/" element={<Forum theme={theme} onThemeToggle={toggleTheme} />} />
+        <Route path="/" element={<HomePage />} />
+        <Route path="/chat" element={<Forum theme={theme} onThemeToggle={toggleTheme} />} />
+        <Route path="/forum" element={<Navigate to="/chat" replace />} />
         <Route path="/olimpiadalar" element={<OlimpiadalarPage theme={theme} onThemeToggle={toggleTheme} />} />
         <Route path="/reyting" element={<ReytingPage theme={theme} onThemeToggle={toggleTheme} />} />
         <Route path="/asboblar" element={<ToolsPage theme={theme} onThemeToggle={toggleTheme} />} />
@@ -1029,6 +949,7 @@ export default function App() {
 function Forum({ theme, onThemeToggle }) {
   const { user, token, logout, authHeaders } = useAuth();
   const navigate                  = useNavigate();
+  const [searchParams] = useSearchParams();
   const [showAuth, setShowAuth]   = useState(false);
   const [topics, setTopics] = useState([]);
   const [topicsLoaded, setTopicsLoaded] = useState(false);
@@ -1036,7 +957,7 @@ function Forum({ theme, onThemeToggle }) {
   const [activeCategory, setActiveCategory] = useState("all");
   const [activeSort, setActiveSort] = useState("recent");
   const [density, setDensity] = useState("comfortable");
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(() => searchParams.get("q") || "");
   const openTopic = (id) => navigate(`/q/${id}`);
   const [showComposer, setShowComposer] = useState(false);
   const [toast, setToast] = useState("");
@@ -1048,15 +969,26 @@ function Forum({ theme, onThemeToggle }) {
   }, []);
 
   // Real-time: answer accepted by question author
-  const handleIncomingAccept = useCallback(({ topicId, answerId }) => {
+  const handleIncomingAccept = useCallback(({ topicId, answerId, solved = true }) => {
     setTopics(prev => prev.map(t => {
       if (t.id !== topicId) return t;
       return {
         ...t,
-        solved: true,
+        solved,
         answersList: t.answersList.map(a =>
-          a.id === answerId ? { ...a, accepted: true } : a
+          a.id === answerId ? { ...a, accepted: true } : { ...a, accepted: false }
         ),
+      };
+    }));
+  }, []);
+
+  const handleIncomingTopicModeration = useCallback(({ topicId, solved }) => {
+    setTopics(prev => prev.map(t => {
+      if (t.id !== topicId) return t;
+      return {
+        ...t,
+        solved,
+        answersList: solved ? t.answersList : t.answersList.map(a => ({ ...a, accepted: false })),
       };
     }));
   }, []);
@@ -1091,7 +1023,19 @@ function Forum({ theme, onThemeToggle }) {
     }));
   }, []);
 
-  useForumStream(handleIncomingTopic, handleInitTopics, handleIncomingAnswer, handleIncomingVote, handleIncomingAccept);
+  useForumStream(
+    handleIncomingTopic,
+    handleInitTopics,
+    handleIncomingAnswer,
+    handleIncomingVote,
+    handleIncomingAccept,
+    null,
+    handleIncomingTopicModeration
+  );
+
+  useEffect(() => {
+    setQuery(searchParams.get("q") || "");
+  }, [searchParams]);
 
   useEffect(() => {
     if (topicsLoaded) return;

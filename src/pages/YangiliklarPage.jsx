@@ -4,14 +4,10 @@ import Layout from '../components/Layout';
 const BACKEND = import.meta.env.VITE_API_URL || 'http://localhost:3002';
 
 const GRAD_PALETTES = [
-  ['#0f766e', '#0284c7'],
-  ['#7c3aed', '#2563eb'],
-  ['#b42318', '#9a6a20'],
-  ['#0284c7', '#0f766e'],
-  ['#16a34a', '#0f766e'],
-  ['#9a6a20', '#b42318'],
-  ['#2563eb', '#7c3aed'],
-  ['#0f766e', '#16a34a'],
+  ['#36584d', '#59616d'],
+  ['#4d5b55', '#6c6258'],
+  ['#59616d', '#7b6847'],
+  ['#36584d', '#4d5b55'],
 ];
 
 function gradientFor(idx) {

@@ -70,6 +70,10 @@ async function initSchema() {
 
     CREATE INDEX IF NOT EXISTS idx_answers_topic ON answers(topic_id);
     ALTER TABLE answers ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+    ALTER TABLE answers ADD COLUMN IF NOT EXISTS moderation_helpfulness TEXT;
+    ALTER TABLE answers ADD COLUMN IF NOT EXISTS moderation_correctness  TEXT;
+    ALTER TABLE answers ADD COLUMN IF NOT EXISTS moderated_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
+    ALTER TABLE answers ADD COLUMN IF NOT EXISTS moderated_at TIMESTAMPTZ;
 
     CREATE TABLE IF NOT EXISTS score_log (
       id         SERIAL PRIMARY KEY,
@@ -116,9 +120,11 @@ async function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_reg_tournament ON registrations(tournament_id);
     CREATE INDEX IF NOT EXISTS idx_reg_user       ON registrations(user_id);
 
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin   BOOLEAN     DEFAULT FALSE;
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS banned_at  TIMESTAMPTZ;
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS bio        TEXT        DEFAULT '';
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin      BOOLEAN     DEFAULT FALSE;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS is_moderator  BOOLEAN     DEFAULT FALSE;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS banned_at     TIMESTAMPTZ;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS bio           TEXT        DEFAULT '';
+    UPDATE users SET is_moderator = TRUE WHERE role = 'Moderator' AND is_moderator = FALSE;
 
     CREATE TABLE IF NOT EXISTS saved_topics (
       user_id   INTEGER NOT NULL REFERENCES users(id)   ON DELETE CASCADE,
@@ -171,7 +177,12 @@ function hydrateTopic(row) {
 
 function hydrateAnswer(row) {
   if (!row) return null;
-  return { ...row, accepted: Boolean(row.accepted) };
+  return {
+    ...row,
+    accepted: Boolean(row.accepted),
+    moderation_helpfulness: row.moderation_helpfulness ?? null,
+    moderation_correctness: row.moderation_correctness ?? null,
+  };
 }
 
 // ── Topics ────────────────────────────────────────────────────────────────────
@@ -288,10 +299,38 @@ async function getMyTopicVotes(userId) {
 }
 
 async function acceptAnswer(topicId, answerId) {
-  const answer = await q1('SELECT * FROM answers WHERE id = $1 AND topic_id = $2', [answerId, topicId]);
-  await pool.query('UPDATE answers SET accepted = TRUE WHERE id = $1 AND topic_id = $2', [answerId, topicId]);
-  await pool.query('UPDATE topics  SET solved   = TRUE WHERE id = $1', [topicId]);
-  return answer;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      'SELECT * FROM answers WHERE id = $1 AND topic_id = $2 FOR UPDATE',
+      [answerId, topicId]
+    );
+    const existing = rows[0] ?? null;
+    if (!existing) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+
+    await client.query('UPDATE answers SET accepted = FALSE WHERE topic_id = $1', [topicId]);
+    const updated = await client.query(
+      `UPDATE answers
+       SET accepted = TRUE,
+           moderation_correctness = COALESCE(moderation_correctness, 'correct'),
+           moderated_at = NOW()
+       WHERE id = $1 AND topic_id = $2
+       RETURNING *`,
+      [answerId, topicId]
+    );
+    await client.query('UPDATE topics SET solved = TRUE WHERE id = $1', [topicId]);
+    await client.query('COMMIT');
+    return { ...hydrateAnswer(updated.rows[0]), was_accepted: Boolean(existing.accepted) };
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 // ── Answers ───────────────────────────────────────────────────────────────────
@@ -316,7 +355,7 @@ async function createUser({ username, name, initials, role = 'Shogird', password
     return await q1(`
       INSERT INTO users (username, name, initials, role, password, email)
       VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING id, username, name, initials, role, score, email
+      RETURNING id, username, name, initials, role, score, email, is_admin, is_moderator
     `, [username, name, initials, role, password, email || null]);
   } catch (e) {
     if (e.code === '23505') return null; // unique_violation = username or email taken
@@ -329,7 +368,10 @@ async function getUserByUsername(username) {
 }
 
 async function getUserById(id) {
-  return q1('SELECT id, username, name, initials, role, score, is_admin, bio FROM users WHERE id = $1', [id]);
+  return q1(`
+    SELECT id, username, name, initials, role, score, is_admin, is_moderator, banned_at, bio
+    FROM users WHERE id = $1
+  `, [id]);
 }
 
 async function addUserScore(id, delta, reason = 'answer_accepted') {
@@ -487,7 +529,7 @@ async function markNotificationsRead(userId) {
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
 async function getAdminStats() {
-  const [users, topics, answers, todayUsers, todayTopics, todayAnswers, banned] = await Promise.all([
+  const [users, topics, answers, todayUsers, todayTopics, todayAnswers, banned, moderators] = await Promise.all([
     q1('SELECT COUNT(*)::INTEGER AS n FROM users'),
     q1('SELECT COUNT(*)::INTEGER AS n FROM topics'),
     q1('SELECT COUNT(*)::INTEGER AS n FROM answers'),
@@ -495,10 +537,11 @@ async function getAdminStats() {
     q1("SELECT COUNT(*)::INTEGER AS n FROM topics  WHERE created_at >= NOW() - INTERVAL '24 hours'"),
     q1("SELECT COUNT(*)::INTEGER AS n FROM answers WHERE created_at >= NOW() - INTERVAL '24 hours'"),
     q1('SELECT COUNT(*)::INTEGER AS n FROM users WHERE banned_at IS NOT NULL'),
+    q1('SELECT COUNT(*)::INTEGER AS n FROM users WHERE is_admin = TRUE OR is_moderator = TRUE'),
   ]);
   return {
     users: users.n, topics: topics.n, answers: answers.n,
-    banned: banned.n,
+    banned: banned.n, moderators: moderators.n,
     today: { users: todayUsers.n, topics: todayTopics.n, answers: todayAnswers.n },
   };
 }
@@ -506,7 +549,7 @@ async function getAdminStats() {
 async function getAllUsersAdmin(limit = 100, offset = 0) {
   return q(`
     SELECT u.id, u.username, u.name, u.initials, u.role, u.score,
-           u.is_admin, u.banned_at, u.created_at,
+           u.is_admin, u.is_moderator, u.banned_at, u.created_at,
            (SELECT COUNT(*)::INTEGER FROM topics  WHERE author = u.name)  AS topics_count,
            (SELECT COUNT(*)::INTEGER FROM answers WHERE author = u.name)  AS answers_count,
            (SELECT COUNT(*)::INTEGER FROM answers WHERE author = u.name AND accepted = TRUE) AS accepted_count
@@ -521,6 +564,7 @@ async function updateUserAdmin(id, fields) {
   const vals = [];
   let i = 1;
   if ('is_admin'   in fields) { sets.push(`is_admin = $${i++}`);   vals.push(fields.is_admin); }
+  if ('is_moderator' in fields) { sets.push(`is_moderator = $${i++}`); vals.push(fields.is_moderator); }
   if ('banned'     in fields) { sets.push(`banned_at = $${i++}`);  vals.push(fields.banned ? new Date() : null); }
   if ('role'       in fields) { sets.push(`role = $${i++}`);        vals.push(fields.role); }
   if ('score'      in fields) { sets.push(`score = $${i++}`);       vals.push(fields.score); }
@@ -555,6 +599,40 @@ async function adminUpdateTopic(id, fields) {
   if (!sets.length) return;
   vals.push(id);
   await pool.query(`UPDATE topics SET ${sets.join(', ')} WHERE id = $${i}`, vals);
+  if (fields.solved === false) {
+    await pool.query('UPDATE answers SET accepted = FALSE WHERE topic_id = $1', [id]);
+  }
+}
+
+async function moderateAnswer(id, fields, moderatorId) {
+  const sets = [];
+  const vals = [];
+  let i = 1;
+  if ('helpfulness' in fields) {
+    sets.push(`moderation_helpfulness = $${i++}`);
+    vals.push(fields.helpfulness);
+  }
+  if ('correctness' in fields) {
+    sets.push(`moderation_correctness = $${i++}`);
+    vals.push(fields.correctness);
+  }
+  if (!sets.length) return null;
+  sets.push(`moderated_by = $${i++}`);
+  vals.push(moderatorId);
+  sets.push('moderated_at = NOW()');
+  vals.push(id);
+  const row = await q1(`UPDATE answers SET ${sets.join(', ')} WHERE id = $${i} RETURNING *`, vals);
+  if (row && fields.correctness === 'incorrect' && row.accepted) {
+    await pool.query('UPDATE answers SET accepted = FALSE WHERE id = $1', [id]);
+    const stillSolved = await q1(
+      'SELECT EXISTS(SELECT 1 FROM answers WHERE topic_id = $1 AND accepted = TRUE) AS solved',
+      [row.topic_id]
+    );
+    await pool.query('UPDATE topics SET solved = $1 WHERE id = $2', [Boolean(stillSolved?.solved), row.topic_id]);
+    row.accepted = false;
+    row.topic_solved = Boolean(stillSolved?.solved);
+  }
+  return hydrateAnswer(row);
 }
 
 async function broadcastAnnouncement(message) {
@@ -756,7 +834,7 @@ module.exports = {
   searchTopics,
   // Admin
   getAdminStats, getAllUsersAdmin, updateUserAdmin,
-  getAdminTopics, adminDeleteTopic, adminDeleteAnswer, adminUpdateTopic,
+  getAdminTopics, adminDeleteTopic, adminDeleteAnswer, adminUpdateTopic, moderateAnswer,
   broadcastAnnouncement, getRecentActivity,
   // Votes & saves
   toggleSavedTopic, getUserSavedTopicIds,

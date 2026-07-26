@@ -1,11 +1,17 @@
 const { getAuthUser } = require('./auth');
 
-async function requireAdmin(req, res, next) {
+function hasModeratorAccess(user) {
+  return Boolean(user?.is_admin || user?.is_moderator);
+}
+
+async function requireModerator(req, res, next) {
   try {
     const user = await getAuthUser(req);
     if (!user) return res.status(401).json({ error: 'Login kerak' });
     if (user.banned_at) return res.status(403).json({ error: 'Hisob bloklangan' });
-    if (!user.is_admin) return res.status(403).json({ error: 'Admin huquqi kerak' });
+    if (!hasModeratorAccess(user)) {
+      return res.status(403).json({ error: 'Moderator huquqi kerak' });
+    }
 
     req.user = {
       id: user.id,
@@ -14,7 +20,7 @@ async function requireAdmin(req, res, next) {
       initials: user.initials,
       role: user.role,
       score: user.score,
-      is_admin: true,
+      is_admin: Boolean(user.is_admin),
       is_moderator: Boolean(user.is_moderator),
     };
     next();
@@ -23,4 +29,4 @@ async function requireAdmin(req, res, next) {
   }
 }
 
-module.exports = { requireAdmin };
+module.exports = { requireModerator, hasModeratorAccess };

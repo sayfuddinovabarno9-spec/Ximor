@@ -2,93 +2,24 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useForumStream } from '../hooks/useForumStream';
-import { LatexLine, hasLatex } from '../components/Latex';
 import AuthModal from '../components/AuthModal';
 import AttachmentGallery from '../components/AttachmentGallery';
 import Layout from '../components/Layout';
+import RichText from '../components/RichText';
 import { avatarBg } from '../utils/avatarColor';
+import copyToClipboard from '../utils/copyToClipboard';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:3002';
 
-/* ── tiny shared helpers (duplicated from App.jsx so page is self-contained) */
-const ELEMENT_SYMBOLS = new Set([
-  "H","He","Li","Be","B","C","N","O","F","Ne","Na","Mg","Al","Si","P","S","Cl",
-  "Ar","K","Ca","Sc","Ti","V","Cr","Mn","Fe","Co","Ni","Cu","Zn","Ga","Ge","As",
-  "Se","Br","Kr","Rb","Sr","Y","Zr","Nb","Mo","Tc","Ru","Rh","Pd","Ag","Cd","In",
-  "Sn","Sb","Te","I","Xe","Cs","Ba","La","Ce","Pr","Nd","Pm","Sm","Eu","Gd","Tb",
-  "Dy","Ho","Er","Tm","Yb","Lu","Hf","Ta","W","Re","Os","Ir","Pt","Au","Hg","Tl",
-  "Pb","Bi","Po","At","Rn","Fr","Ra","Ac","Th","Pa","U","Np","Pu",
-]);
-const SUB = {0:"₀",1:"₁",2:"₂",3:"₃",4:"₄",5:"₅",6:"₆",7:"₇",8:"₈",9:"₉"};
-const SUP = {0:"⁰",1:"¹",2:"²",3:"³",4:"⁴",5:"⁵",6:"⁶",7:"⁷",8:"⁸",9:"⁹","+":"⁺","-":"⁻"};
-const toSub = v => v.replace(/[0-9]/g, d => SUB[d]);
-const toSup = v => v.replace(/[0-9+-]/g, c => SUP[c] ?? c);
+const HELPFULNESS_LABELS = {
+  helpful: 'Foydali',
+  unhelpful: 'Foydasiz',
+};
 
-function parseFormula(raw) {
-  const stateMatch = raw.match(/(\((?:aq|s|l|g)\))$/i);
-  const state = stateMatch?.[1];
-  const token = (state ? raw.slice(0, -state.length) : raw).replace(/[•.]/g,'·');
-  if (!token) return null;
-  const pieces = []; let elCount = 0; let i = 0; let afterDot = false;
-  while (i < token.length) {
-    const c = token[i];
-    if (c==='·') { pieces.push({text:'·',type:'dot'}); afterDot=true; i++; continue; }
-    if (/[0-9]/.test(c)) {
-      let n=''; while(/[0-9]/.test(token[i])) { n+=token[i]; i++; }
-      if ((token[i]==='+'||token[i]==='-')&&i===token.length-1) { pieces.push({text:toSup(n+token[i]),type:'sup'}); i++; }
-      else if (afterDot||(pieces.length===0&&/[A-Z([]/.test(token[i]||''))) pieces.push({text:n,type:'coeff'});
-      else pieces.push({text:toSub(n),type:'sub'});
-      afterDot=false; continue;
-    }
-    if (c==='^') { i++; let ch=''; while(/[0-9+-]/.test(token[i])) { ch+=token[i]; i++; } if(!ch) return null; pieces.push({text:toSup(ch),type:'sup'}); afterDot=false; continue; }
-    if ((c==='+'||c==='-')&&i===token.length-1) { pieces.push({text:toSup(c),type:'sup'}); i++; afterDot=false; continue; }
-    if ('()[]'.includes(c)) { pieces.push({text:c,type:'plain'}); i++; afterDot=false; continue; }
-    if (/[A-Z]/.test(c)) {
-      let sym=c; if(/[a-z]/.test(token[i+1]||'')) sym+=token[i+1];
-      if (!ELEMENT_SYMBOLS.has(sym)) return null;
-      pieces.push({text:sym,type:'element'}); elCount++; i+=sym.length; afterDot=false; continue;
-    }
-    return null;
-  }
-  if (!elCount || !(/[0-9()[\]^+\-·]/.test(token)||elCount>1)) return null;
-  if (state) pieces.push({text:state.toLowerCase(),type:'state'});
-  return pieces;
-}
-
-function renderToken(part, key) {
-  const arrows = {"->":"→","=>":"→","<-":"←","<->":"⇌","=":"→","⇌":"⇌","→":"→","←":"←"};
-  if (arrows[part]) return <span className="chem-arrow" key={key}>{arrows[part]}</span>;
-  if (part==='+') return <span className="chem-plus" key={key}>+</span>;
-  if (/^\((aq|s|l|g)\)$/i.test(part)) return <span className="chem-state" key={key}>{part.toLowerCase()}</span>;
-  const f = parseFormula(part);
-  if (!f) return <span key={key}>{part}</span>;
-  return <span className="chem-formula" key={key}>{f.map((p,i)=><span className={`chem-part chem-part--${p.type}`} key={i}>{p.text}</span>)}</span>;
-}
-
-function renderLine(line, li) {
-  return line.split(/(<->|->|=>|<-|=|⇌|→|←|\+|\((?:aq|s|l|g)\)|\d*[A-Z][A-Za-z0-9()[\]^·.-]*(?:[0-9]*[+\-](?![0-9A-Z]))?)/g)
-    .map((p,i) => p ? renderToken(p,`${li}-${i}`) : null);
-}
-function isChem(line) { return /(->|=>|<->|=|⇌|→|←)|\d*[A-Z][A-Za-z0-9()[\]^·.-]*/.test(line); }
-
-function RichText({ text, className='' }) {
-  if (!text) return null;
-  return (
-    <div className={`rich-text ${className}`}>
-      {text.split('\n').map((line,li) => {
-        const chem = isChem(line);
-        const latex = hasLatex(line);
-        return (
-          <p className={chem?'chem-line':''} key={li}>
-            {latex
-              ? <LatexLine text={line} renderText={(chunk,i) => renderLine(chunk,`${li}-plain-${i}`)} />
-              : renderLine(line,li)}
-          </p>
-        );
-      })}
-    </div>
-  );
-}
+const CORRECTNESS_LABELS = {
+  correct: "To'g'ri",
+  incorrect: "Noto'g'ri",
+};
 
 function Icon({ name, size=18 }) {
   const paths = {
@@ -99,7 +30,12 @@ function Icon({ name, size=18 }) {
     send:      "M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z",
     message:   "M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8Z",
     bookmark:  "M6 4h12v17l-6-4-6 4V4Z",
+    link:      "M9 17H7A5 5 0 0 1 7 7h3M15 7h2a5 5 0 1 1 0 10h-3M8 12h8",
+    pin:       "M12 17v5M5 17h14M6 3h12l-2 8 3 3H5l3-3-2-8Z",
     eye:       "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12ZM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
+    thumbsUp:  "M7 10v11M15 5.9 14 10h5.7a2 2 0 0 1 2 2.4l-1.4 7a2 2 0 0 1-2 1.6H7M7 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3M15 5.9V3a2 2 0 0 0-2-2l-3 9",
+    thumbsDown:"M17 14V3M9 18.1 10 14H4.3a2 2 0 0 1-2-2.4l1.4-7A2 2 0 0 1 5.7 3H17M17 14h3a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-3M9 18.1V21a2 2 0 0 0 2 2l3-9",
+    x:         "M18 6 6 18M6 6l12 12",
   };
   return (
     <svg aria-hidden fill="none" height={size} stroke="currentColor"
@@ -151,6 +87,15 @@ export default function QuestionPage() {
     toastRef.current = setTimeout(() => setToast(''), 2200);
   };
 
+  const handleCopyLink = async () => {
+    try {
+      await copyToClipboard(window.location.href);
+      showToast('Havola nusxalandi');
+    } catch {
+      showToast('Havolani nusxalab bo‘lmadi');
+    }
+  };
+
   /* Fetch topic on mount */
   useEffect(() => {
     setLoading(true);
@@ -192,11 +137,24 @@ export default function QuestionPage() {
     setTopic(prev => prev ? { ...prev, score } : prev);
   }, [id]);
 
-  const onAccept = useCallback(({ topicId, answerId }) => {
+  const onAccept = useCallback(({ topicId, answerId, solved = true, moderation_correctness }) => {
     if (String(topicId) !== String(id)) return;
     setTopic(prev => prev ? {
-      ...prev, solved: true,
-      answersList: prev.answersList.map(a => a.id === answerId ? { ...a, accepted: true } : a),
+      ...prev, solved,
+      answersList: prev.answersList.map(a => (
+        a.id === answerId
+          ? { ...a, accepted: true, moderation_correctness: moderation_correctness ?? a.moderation_correctness }
+          : { ...a, accepted: false }
+      )),
+    } : prev);
+  }, [id]);
+
+  const onTopicModeration = useCallback(({ topicId, solved }) => {
+    if (String(topicId) !== String(id)) return;
+    setTopic(prev => prev ? {
+      ...prev,
+      solved,
+      answersList: solved ? prev.answersList : prev.answersList.map(a => ({ ...a, accepted: false })),
     } : prev);
   }, [id]);
 
@@ -208,7 +166,37 @@ export default function QuestionPage() {
     } : prev);
   }, []);
 
-  useForumStream(() => {}, null, onAnswer, onVote, onAccept, onAnswerVoteSSE);
+  const onAnswerModeration = useCallback(({ topicId, answerId, accepted, topic_solved, moderation_helpfulness, moderation_correctness }) => {
+    setTopic(prev => {
+      if (!prev) return prev;
+      if (topicId != null && String(topicId) !== String(id)) return prev;
+      return {
+        ...prev,
+        solved: topic_solved ?? prev.solved,
+        answersList: prev.answersList.map(a => (
+          a.id === answerId
+            ? {
+                ...a,
+                accepted: accepted ?? a.accepted,
+                moderation_helpfulness,
+                moderation_correctness,
+              }
+            : a
+        )),
+      };
+    });
+  }, [id]);
+
+  useForumStream(
+    () => {},
+    null,
+    onAnswer,
+    onVote,
+    onAccept,
+    onAnswerVoteSSE,
+    onTopicModeration,
+    onAnswerModeration
+  );
 
   /* Vote on the topic */
   const handleVote = (direction) => {
@@ -317,15 +305,93 @@ export default function QuestionPage() {
 
   /* Accept answer */
   const handleAccept = (answerId) => {
+    const snapshot = topic;
     fetch(`${API}/api/forum/topics/${id}/accept/${answerId}`, {
       method: 'POST',
       headers: authHeaders(),
-    }).catch(() => {});
+    }).then(r => r.ok ? r.json() : Promise.reject())
+      .catch(() => {
+        setTopic(snapshot);
+        showToast('Xato yuz berdi');
+      });
     setTopic(prev => prev ? {
-      ...prev, solved: true,
-      answersList: prev.answersList.map(a => a.id === answerId ? { ...a, accepted: true } : a),
+      ...prev,
+      solved: true,
+      answersList: prev.answersList.map(a => (
+        a.id === answerId
+          ? { ...a, accepted: true, moderation_correctness: 'correct' }
+          : { ...a, accepted: false }
+      )),
     } : prev);
     showToast('Javob qabul qilindi ✓');
+  };
+
+  const handleSolvedToggle = () => {
+    if (!user?.is_admin && !user?.is_moderator) return;
+    const snapshot = topic;
+    const solved = !topic.solved;
+    setTopic(prev => prev ? {
+      ...prev,
+      solved,
+      answersList: solved ? prev.answersList : prev.answersList.map(a => ({ ...a, accepted: false })),
+    } : prev);
+    fetch(`${API}/api/admin/topics/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ solved }),
+    }).then(r => r.ok ? r.json() : Promise.reject())
+      .then(() => showToast(solved ? 'Savol yechildi' : 'Savol ochiq qilindi'))
+      .catch(() => {
+        setTopic(snapshot);
+        showToast('Xato yuz berdi');
+      });
+  };
+
+  const handleAnswerModeration = (answerId, field, value) => {
+    if (!user?.is_admin && !user?.is_moderator) return;
+    if (field === 'correctness' && value === 'correct') {
+      handleAccept(answerId);
+      return;
+    }
+
+    const snapshot = topic;
+    const key = field === 'helpfulness' ? 'moderation_helpfulness' : 'moderation_correctness';
+    const current = topic.answersList.find(a => a.id === answerId)?.[key] ?? null;
+    const next = current === value ? null : value;
+
+    setTopic(prev => {
+      if (!prev) return prev;
+      const answersList = prev.answersList.map(a => {
+        if (a.id !== answerId) return a;
+        return {
+          ...a,
+          [key]: next,
+          accepted: field === 'correctness' && next === 'incorrect' ? false : a.accepted,
+        };
+      });
+      const solved = field === 'correctness' && next === 'incorrect'
+        ? answersList.some(a => a.accepted)
+        : prev.solved;
+      return { ...prev, solved, answersList };
+    });
+
+    fetch(`${API}/api/admin/answers/${answerId}/moderation`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ [field]: next }),
+    }).then(r => r.ok ? r.json() : Promise.reject())
+      .then(({ answer: updated }) => {
+        setTopic(prev => prev ? {
+          ...prev,
+          solved: updated.topic_solved ?? prev.solved,
+          answersList: prev.answersList.map(a => a.id === answerId ? { ...a, ...updated } : a),
+        } : prev);
+        showToast('Javob belgilandi');
+      })
+      .catch(() => {
+        setTopic(snapshot);
+        showToast('Xato yuz berdi');
+      });
   };
 
   /* ── Render ── */
@@ -348,7 +414,8 @@ export default function QuestionPage() {
     </Layout>
   );
 
-  const isAuthor = user && topic.author === user.name;
+  const isAuthor = user && (topic.user_id === user.id || topic.author === user.name);
+  const canModerate = Boolean(user?.is_admin || user?.is_moderator);
 
   return (
     <Layout theme={theme} onThemeToggle={toggleTheme}>
@@ -392,7 +459,16 @@ export default function QuestionPage() {
             <div className="qp-question-body">
               {/* Meta row */}
               <div className="topic-meta" style={{ marginBottom: 10 }}>
-                {topic.pinned && <span className="pill pill--gold">Mahkamlangan</span>}
+                {topic.pinned && (
+                  <span
+                    aria-label="Mahkamlangan mavzu"
+                    className="pinned-indicator"
+                    data-tooltip="Mahkamlangan mavzu"
+                    role="img"
+                  >
+                    <Icon name="pin" size={14} />
+                  </span>
+                )}
                 {topic.hot    && <span className="pill pill--hot">Qaynoq 🔥</span>}
                 {topic.solved && <span className="pill pill--ok">Yechilgan ✓</span>}
                 <span>{topic.activity}</span>
@@ -413,11 +489,33 @@ export default function QuestionPage() {
                 </div>
               )}
 
+              {canModerate && (
+                <div className="qp-modbar">
+                  <button
+                    className={`soft-button ${topic.solved ? 'soft-button--success' : ''}`}
+                    onClick={handleSolvedToggle}
+                    type="button"
+                  >
+                    <Icon name={topic.solved ? 'x' : 'check'} size={15} />
+                    {topic.solved ? 'Ochiq qilish' : 'Yechildi'}
+                  </button>
+                </div>
+              )}
+
               {/* Author footer */}
               <div className="qp-author-row">
                 <div className="qp-meta-stats">
                   <span><Icon name="message" size={14} /> {topic.answers} javob</span>
                   <span><Icon name="eye" size={14} /> {topic.views} ko'rish</span>
+                  <button
+                    aria-label="Savol havolasini nusxalash"
+                    className="permalink-button"
+                    data-tooltip="Savol havolasini nusxalash"
+                    onClick={handleCopyLink}
+                    type="button"
+                  >
+                    <Icon name="link" size={17} />
+                  </button>
                 </div>
                 <div className="qp-author-card">
                   <span className="qp-author-label">So'radi</span>
@@ -450,7 +548,7 @@ export default function QuestionPage() {
                 .map(ans => (
                   <article
                     key={ans.id}
-                    className={`qp-answer ${ans.accepted ? 'is-accepted' : ''}`}
+                    className={`qp-answer ${ans.accepted ? 'is-accepted' : ''} ${ans.moderation_correctness === 'incorrect' ? 'is-incorrect' : ''}`}
                   >
                     <div className="qp-vote-col qp-vote-col--answer">
                       <button
@@ -473,7 +571,7 @@ export default function QuestionPage() {
                           <Icon name="check" size={15} />
                         </span>
                       )}
-                      {isAuthor && !topic.solved && !ans.accepted && (
+                      {(isAuthor || canModerate) && !ans.accepted && (
                         <button
                           className="qp-accept-btn"
                           onClick={() => handleAccept(ans.id)}
@@ -490,8 +588,58 @@ export default function QuestionPage() {
                         <strong>{ans.author}</strong>
                         <span>{ans.role}</span>
                         {ans.accepted && <span className="pill pill--ok">Qabul qilindi</span>}
+                        {ans.moderation_correctness && !ans.accepted && (
+                          <span className={`pill ${ans.moderation_correctness === 'correct' ? 'pill--ok' : 'pill--bad'}`}>
+                            {CORRECTNESS_LABELS[ans.moderation_correctness]}
+                          </span>
+                        )}
+                        {ans.moderation_helpfulness && (
+                          <span className={`pill ${ans.moderation_helpfulness === 'helpful' ? 'pill--info' : 'pill--bad'}`}>
+                            {HELPFULNESS_LABELS[ans.moderation_helpfulness]}
+                          </span>
+                        )}
                       </div>
-                      <p className="qp-answer-text">{ans.text}</p>
+                      <RichText className="qp-answer-text" text={ans.text} />
+                      {canModerate && (
+                        <div className="qp-mod-controls">
+                          <button
+                            aria-label="Foydali deb belgilash"
+                            className={`qp-mod-chip ${ans.moderation_helpfulness === 'helpful' ? 'is-active' : ''}`}
+                            data-tooltip="Foydali"
+                            onClick={() => handleAnswerModeration(ans.id, 'helpfulness', 'helpful')}
+                            type="button"
+                          >
+                            <Icon name="thumbsUp" size={14} />
+                          </button>
+                          <button
+                            aria-label="Foydasiz deb belgilash"
+                            className={`qp-mod-chip ${ans.moderation_helpfulness === 'unhelpful' ? 'is-danger' : ''}`}
+                            data-tooltip="Foydasiz"
+                            onClick={() => handleAnswerModeration(ans.id, 'helpfulness', 'unhelpful')}
+                            type="button"
+                          >
+                            <Icon name="thumbsDown" size={14} />
+                          </button>
+                          <button
+                            aria-label="To'g'ri javob deb belgilash"
+                            className={`qp-mod-chip ${ans.accepted || ans.moderation_correctness === 'correct' ? 'is-active' : ''}`}
+                            data-tooltip="To'g'ri"
+                            onClick={() => handleAnswerModeration(ans.id, 'correctness', 'correct')}
+                            type="button"
+                          >
+                            <Icon name="check" size={14} />
+                          </button>
+                          <button
+                            aria-label="Noto'g'ri javob deb belgilash"
+                            className={`qp-mod-chip ${ans.moderation_correctness === 'incorrect' ? 'is-danger' : ''}`}
+                            data-tooltip="Noto'g'ri"
+                            onClick={() => handleAnswerModeration(ans.id, 'correctness', 'incorrect')}
+                            type="button"
+                          >
+                            <Icon name="x" size={14} />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </article>
                 ))}

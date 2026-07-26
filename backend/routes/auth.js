@@ -6,6 +6,32 @@ const { sign, requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
+function publicUser(user) {
+  return {
+    id: user.id,
+    username: user.username,
+    name: user.name,
+    initials: user.initials,
+    role: user.role,
+    score: user.score,
+    is_admin: Boolean(user.is_admin),
+    is_moderator: Boolean(user.is_moderator),
+    bio: user.bio || '',
+  };
+}
+
+function signUser(user) {
+  return sign({
+    id: user.id,
+    username: user.username,
+    name: user.name,
+    initials: user.initials,
+    role: user.role,
+    is_admin: Boolean(user.is_admin),
+    is_moderator: Boolean(user.is_moderator),
+  });
+}
+
 const registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false,
   message: { error: "Juda ko'p urinish. 1 soatdan keyin qayta urinib ko'ring." },
@@ -45,8 +71,8 @@ router.post('/register', registerLimiter, async (req, res) => {
 
   if (!user) return res.status(409).json({ error: "Bu username yoki email band, boshqasini tanlang" });
 
-  const token = sign({ id: user.id, username: user.username, name: user.name, initials: user.initials, role: user.role });
-  res.json({ token, user: { id: user.id, username: user.username, name: user.name, initials: user.initials, role: user.role } });
+  const token = signUser(user);
+  res.json({ token, user: publicUser(user) });
 });
 
 // ── POST /api/auth/login ──────────────────────────────────────────────────────
@@ -60,21 +86,17 @@ router.post('/login', loginLimiter, async (req, res) => {
 
   const ok = await bcrypt.compare(password, user.password);
   if (!ok) return res.status(401).json({ error: "Parol noto'g'ri" });
+  if (user.banned_at) return res.status(403).json({ error: 'Hisob bloklangan' });
 
-  const token = sign({ id: user.id, username: user.username, name: user.name, initials: user.initials, role: user.role });
-  res.json({ token, user: { id: user.id, username: user.username, name: user.name, initials: user.initials, role: user.role } });
+  const token = signUser(user);
+  res.json({ token, user: publicUser(user) });
 });
 
 // ── GET /api/auth/me ──────────────────────────────────────────────────────────
 router.get('/me', requireAuth, async (req, res) => {
   const user = await db.getUserById(req.user.id);
   if (!user) return res.status(404).json({ error: 'not found' });
-  if (user.banned_at) return res.status(403).json({ error: 'Hisob bloklangan' });
-  res.json({
-    id: user.id, username: user.username, name: user.name,
-    initials: user.initials, role: user.role, score: user.score,
-    is_admin: user.is_admin || false, bio: user.bio || '',
-  });
+  res.json(publicUser(user));
 });
 
 module.exports = router;

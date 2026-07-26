@@ -6,11 +6,11 @@ import { avatarBg } from '../utils/avatarColor';
 const BACKEND = import.meta.env.VITE_API_URL || 'http://localhost:3002';
 
 function scoreTier(score) {
-  if (score >= 15000) return { label: 'OLMOS',   color: '#22d3ee' };
-  if (score >= 7000)  return { label: 'PLATINA', color: '#a78bfa' };
-  if (score >= 3000)  return { label: 'OLTIN',   color: '#f59e0b' };
-  if (score >= 1000)  return { label: 'KUMUSH',  color: '#94a3b8' };
-  return { label: 'SHOGIRD', color: '#6b7280' };
+  if (score >= 15000) return { label: 'OLMOS',   color: '#36584d' };
+  if (score >= 7000)  return { label: 'PLATINA', color: '#59616d' };
+  if (score >= 3000)  return { label: 'OLTIN',   color: '#7b6847' };
+  if (score >= 1000)  return { label: 'KUMUSH',  color: '#858e99' };
+  return { label: 'SHOGIRD', color: '#5f6873' };
 }
 
 function joinDate(iso) {
@@ -126,8 +126,10 @@ export default function ProfilePage({ theme, onThemeToggle }) {
                 <div className="ptc-meta">
                   <span className="ptc-badge"
                         style={{
-                          background: topic.solved ? '#16a34a22' : '#f59e0b22',
-                          color: topic.solved ? '#16a34a' : '#f59e0b',
+                          background: topic.solved
+                            ? 'color-mix(in srgb, var(--green) 14%, var(--surface))'
+                            : 'color-mix(in srgb, var(--amber) 14%, var(--surface))',
+                          color: topic.solved ? 'var(--green)' : 'var(--amber)',
                         }}>
                     {topic.solved ? 'Yechildi' : 'Ochiq'}
                   </span>
@@ -166,7 +168,7 @@ export default function ProfilePage({ theme, onThemeToggle }) {
                   <div className="ptc-answer-text">{a.text}</div>
                   <div className="ptc-meta" style={{ marginTop: 8 }}>
                     {a.accepted && (
-                      <span className="ptc-badge" style={{ background: '#16a34a22', color: '#16a34a' }}>
+                      <span className="ptc-badge" style={{ background: 'color-mix(in srgb, var(--green) 14%, var(--surface))', color: 'var(--green)' }}>
                         ✓ Qabul qilindi
                       </span>
                     )}

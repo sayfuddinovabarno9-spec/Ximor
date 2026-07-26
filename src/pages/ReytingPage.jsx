@@ -15,18 +15,18 @@ const PERIODS = [
 ];
 
 const TIERS = [
-  { id: 'olmos',   label: 'OLMOS',   range: '15k+',   color: '#22d3ee' },
-  { id: 'platina', label: 'PLATINA', range: '7-15k',  color: '#a78bfa' },
-  { id: 'oltin',   label: 'OLTIN',   range: '3-7k',   color: '#f59e0b' },
-  { id: 'kumush',  label: 'KUMUSH',  range: '1-3k',   color: '#94a3b8' },
+  { id: 'olmos',   label: 'OLMOS',   range: '15k+',   color: '#36584d' },
+  { id: 'platina', label: 'PLATINA', range: '7-15k',  color: '#59616d' },
+  { id: 'oltin',   label: 'OLTIN',   range: '3-7k',   color: '#7b6847' },
+  { id: 'kumush',  label: 'KUMUSH',  range: '1-3k',   color: '#858e99' },
 ];
 
 const TIER_COLORS = {
-  olmos:   '#22d3ee',
-  platina: '#a78bfa',
-  oltin:   '#f59e0b',
-  kumush:  '#94a3b8',
-  shogird: '#6b7280',
+  olmos:   '#36584d',
+  platina: '#59616d',
+  oltin:   '#7b6847',
+  kumush:  '#858e99',
+  shogird: '#5f6873',
 };
 
 function scoreTier(score) {
@@ -234,7 +234,7 @@ export default function ReytingPage({ theme, onThemeToggle }) {
           </div>
         </section>
 
-        <InsightsPanel onSpotlightClick={() => navigate('/?q=reaksiya')} />
+        <InsightsPanel onSpotlightClick={() => navigate('/chat?q=reaksiya')} />
       </main>
     </Layout>
   );

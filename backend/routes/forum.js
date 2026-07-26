@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const { requireAuth } = require('../middleware/auth');
+const { hasModeratorAccess } = require('../middleware/requireModerator');
 
 const router = express.Router();
 const clients = new Set();
@@ -164,15 +165,20 @@ router.post('/topics/:id/accept/:answerId', requireAuth, async (req, res) => {
   const answerId = Number(req.params.answerId);
   const topic  = await db.getTopicWithAnswers(topicId);
   if (!topic) return res.status(404).json({ error: 'not found' });
+  const isAuthor = topic.user_id === req.user.id || topic.author === req.user.name;
+  if (!isAuthor && !hasModeratorAccess(req.user)) {
+    return res.status(403).json({ error: 'Faqat savol egasi yoki moderator javobni qabul qilishi mumkin' });
+  }
   const answer = await db.acceptAnswer(topicId, answerId);
-  if (answer?.user_id) {
+  if (!answer) return res.status(404).json({ error: 'answer not found' });
+  if (answer.user_id && !answer.was_accepted) {
     await db.addUserScore(answer.user_id, 50, 'answer_accepted');
     await db.createNotification(
       answer.user_id, 'accept', topicId,
       `Tabriklaymiz! Javobingiz qabul qilindi: "${topic.title.slice(0, 60)}" (+50 ball)`
     );
   }
-  broadcast('accept', { topicId, answerId });
+  broadcast('accept', { topicId, answerId, solved: true, moderation_correctness: 'correct' });
   res.json({ ok: true });
 });
 

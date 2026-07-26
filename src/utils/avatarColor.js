@@ -1,16 +1,12 @@
 const PALETTE = [
-  '#0d9488', // teal
-  '#2563eb', // blue
-  '#7c3aed', // purple
-  '#db2777', // pink
-  '#ea580c', // orange
-  '#16a34a', // green
-  '#0284c7', // sky
-  '#b45309', // amber-brown
-  '#9333ea', // violet
-  '#be123c', // rose
-  '#0369a1', // dark sky
-  '#15803d', // dark green
+  '#36584d',
+  '#4d5b55',
+  '#5c625f',
+  '#59616d',
+  '#6c6258',
+  '#7b6847',
+  '#4f5d4f',
+  '#565a62',
 ];
 
 function hash(str) {

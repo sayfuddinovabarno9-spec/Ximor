@@ -11,22 +11,60 @@ function verify(token) {
   catch { return null; }
 }
 
-/** Express middleware — attaches req.user or returns 401 */
-function requireAuth(req, res, next) {
+function tokenFrom(req) {
   const header = req.headers.authorization || '';
-  const token  = header.startsWith('Bearer ') ? header.slice(7) : null;
-  const user   = token ? verify(token) : null;
-  if (!user) return res.status(401).json({ error: 'Login kerak' });
-  req.user = user;
-  next();
+  return header.startsWith('Bearer ') ? header.slice(7) : null;
+}
+
+async function getAuthUser(req) {
+  const token = tokenFrom(req);
+  const payload = token ? verify(token) : null;
+  if (!payload?.id) return null;
+  const db = require('../db');
+  return db.getUserById(payload.id);
+}
+
+/** Express middleware — attaches req.user or returns 401 */
+async function requireAuth(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user) return res.status(401).json({ error: 'Login kerak' });
+    if (user.banned_at) return res.status(403).json({ error: 'Hisob bloklangan' });
+    req.user = {
+      id: user.id,
+      username: user.username,
+      name: user.name,
+      initials: user.initials,
+      role: user.role,
+      score: user.score,
+      is_admin: Boolean(user.is_admin),
+      is_moderator: Boolean(user.is_moderator),
+    };
+    next();
+  } catch (err) {
+    next(err);
+  }
 }
 
 /** Optional auth — attaches req.user if token present, never 401s */
-function optionalAuth(req, res, next) {
-  const header = req.headers.authorization || '';
-  const token  = header.startsWith('Bearer ') ? header.slice(7) : null;
-  req.user = token ? verify(token) : null;
-  next();
+async function optionalAuth(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    req.user = user && !user.banned_at ? {
+      id: user.id,
+      username: user.username,
+      name: user.name,
+      initials: user.initials,
+      role: user.role,
+      score: user.score,
+      is_admin: Boolean(user.is_admin),
+      is_moderator: Boolean(user.is_moderator),
+    } : null;
+    next();
+  } catch {
+    req.user = null;
+    next();
+  }
 }
 
-module.exports = { sign, verify, requireAuth, optionalAuth };
+module.exports = { sign, verify, requireAuth, optionalAuth, getAuthUser };
