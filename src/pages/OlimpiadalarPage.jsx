@@ -1,4 +1,5 @@
 import Layout from '../components/Layout';
+import { useLanguage } from '../context/LanguageContext';
 
 const UAC_URL = 'https://elyorbekadkhamov9-cell.github.io/UAC-/index.html';
 
@@ -119,6 +120,7 @@ function CommunityMember({ member }) {
 }
 
 function CommunitySiteCard({ site }) {
+  const { t } = useLanguage();
   const previewMembers = site.team.slice(0, 4);
 
   return (
@@ -127,7 +129,7 @@ function CommunitySiteCard({ site }) {
         <div className="community-site-head">
           <span className="community-site-logo">{site.name}</span>
           <div>
-            <span className="eyebrow">Community website</span>
+            <span className="eyebrow">{t('communityPage.websiteLabel')}</span>
             <h2>{site.fullName}</h2>
             <p>{site.tagline}</p>
           </div>
@@ -138,28 +140,28 @@ function CommunitySiteCard({ site }) {
         <div className="community-meta-grid">
           <div className="community-meta">
             <strong>{site.team.length}</strong>
-            <span>jamoa a'zolari</span>
+            <span>{t('communityPage.teamMembers')}</span>
           </div>
           <div className="community-meta">
             <strong>1</strong>
-            <span>website</span>
+            <span>{t('communityPage.website')}</span>
           </div>
           <div className="community-meta">
             <strong>{site.channels.length}</strong>
-            <span>social kanal</span>
+            <span>{t('communityPage.socialChannels')}</span>
           </div>
         </div>
 
         <div className="community-site-links">
-          <ExternalLink className="primary-button" href={site.url}>Saytni ochish</ExternalLink>
-          <ExternalLink href={site.libraryUrl}>Kutubxona</ExternalLink>
+          <ExternalLink className="primary-button" href={site.url}>{t('communityPage.openSite')}</ExternalLink>
+          <ExternalLink href={site.libraryUrl}>{t('communityPage.library')}</ExternalLink>
           {site.channels.map(channel => (
             <ExternalLink key={channel.label} href={channel.url}>{channel.label}</ExternalLink>
           ))}
         </div>
       </div>
 
-      <div className="community-preview" aria-label={`${site.name} jamoasi`}>
+      <div className="community-preview" aria-label={t('communityPage.teamLabel', { name: site.name })}>
         {previewMembers.map(member => (
           <img key={member.name} src={member.photo} alt={member.name} loading="lazy" />
         ))}
@@ -169,6 +171,7 @@ function CommunitySiteCard({ site }) {
 }
 
 export default function OlimpiadalarPage({ theme, onThemeToggle }) {
+  const { t } = useLanguage();
   const primarySite = COMMUNITY_SITES[0];
 
   return (
@@ -176,7 +179,7 @@ export default function OlimpiadalarPage({ theme, onThemeToggle }) {
       <main className="community-layout" id="community">
         <aside className="side-panel community-sidebar">
           <div className="panel-section">
-            <span className="panel-label">Hamjamiyatlar</span>
+            <span className="panel-label">{t('communityPage.communities')}</span>
             <div className="community-list">
               {COMMUNITY_SITES.map(site => (
                 <a key={site.id} className="community-list-item is-active" href={`#${site.id}`}>
@@ -190,12 +193,9 @@ export default function OlimpiadalarPage({ theme, onThemeToggle }) {
           </div>
 
           <div className="panel-card community-note">
-            <span className="eyebrow">Maqsad</span>
-            <h3>Foydali kimyo sahifalari</h3>
-            <p>
-              Bu bo'limda Ximor foydalanuvchilari uchun kerakli community saytlar,
-              materiallar va rasmiy kanallar bir joyga yig'iladi.
-            </p>
+            <span className="eyebrow">{t('communityPage.purpose')}</span>
+            <h3>{t('communityPage.usefulPages')}</h3>
+            <p>{t('communityPage.purposeText')}</p>
           </div>
         </aside>
 
@@ -204,22 +204,19 @@ export default function OlimpiadalarPage({ theme, onThemeToggle }) {
             <div className="community-hero-copy">
               <div className="hero-eyebrow">
                 <span className="hero-eyebrow-dot" />
-                Bizning hamjamiyat
+                {t('communityPage.ourCommunity')}
               </div>
-              <h1>Our community</h1>
-              <p>
-                Kimyo o'rganuvchilariga foydali hamjamiyatlar, ularning saytlari,
-                kutubxonalari va jamoa ma'lumotlari shu yerda jamlanadi.
-              </p>
+              <h1>{t('communityPage.title')}</h1>
+              <p>{t('communityPage.intro')}</p>
               <div className="community-hero-actions">
                 <ExternalLink className="primary-button" href={primarySite.url}>
-                  UAC saytiga o'tish
+                  {t('communityPage.openUac')}
                 </ExternalLink>
-                <ExternalLink href={primarySite.libraryUrl}>Kutubxona</ExternalLink>
+                <ExternalLink href={primarySite.libraryUrl}>{t('communityPage.library')}</ExternalLink>
               </div>
             </div>
 
-            <div className="community-hero-media" aria-label="UAC jamoasi rasmlari">
+            <div className="community-hero-media" aria-label={t('communityPage.teamLabel', { name: 'UAC' })}>
               {primarySite.team.slice(0, 4).map(member => (
                 <img key={member.name} src={member.photo} alt={member.name} loading="lazy" />
               ))}
@@ -228,8 +225,8 @@ export default function OlimpiadalarPage({ theme, onThemeToggle }) {
 
           <section className="community-sites" aria-labelledby="community-sites-title">
             <div className="section-heading">
-              <span className="eyebrow">Hozircha 1 ta sayt</span>
-              <h3 id="community-sites-title">Community websites</h3>
+              <span className="eyebrow">{t('communityPage.oneSite')}</span>
+              <h3 id="community-sites-title">{t('communityPage.websites')}</h3>
             </div>
             {COMMUNITY_SITES.map(site => (
               <CommunitySiteCard key={site.id} site={site} />
@@ -238,8 +235,8 @@ export default function OlimpiadalarPage({ theme, onThemeToggle }) {
 
           <section className="community-team-section" aria-labelledby="community-team-title">
             <div className="section-heading">
-              <span className="eyebrow">UAC jamoasi</span>
-              <h3 id="community-team-title">A'zolar va ma'lumotlar</h3>
+              <span className="eyebrow">{t('communityPage.uacTeam')}</span>
+              <h3 id="community-team-title">{t('communityPage.membersInfo')}</h3>
             </div>
             <div className="community-team-grid">
               {primarySite.team.map(member => (
@@ -251,7 +248,7 @@ export default function OlimpiadalarPage({ theme, onThemeToggle }) {
 
         <aside className="community-aside">
           <div className="panel-card community-contact-card">
-            <span className="eyebrow">Aloqa</span>
+            <span className="eyebrow">{t('communityPage.contact')}</span>
             <h3>{primarySite.name}</h3>
             <p>{primarySite.description}</p>
             <div className="community-contact-links">
@@ -262,12 +259,9 @@ export default function OlimpiadalarPage({ theme, onThemeToggle }) {
           </div>
 
           <div className="panel-card community-source-card">
-            <span className="eyebrow">Manba</span>
-            <h3>Rasmiy sahifa</h3>
-            <p>
-              Jamoa ma'lumotlari UAC sahifasidan olindi. Keyinroq boshqa community saytlar
-              ham shu formatda qo'shiladi.
-            </p>
+            <span className="eyebrow">{t('communityPage.source')}</span>
+            <h3>{t('communityPage.officialPage')}</h3>
+            <p>{t('communityPage.sourceText')}</p>
             <ExternalLink href={primarySite.url}>UAC website</ExternalLink>
           </div>
         </aside>

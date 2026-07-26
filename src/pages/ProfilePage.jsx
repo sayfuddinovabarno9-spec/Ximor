@@ -2,24 +2,27 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { avatarBg } from '../utils/avatarColor';
+import { useLanguage } from '../context/LanguageContext';
 
 const BACKEND = import.meta.env.VITE_API_URL || 'http://localhost:3002';
 
-function scoreTier(score) {
-  if (score >= 15000) return { label: 'OLMOS',   color: '#36584d' };
-  if (score >= 7000)  return { label: 'PLATINA', color: '#59616d' };
-  if (score >= 3000)  return { label: 'OLTIN',   color: '#7b6847' };
-  if (score >= 1000)  return { label: 'KUMUSH',  color: '#858e99' };
-  return { label: 'SHOGIRD', color: '#5f6873' };
+function scoreTier(score, t) {
+  if (score >= 15000) return { label: t('profile.tiers.diamond'), color: '#36584d' };
+  if (score >= 7000) return { label: t('profile.tiers.platinum'), color: '#59616d' };
+  if (score >= 3000) return { label: t('profile.tiers.gold'), color: '#7b6847' };
+  if (score >= 1000) return { label: t('profile.tiers.silver'), color: '#858e99' };
+  return { label: t('profile.tiers.learner'), color: '#5f6873' };
 }
 
-function joinDate(iso) {
+function joinDate(iso, language) {
   try {
-    return new Date(iso).toLocaleDateString('uz-UZ', { year: 'numeric', month: 'long' });
+    const locale = { uz: 'uz-UZ', ru: 'ru-RU', en: 'en-US' }[language] || 'uz-UZ';
+    return new Date(iso).toLocaleDateString(locale, { year: 'numeric', month: 'long' });
   } catch { return '—'; }
 }
 
 export default function ProfilePage({ theme, onThemeToggle }) {
+  const { language, t } = useLanguage();
   const { username } = useParams();
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
@@ -37,10 +40,10 @@ export default function ProfilePage({ theme, onThemeToggle }) {
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(data => { setProfile(data); setLoading(false); })
       .catch(code => {
-        setError(code === 404 ? 'Foydalanuvchi topilmadi' : 'Xato yuz berdi');
+        setError(code === 404 ? t('profile.notFound') : t('question.genericError'));
         setLoading(false);
       });
-  }, [username]);
+  }, [username, t]);
 
   useEffect(() => {
     if (tab !== 'javoblar' || answers !== null) return;
@@ -54,7 +57,7 @@ export default function ProfilePage({ theme, onThemeToggle }) {
   if (loading) return (
     <Layout theme={theme} onThemeToggle={onThemeToggle}>
       <div className="profile-shell">
-        <div className="qp-loading">Yuklanmoqda…</div>
+        <div className="qp-loading">{t('common.loading')}</div>
       </div>
     </Layout>
   );
@@ -63,13 +66,13 @@ export default function ProfilePage({ theme, onThemeToggle }) {
     <Layout theme={theme} onThemeToggle={onThemeToggle}>
       <div className="profile-shell">
         <div className="qp-loading" style={{ color: 'var(--rose)' }}>
-          {error || 'Foydalanuvchi topilmadi'}
+          {error || t('profile.notFound')}
         </div>
       </div>
     </Layout>
   );
 
-  const t = scoreTier(profile.score);
+  const tier = scoreTier(profile.score, t);
 
   return (
     <Layout theme={theme} onThemeToggle={onThemeToggle}>
@@ -84,19 +87,19 @@ export default function ProfilePage({ theme, onThemeToggle }) {
           <div className="profile-meta">
             <div className="profile-name-row">
               <h1>{profile.name}</h1>
-              <span className="tier-pill" style={{ '--tier-color': t.color }}>{t.label}</span>
+              <span className="tier-pill" style={{ '--tier-color': tier.color }}>{tier.label}</span>
             </div>
             <div className="profile-username">@{profile.username}</div>
             <div className="profile-role-row">
               <span className="profile-role">{profile.role}</span>
-              <span className="profile-joined">· {joinDate(profile.created_at)} dan beri</span>
+              <span className="profile-joined">· {t('profile.since', { date: joinDate(profile.created_at, language) })}</span>
             </div>
           </div>
           <div className="profile-stats">
-            <div className="profile-stat"><strong>{profile.score}</strong><span>Ball</span></div>
-            <div className="profile-stat"><strong>{profile.topics_count}</strong><span>Savol</span></div>
-            <div className="profile-stat"><strong>{profile.answers_count}</strong><span>Javob</span></div>
-            <div className="profile-stat"><strong>{profile.accepted_count}</strong><span>Qabul</span></div>
+            <div className="profile-stat"><strong>{profile.score}</strong><span>{t('profile.points')}</span></div>
+            <div className="profile-stat"><strong>{profile.topics_count}</strong><span>{t('profile.questions')}</span></div>
+            <div className="profile-stat"><strong>{profile.answers_count}</strong><span>{t('profile.answers')}</span></div>
+            <div className="profile-stat"><strong>{profile.accepted_count}</strong><span>{t('profile.accepted')}</span></div>
           </div>
         </div>
 
@@ -104,11 +107,11 @@ export default function ProfilePage({ theme, onThemeToggle }) {
         <div className="profile-tabs">
           <button className={tab === 'savollar' ? 'is-active' : ''}
                   type="button" onClick={() => setTab('savollar')}>
-            Savollar ({profile.topics_count})
+            {t('profile.questionsTab', { count: profile.topics_count })}
           </button>
           <button className={tab === 'javoblar' ? 'is-active' : ''}
                   type="button" onClick={() => setTab('javoblar')}>
-            Javoblar ({profile.answers_count})
+            {t('profile.answersTab', { count: profile.answers_count })}
           </button>
         </div>
 
@@ -116,7 +119,7 @@ export default function ProfilePage({ theme, onThemeToggle }) {
         {tab === 'savollar' && (
           <div className="profile-topics">
             {profile.recentTopics.length === 0 ? (
-              <div className="profile-empty">Hali savol berilmagan</div>
+              <div className="profile-empty">{t('profile.noQuestions')}</div>
             ) : profile.recentTopics.map(topic => (
               <div key={topic.id} className="profile-topic-card panel-card"
                    role="button" tabIndex={0}
@@ -131,11 +134,11 @@ export default function ProfilePage({ theme, onThemeToggle }) {
                             : 'color-mix(in srgb, var(--amber) 14%, var(--surface))',
                           color: topic.solved ? 'var(--green)' : 'var(--amber)',
                         }}>
-                    {topic.solved ? 'Yechildi' : 'Ochiq'}
+                    {topic.solved ? t('common.solved') : t('common.open')}
                   </span>
-                  <span>{topic.answers} javob</span>
-                  <span>{topic.score} ball</span>
-                  <span>{topic.views} ko'rishlar</span>
+                  <span>{t('profile.answerCount', { count: topic.answers })}</span>
+                  <span>{t('profile.pointCount', { count: topic.score })}</span>
+                  <span>{t('profile.viewCount', { count: topic.views })}</span>
                   <span className="ptc-dot">{topic.activity}</span>
                 </div>
                 {topic.tags.length > 0 && (
@@ -152,9 +155,9 @@ export default function ProfilePage({ theme, onThemeToggle }) {
 
         {tab === 'javoblar' && (
           answersLoading ? (
-            <div className="profile-empty">Yuklanmoqda…</div>
+            <div className="profile-empty">{t('common.loading')}</div>
           ) : !answers || answers.length === 0 ? (
-            <div className="profile-empty">Hali javob berilmagan</div>
+            <div className="profile-empty">{t('profile.noAnswers')}</div>
           ) : (
             <div className="profile-topics">
               {answers.map(a => (
@@ -169,10 +172,10 @@ export default function ProfilePage({ theme, onThemeToggle }) {
                   <div className="ptc-meta" style={{ marginTop: 8 }}>
                     {a.accepted && (
                       <span className="ptc-badge" style={{ background: 'color-mix(in srgb, var(--green) 14%, var(--surface))', color: 'var(--green)' }}>
-                        ✓ Qabul qilindi
+                        ✓ {t('profile.acceptedBadge')}
                       </span>
                     )}
-                    <span>{a.score} ball</span>
+                    <span>{t('profile.pointCount', { count: a.score })}</span>
                   </div>
                 </div>
               ))}

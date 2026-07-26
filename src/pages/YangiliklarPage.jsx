@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
+import { useLanguage } from '../context/LanguageContext';
 
 const BACKEND = import.meta.env.VITE_API_URL || 'http://localhost:3002';
 
@@ -14,14 +15,15 @@ function placeholderColorFor(idx) {
   return PLACEHOLDER_COLORS[idx % PLACEHOLDER_COLORS.length];
 }
 
-function formatDate(rfc) {
+function formatDate(rfc, language, t) {
   try {
     const d = new Date(rfc);
     const diff = (Date.now() - d) / 1000;
-    if (diff < 3600)  return `${Math.floor(diff / 60)} daq oldin`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)} soat oldin`;
-    if (diff < 604800) return `${Math.floor(diff / 86400)} kun oldin`;
-    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    if (diff < 3600) return t('time.minutesAgo', { count: Math.floor(diff / 60) });
+    if (diff < 86400) return t('time.hoursAgo', { count: Math.floor(diff / 3600) });
+    if (diff < 604800) return t('time.daysAgo', { count: Math.floor(diff / 86400) });
+    const locale = { uz: 'uz-UZ', ru: 'ru-RU', en: 'en-GB' }[language] || 'en-GB';
+    return d.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
   } catch { return ''; }
 }
 
@@ -40,6 +42,7 @@ function NewsCardSkeleton() {
 }
 
 function NewsCard({ article, idx }) {
+  const { language, t } = useLanguage();
   const [imgError, setImgError] = useState(false);
   const showImg = article.image && !imgError;
   const initial = article.title?.[0]?.toUpperCase() || '?';
@@ -68,7 +71,7 @@ function NewsCard({ article, idx }) {
         <p className="news-card-desc">{article.description}</p>
         <div className="news-card-meta">
           <span className="news-badge">{article.source}</span>
-          <time>{formatDate(article.date)}</time>
+          <time>{formatDate(article.date, language, t)}</time>
         </div>
       </div>
     </a>
@@ -76,6 +79,7 @@ function NewsCard({ article, idx }) {
 }
 
 export default function YangiliklarPage({ theme, onThemeToggle }) {
+  const { t } = useLanguage();
   const [articles, setArticles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -89,7 +93,7 @@ export default function YangiliklarPage({ theme, onThemeToggle }) {
         setLoading(false);
       })
       .catch(() => {
-        setError("Yangiliklar yuklanmadi. Qayta urinib ko’ring.");
+        setError(true);
         setLoading(false);
       });
   }, []);
@@ -99,13 +103,13 @@ export default function YangiliklarPage({ theme, onThemeToggle }) {
       <main className="news-shell">
         <div className="news-header">
           <div className="news-header-text">
-            <h1>Dunyo kimyo yangiliklari</h1>
-            <p>ScienceDaily orqali dunyo bo'ylab kimyo fani so'nggi kashfiyotlari</p>
+            <h1>{t('news.title')}</h1>
+            <p>{t('news.intro')}</p>
           </div>
         </div>
 
         {error ? (
-          <div className="news-error">{error}</div>
+          <div className="news-error">{t('news.error')}</div>
         ) : (
           <div className="news-grid">
             {loading

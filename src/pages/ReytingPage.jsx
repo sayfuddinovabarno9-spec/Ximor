@@ -3,22 +3,23 @@ import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import InsightsPanel from '../components/InsightsPanel';
 import { avatarBg } from '../utils/avatarColor';
+import { useLanguage } from '../context/LanguageContext';
 
 const BACKEND = import.meta.env.VITE_API_URL || 'http://localhost:3002';
 
 const PERIODS = [
-  { id: 'hafta',   label: 'Bu hafta' },
-  { id: 'oy',      label: 'Bu oy' },
-  { id: 'chorak',  label: 'Bu chorak' },
-  { id: 'yil',     label: 'Yillik' },
-  { id: 'hammasi', label: 'Hamma vaqt' },
+  { id: 'hafta', labelKey: 'ranking.periods.week' },
+  { id: 'oy', labelKey: 'ranking.periods.month' },
+  { id: 'chorak', labelKey: 'ranking.periods.quarter' },
+  { id: 'yil', labelKey: 'ranking.periods.year' },
+  { id: 'hammasi', labelKey: 'ranking.periods.all' },
 ];
 
 const TIERS = [
-  { id: 'olmos',   label: 'OLMOS',   range: '15k+',   color: '#36584d' },
-  { id: 'platina', label: 'PLATINA', range: '7-15k',  color: '#59616d' },
-  { id: 'oltin',   label: 'OLTIN',   range: '3-7k',   color: '#7b6847' },
-  { id: 'kumush',  label: 'KUMUSH',  range: '1-3k',   color: '#858e99' },
+  { id: 'olmos', labelKey: 'profile.tiers.diamond', range: '15k+', color: '#36584d' },
+  { id: 'platina', labelKey: 'profile.tiers.platinum', range: '7-15k', color: '#59616d' },
+  { id: 'oltin', labelKey: 'profile.tiers.gold', range: '3-7k', color: '#7b6847' },
+  { id: 'kumush', labelKey: 'profile.tiers.silver', range: '1-3k', color: '#858e99' },
 ];
 
 const TIER_COLORS = {
@@ -73,6 +74,7 @@ function TrophyIcon() {
 }
 
 export default function ReytingPage({ theme, onThemeToggle }) {
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [period, setPeriod] = useState('hafta');
   const [leaderboard, setLeaderboard] = useState([]);
@@ -93,7 +95,7 @@ export default function ReytingPage({ theme, onThemeToggle }) {
         {/* ── Left sidebar ── */}
         <aside className="side-panel">
           <div className="panel-section">
-            <span className="panel-label">Davr</span>
+            <span className="panel-label">{t('ranking.period')}</span>
             <div className="category-list">
               {PERIODS.map(p => (
                 <button
@@ -102,7 +104,7 @@ export default function ReytingPage({ theme, onThemeToggle }) {
                   onClick={() => setPeriod(p.id)}
                   type="button"
                 >
-                  <span>{p.label}</span>
+                  <span>{t(p.labelKey)}</span>
                 </button>
               ))}
             </div>
@@ -128,28 +130,28 @@ export default function ReytingPage({ theme, onThemeToggle }) {
               </div>
               <div className="mastery-info">
                 <strong>Elementalist</strong>
-                <span>Mastery darajasi · IV</span>
+                <span>{t('forum.masteryLevel')} · IV</span>
               </div>
             </div>
             <div className="mastery-bar-wrap">
               <div className="mastery-bar" />
             </div>
             <div className="mastery-stats">
-              <div className="mastery-stat"><strong>245</strong><span>Upvotes</span></div>
-              <div className="mastery-stat"><strong>38</strong><span>Javoblar</span></div>
-              <div className="mastery-stat"><strong>50</strong><span>Ulashdi</span></div>
+              <div className="mastery-stat"><strong>245</strong><span>{t('forum.upvotes')}</span></div>
+              <div className="mastery-stat"><strong>38</strong><span>{t('forum.answers')}</span></div>
+              <div className="mastery-stat"><strong>50</strong><span>{t('forum.shared')}</span></div>
             </div>
           </div>
 
           <div className="panel-card">
             <div className="section-heading">
-              <h3>Reyting qoidalari</h3>
+              <h3>{t('ranking.rules')}</h3>
             </div>
             <ul className="prep-list">
-              <li>Javob qabul → <strong>50 ball</strong></li>
-              <li>Upvote → <strong>5 ball</strong></li>
-              <li>Olimpiada g'olibligi → <strong>500 ball</strong></li>
-              <li>Mentor tasdig'i → <strong>2× koeffitsient</strong></li>
+              <li>{t('ranking.acceptedRule')} → <strong>50 {t('profile.points').toLowerCase()}</strong></li>
+              <li>{t('ranking.upvoteRule')} → <strong>5 {t('profile.points').toLowerCase()}</strong></li>
+              <li>{t('ranking.olympiadRule')} → <strong>500 {t('profile.points').toLowerCase()}</strong></li>
+              <li>{t('ranking.mentorRule')} → <strong>2× {t('ranking.coefficient')}</strong></li>
             </ul>
           </div>
         </aside>
@@ -161,23 +163,21 @@ export default function ReytingPage({ theme, onThemeToggle }) {
             <div className="reyting-hero-copy">
               <div className="hero-eyebrow">
                 <TrophyIcon />
-                Hafta yetakchilar
+                {t('ranking.leaders')}
               </div>
               <h1>
-                Eng faol<br />
-                <span className="hero-accent">kimyogarlar reytingi</span>
+                {t('ranking.mostActive')}<br />
+                <span className="hero-accent">{t('ranking.chemists')}</span>
               </h1>
               <p>
-                Reyting javob qabul qilingan miqdori, savol yechilishi va
-                mentor tasdig'i asosida har soatda yangilanadi.
-                Top-10 hafta yakuni bilan oltin nishon oladi.
+                {t('ranking.intro')}
               </p>
             </div>
             <div className="tier-legend">
-              {TIERS.map(t => (
-                <div key={t.id} className="tier-badge" style={{ '--tier-color': t.color }}>
-                  <span className="tier-label">{t.label}</span>
-                  <span className="tier-range">{t.range}</span>
+              {TIERS.map(tier => (
+                <div key={tier.id} className="tier-badge" style={{ '--tier-color': tier.color }}>
+                  <span className="tier-label">{t(tier.labelKey)}</span>
+                  <span className="tier-range">{tier.range}</span>
                 </div>
               ))}
             </div>
@@ -186,16 +186,16 @@ export default function ReytingPage({ theme, onThemeToggle }) {
           {/* Leaderboard table */}
           <div className="panel-card leaderboard">
             {loading ? (
-              <div className="qp-loading" style={{ padding: '32px 0' }}>Yuklanmoqda…</div>
+              <div className="qp-loading" style={{ padding: '32px 0' }}>{t('common.loading')}</div>
             ) : (
               <table className="lb-table">
                 <thead>
                   <tr>
                     <th>#</th>
-                    <th>Foydalanuvchi</th>
-                    <th>Ball</th>
-                    <th>Qabul</th>
-                    <th>O'zg.</th>
+                    <th>{t('ranking.user')}</th>
+                    <th>{t('ranking.points')}</th>
+                    <th>{t('ranking.accepted')}</th>
+                    <th>{t('ranking.change')}</th>
                   </tr>
                 </thead>
                 <tbody>

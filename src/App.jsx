@@ -1227,6 +1227,17 @@ function Forum({ theme, onThemeToggle }) {
     });
   }, [activeCategory, activeSort, query, topics]);
 
+  const categoryCounts = useMemo(() => {
+    const counts = Object.fromEntries(CATEGORIES.map((category) => [category.id, 0]));
+    topics.forEach((topic) => {
+      counts.all += 1;
+      if (topic.category && topic.category !== "all") {
+        counts[topic.category] = (counts[topic.category] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [topics]);
+
   const activeCategoryName = t(
     CATEGORIES.find((item) => item.id === activeCategory)?.labelKey || 'forum.all'
   );
@@ -1481,7 +1492,7 @@ function Forum({ theme, onThemeToggle }) {
                 >
                   <CategoryMark categoryId={category.id} />
                   <span>{t(category.labelKey)}</span>
-                  <strong>{category.count}</strong>
+                  <strong>{categoryCounts[category.id] ?? 0}</strong>
                 </button>
               ))}
             </div>
