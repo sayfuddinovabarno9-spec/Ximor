@@ -34,11 +34,11 @@ function Icon({ name, size = 18 }) {
   );
 }
 
-function Avatar({ initials, name, online = false }) {
+function Avatar({ image, initials, name, online = false }) {
   return (
     <span className="avatar" title={name}
           style={{ background: avatarBg(initials), color: '#fff', border: 'none' }}>
-      {initials}
+      {image ? <img alt="" src={image} /> : initials}
       {online && <span className="avatar__status" />}
     </span>
   );
@@ -226,7 +226,7 @@ export default function Layout({ children, theme, onThemeToggle, onCompose, quer
             <div className="user-menu-wrap" ref={menuRef}>
               <button className="icon-button" type="button" title={user.name}
                       style={{ gap: 0 }} onClick={() => setMenuOpen(o => !o)}>
-                <Avatar initials={user.initials} name={user.name} online />
+                <Avatar image={user.avatar_url} initials={user.initials} name={user.name} online />
               </button>
               {menuOpen && (
                 <div className="user-dropdown">

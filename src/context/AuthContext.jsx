@@ -6,6 +6,34 @@ const STORAGE_KEY = 'ximor_token';
 
 const AuthContext = createContext(null);
 
+function normalizeUser(value) {
+  if (!value) return null;
+  let interests = [];
+  if (Array.isArray(value.interests)) {
+    interests = value.interests;
+  } else if (typeof value.interests === 'string') {
+    try { interests = JSON.parse(value.interests); } catch { interests = []; }
+  }
+  return {
+    id: value.id,
+    username: value.username,
+    email: value.email || '',
+    name: value.name,
+    initials: value.initials,
+    role: value.role,
+    is_admin: Boolean(value.is_admin),
+    is_moderator: Boolean(value.is_moderator),
+    bio: value.bio || '',
+    avatar_url: value.avatar_url || '',
+    cover_url: value.cover_url || '',
+    headline: value.headline || '',
+    location: value.location || '',
+    website: value.website || '',
+    study_goal: value.study_goal || '',
+    interests,
+  };
+}
+
 export function AuthProvider({ children }) {
   const { t } = useLanguage();
   const [token, setToken] = useState(() => localStorage.getItem(STORAGE_KEY));
@@ -15,7 +43,7 @@ export function AuthProvider({ children }) {
       if (!t) return null;
       // Decode JWT payload (no verification — server does that)
       const payload = JSON.parse(atob(t.split('.')[1]));
-      return {
+      return normalizeUser({
         id: payload.id,
         username: payload.username,
         email: payload.email || '',
@@ -24,7 +52,7 @@ export function AuthProvider({ children }) {
         role: payload.role,
         is_admin: Boolean(payload.is_admin),
         is_moderator: Boolean(payload.is_moderator),
-      };
+      });
     } catch { return null; }
   });
 
@@ -34,17 +62,7 @@ export function AuthProvider({ children }) {
     if (!stored) return;
     fetch(`${API}/api/auth/me`, { headers: { Authorization: `Bearer ${stored}` } })
       .then(r => r.ok ? r.json() : Promise.reject())
-      .then(u => setUser({
-        id: u.id,
-        username: u.username,
-        email: u.email || '',
-        name: u.name,
-        initials: u.initials,
-        role: u.role,
-        is_admin: Boolean(u.is_admin),
-        is_moderator: Boolean(u.is_moderator),
-        bio: u.bio || '',
-      }))
+      .then(u => setUser(normalizeUser(u)))
       .catch(() => {
         localStorage.removeItem(STORAGE_KEY);
         setToken(null);
@@ -55,12 +73,24 @@ export function AuthProvider({ children }) {
   const saveSession = useCallback((newToken, newUser) => {
     localStorage.setItem(STORAGE_KEY, newToken);
     setToken(newToken);
-    setUser({
-      ...newUser,
-      is_admin: Boolean(newUser.is_admin),
-      is_moderator: Boolean(newUser.is_moderator),
-      bio: newUser.bio || '',
+    setUser(normalizeUser(newUser));
+  }, []);
+
+  const refreshUser = useCallback(async () => {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (!stored) return null;
+    const res = await fetch(`${API}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${stored}` },
     });
+    if (!res.ok) throw new Error('refresh failed');
+    const data = await res.json();
+    const next = normalizeUser(data);
+    setUser(next);
+    return next;
+  }, []);
+
+  const updateLocalUser = useCallback((nextUser) => {
+    setUser(normalizeUser(nextUser));
   }, []);
 
   const logout = useCallback(() => {
@@ -99,7 +129,7 @@ export function AuthProvider({ children }) {
   , [token]);
 
   return (
-    <AuthContext.Provider value={{ user, token, login, register, logout, authHeaders }}>
+    <AuthContext.Provider value={{ user, token, login, register, logout, authHeaders, refreshUser, updateLocalUser }}>
       {children}
     </AuthContext.Provider>
   );

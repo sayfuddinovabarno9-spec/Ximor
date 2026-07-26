@@ -124,6 +124,13 @@ async function initSchema() {
     ALTER TABLE users ADD COLUMN IF NOT EXISTS is_moderator  BOOLEAN     DEFAULT FALSE;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS banned_at     TIMESTAMPTZ;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS bio           TEXT        DEFAULT '';
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url    TEXT        DEFAULT '';
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS cover_url     TEXT        DEFAULT '';
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS headline      TEXT        DEFAULT '';
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS location      TEXT        DEFAULT '';
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS website       TEXT        DEFAULT '';
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS study_goal    TEXT        DEFAULT '';
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS interests     TEXT        DEFAULT '[]';
     UPDATE users SET is_moderator = TRUE WHERE role = 'Moderator' AND is_moderator = FALSE;
 
     CREATE TABLE IF NOT EXISTS saved_topics (
@@ -406,7 +413,8 @@ async function getUserByEmail(email) {
 
 async function getUserById(id) {
   return q1(`
-    SELECT id, username, name, initials, role, score, email, is_admin, is_moderator, banned_at, bio
+    SELECT id, username, name, initials, role, score, email, is_admin, is_moderator, banned_at,
+           bio, avatar_url, cover_url, headline, location, website, study_goal, interests
     FROM users WHERE id = $1
   `, [id]);
 }
@@ -420,9 +428,10 @@ async function getUserProfile(username) {
   const profile = await q1(`
     SELECT
       u.id, u.username, u.name, u.initials, u.role, u.score, u.created_at,
-      (SELECT COUNT(*) FROM topics  WHERE author = u.name)::INTEGER                  AS topics_count,
-      (SELECT COUNT(*) FROM answers WHERE author = u.name)::INTEGER                  AS answers_count,
-      (SELECT COUNT(*) FROM answers WHERE author = u.name AND accepted = TRUE)::INTEGER AS accepted_count
+      u.bio, u.avatar_url, u.cover_url, u.headline, u.location, u.website, u.study_goal, u.interests,
+      (SELECT COUNT(*) FROM topics  WHERE user_id = u.id OR author = u.name)::INTEGER AS topics_count,
+      (SELECT COUNT(*) FROM answers WHERE user_id = u.id OR author = u.name)::INTEGER AS answers_count,
+      (SELECT COUNT(*) FROM answers WHERE (user_id = u.id OR author = u.name) AND accepted = TRUE)::INTEGER AS accepted_count
     FROM users u WHERE LOWER(u.username) = LOWER($1)
   `, [username]);
   if (!profile) return null;
@@ -431,12 +440,13 @@ async function getUserProfile(username) {
     SELECT id, title, summary, tags, score, answers, views, activity, difficulty,
            solved, hot, created_at, category
     FROM topics
-    WHERE author = $1
+    WHERE user_id = $1 OR author = $2
     ORDER BY id DESC LIMIT 20
-  `, [profile.name]);
+  `, [profile.id, profile.name]);
 
   return {
     ...profile,
+    interests: safeJson(profile.interests, []),
     recentTopics: recentTopics.map(r => ({
       ...r,
       tags:   safeJson(r.tags, []),
@@ -534,11 +544,81 @@ async function getUserAnswers(username) {
            t.id AS topic_id, t.title AS topic_title, t.category
     FROM answers a
     JOIN topics t ON t.id = a.topic_id
-    WHERE a.user_id = $1
+    WHERE a.user_id = $1 OR a.author = $2
     ORDER BY a.created_at DESC
     LIMIT 50
-  `, [user.id]);
+  `, [user.id, user.name]);
   return rows;
+}
+
+async function updateUserProfile(userId, fields) {
+  const current = await q1('SELECT id, name FROM users WHERE id = $1', [userId]);
+  if (!current) return null;
+
+  const clean = {
+    username: String(fields.username || '').toLowerCase().trim(),
+    name: String(fields.name || '').trim(),
+    role: String(fields.role || '').trim(),
+    headline: String(fields.headline || '').trim(),
+    bio: String(fields.bio || '').trim(),
+    location: String(fields.location || '').trim(),
+    website: String(fields.website || '').trim(),
+    study_goal: String(fields.study_goal || '').trim(),
+    avatar_url: String(fields.avatar_url || '').trim(),
+    cover_url: String(fields.cover_url || '').trim(),
+    interests: Array.isArray(fields.interests) ? fields.interests : [],
+  };
+
+  const initials = clean.name
+    .replace(/'/g, '')
+    .split(/\s+/)
+    .map(w => w[0]?.toUpperCase())
+    .join('')
+    .slice(0, 2) || 'AN';
+
+  const row = await q1(`
+    UPDATE users
+    SET username = $1,
+        name = $2,
+        initials = $3,
+        role = $4,
+        headline = $5,
+        bio = $6,
+        location = $7,
+        website = $8,
+        study_goal = $9,
+        avatar_url = $10,
+        cover_url = $11,
+        interests = $12
+    WHERE id = $13
+    RETURNING id, username, name, initials, role, score, email, is_admin, is_moderator, banned_at,
+              bio, avatar_url, cover_url, headline, location, website, study_goal, interests
+  `, [
+    clean.username,
+    clean.name.slice(0, 80),
+    initials,
+    clean.role.slice(0, 80) || 'Shogird',
+    clean.headline.slice(0, 120),
+    clean.bio.slice(0, 600),
+    clean.location.slice(0, 80),
+    clean.website.slice(0, 160),
+    clean.study_goal.slice(0, 160),
+    clean.avatar_url,
+    clean.cover_url,
+    JSON.stringify(clean.interests.slice(0, 12).map(item => String(item).trim().slice(0, 36)).filter(Boolean)),
+    userId,
+  ]);
+
+  await pool.query(
+    'UPDATE topics SET author=$1, initials=$2, role=$3 WHERE user_id=$4',
+    [row.name, row.initials, row.role, userId]
+  );
+  await pool.query(
+    'UPDATE answers SET author=$1, initials=$2, role=$3 WHERE user_id=$4',
+    [row.name, row.initials, row.role, userId]
+  );
+
+  return { ...row, interests: safeJson(row.interests, []) };
 }
 
 // ── Direct messages ──────────────────────────────────────────────────────────
@@ -1227,7 +1307,7 @@ module.exports = {
   getAllTopics, getTopicWithAnswers, saveTopic, updateScore, acceptAnswer,
   saveAnswer,
   createUser, getUserByUsername, getUserByEmail, getUserById, addUserScore, getUserProfile,
-  getUserAnswers, updateUserBio,
+  getUserAnswers, updateUserProfile, updateUserBio,
   getAllTournaments, getTournamentById, registerForTournament,
   getLeaderboard,
   createNotification, getNotifications, markNotificationsRead,

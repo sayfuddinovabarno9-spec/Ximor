@@ -7,6 +7,12 @@ const { sign, requireAuth } = require('../middleware/auth');
 const router = express.Router();
 
 function publicUser(user) {
+  let interests = [];
+  if (Array.isArray(user.interests)) {
+    interests = user.interests;
+  } else if (typeof user.interests === 'string') {
+    try { interests = JSON.parse(user.interests); } catch { interests = []; }
+  }
   return {
     id: user.id,
     username: user.username,
@@ -18,6 +24,13 @@ function publicUser(user) {
     is_admin: Boolean(user.is_admin),
     is_moderator: Boolean(user.is_moderator),
     bio: user.bio || '',
+    avatar_url: user.avatar_url || '',
+    cover_url: user.cover_url || '',
+    headline: user.headline || '',
+    location: user.location || '',
+    website: user.website || '',
+    study_goal: user.study_goal || '',
+    interests,
   };
 }
 
