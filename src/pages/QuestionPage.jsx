@@ -11,8 +11,18 @@ import RichText from '../components/RichText';
 import { avatarBg } from '../utils/avatarColor';
 import copyToClipboard from '../utils/copyToClipboard';
 import { formatQuestionCreatedAt } from '../utils/dateTime';
+import { prepareForumImage } from '../utils/forumImage';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:3002';
+
+const QUESTION_CATEGORIES = [
+  { id: 'all', labelKey: 'forum.all' },
+  { id: 'organik', labelKey: 'forum.organic' },
+  { id: 'anorganik', labelKey: 'forum.inorganic' },
+  { id: 'fizikaviy', labelKey: 'forum.physical' },
+  { id: 'analitik', labelKey: 'forum.analytical' },
+  { id: 'dtm', labelKey: 'nav.olympiads' },
+];
 
 function getAnswerCount(topic) {
   if (Array.isArray(topic?.answersList)) return topic.answersList.length;
@@ -39,7 +49,9 @@ function Icon({ name, size=18 }) {
     link:      "M9 17H7A5 5 0 0 1 7 7h3M15 7h2a5 5 0 1 1 0 10h-3M8 12h8",
     pin:       "M12 17v5M5 17h14M6 3h12l-2 8 3 3H5l3-3-2-8Z",
     clock:     "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM12 6v6l4 2",
+    edit:      "M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4 11.5-11.5Z",
     eye:       "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12ZM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
+    image:     "M21 15V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4ZM3 16l5-5 4 4 3-3 6 6M8.5 8.5h.01",
     thumbsUp:  "M7 10v11M15 5.9 14 10h5.7a2 2 0 0 1 2 2.4l-1.4 7a2 2 0 0 1-2 1.6H7M7 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3M15 5.9V3a2 2 0 0 0-2-2l-3 9",
     thumbsDown:"M17 14V3M9 18.1 10 14H4.3a2 2 0 0 1-2-2.4l1.4-7A2 2 0 0 1 5.7 3H17M17 14h3a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-3M9 18.1V21a2 2 0 0 0 2 2l3-9",
     trash:     "M3 6h18M8 6V4h8v2M6 6l1 15h10l1-15M10 11v6M14 11v6",
@@ -61,6 +73,231 @@ function Avatar({ initials, name, online=false }) {
       {initials}
       {online && <span className="avatar__status" />}
     </span>
+  );
+}
+
+function EditQuestionModal({ onClose, onSubmit, topic }) {
+  const { t } = useLanguage();
+  const summaryRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const [mode, setMode] = useState('write');
+  const [submitting, setSubmitting] = useState(false);
+  const [form, setForm] = useState(() => ({
+    title: topic.title || '',
+    summary: topic.summary || '',
+    category: topic.category || 'organik',
+    tags: Array.isArray(topic.tags) ? topic.tags.join(', ') : '',
+    images: Array.isArray(topic.images) ? topic.images : [],
+  }));
+
+  const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
+
+  const handleImages = async (event) => {
+    const files = Array.from(event.target.files || [])
+      .filter((file) => file.type.startsWith('image/'))
+      .slice(0, Math.max(0, 4 - form.images.length));
+
+    if (!files.length) return;
+
+    const results = await Promise.allSettled(files.map(prepareForumImage));
+    const images = results
+      .filter((result) => result.status === 'fulfilled')
+      .map((result) => result.value);
+
+    setForm((current) => ({ ...current, images: [...current.images, ...images] }));
+    event.target.value = '';
+  };
+
+  const removeImage = (imageId) => {
+    setForm((current) => ({
+      ...current,
+      images: current.images.filter((image) => image.id !== imageId),
+    }));
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  const submit = async (event) => {
+    event.preventDefault();
+    if (!form.title.trim() || !form.summary.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      await onSubmit(form);
+    } catch {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <form
+        aria-modal="true"
+        className="composer-modal question-edit-modal"
+        onClick={(event) => event.stopPropagation()}
+        onSubmit={submit}
+        role="dialog"
+      >
+        <div className="modal-head">
+          <div>
+            <span className="eyebrow">{t('question.editQuestion')}</span>
+            <h2>{t('question.editQuestionTitle')}</h2>
+          </div>
+          <button aria-label={t('common.close')} className="icon-button" onClick={onClose} title={t('common.close')} type="button">
+            <Icon name="x" size={19} />
+          </button>
+        </div>
+
+        <div className="composer-tabs" role="tablist">
+          <button
+            aria-selected={mode === 'write'}
+            className={mode === 'write' ? 'is-active' : ''}
+            onClick={() => setMode('write')}
+            role="tab"
+            type="button"
+          >
+            {t('composer.write')}
+          </button>
+          <button
+            aria-selected={mode === 'preview'}
+            className={mode === 'preview' ? 'is-active' : ''}
+            onClick={() => setMode('preview')}
+            role="tab"
+            type="button"
+          >
+            {t('composer.preview')}
+          </button>
+        </div>
+
+        {mode === 'write' ? (
+          <>
+            <label>
+              {t('composer.title')}
+              <input
+                onChange={(event) => update('title', event.target.value)}
+                placeholder={t('composer.titlePlaceholder')}
+                value={form.title}
+              />
+            </label>
+
+            <div className="composer-question-field">
+              <label htmlFor="question-edit-summary">{t('composer.questionText')}</label>
+              <AnswerEditorTools onChange={(value) => update('summary', value)} textareaRef={summaryRef} value={form.summary} />
+              <div className="composer-question-editor">
+                <textarea
+                  id="question-edit-summary"
+                  onChange={(event) => update('summary', event.target.value)}
+                  placeholder={t('composer.questionPlaceholder')}
+                  ref={summaryRef}
+                  rows={7}
+                  value={form.summary}
+                />
+
+                {form.images.length > 0 && (
+                  <div className="composer-editor-images">
+                    {form.images.map((image) => (
+                      <figure key={image.id}>
+                        <img alt={image.name} src={image.src} />
+                        <button
+                          aria-label={t('composer.removeImage', { name: image.name })}
+                          onClick={() => removeImage(image.id)}
+                          type="button"
+                        >
+                          <Icon name="x" size={14} />
+                        </button>
+                      </figure>
+                    ))}
+                  </div>
+                )}
+
+                <div className="composer-editor-footer">
+                  <input
+                    accept="image/*"
+                    multiple
+                    onChange={handleImages}
+                    ref={fileInputRef}
+                    type="file"
+                  />
+                  <button
+                    className="composer-attach-button"
+                    disabled={form.images.length >= 4}
+                    onClick={() => fileInputRef.current?.click()}
+                    type="button"
+                  >
+                    <Icon name="image" size={17} />
+                    {t('composer.image')}
+                  </button>
+                  <span>{form.images.length}/4</span>
+                </div>
+              </div>
+            </div>
+
+            {(form.summary || form.images.length > 0) && (
+              <div className="latex-live-preview">
+                <div className="latex-live-preview-label">{t('composer.previewLabel')}</div>
+                <div className="question-content">
+                  <RichText text={form.summary} />
+                  <AttachmentGallery images={form.images} />
+                </div>
+              </div>
+            )}
+
+            <label>
+              {t('composer.category')}
+              <select onChange={(event) => update('category', event.target.value)} value={form.category}>
+                {QUESTION_CATEGORIES.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {t(item.labelKey)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              {t('composer.tags')}
+              <input onChange={(event) => update('tags', event.target.value)} value={form.tags} />
+            </label>
+          </>
+        ) : (
+          <div className="composer-preview">
+            <div className="topic-meta">
+              <span>{t(QUESTION_CATEGORIES.find((item) => item.id === form.category)?.labelKey || 'forum.all')}</span>
+            </div>
+            <h3>{form.title || t('composer.emptyTitle')}</h3>
+            <div className="question-content">
+              <RichText text={form.summary || t('composer.emptyPreview')} />
+              <AttachmentGallery images={form.images} size="large" />
+            </div>
+            <div className="tag-row">
+              {form.tags
+                .split(',')
+                .map((tag) => tag.trim().replace(/^#/, ''))
+                .filter(Boolean)
+                .slice(0, 10)
+                .map((tag) => (
+                  <span className="tag-chip" key={tag}>
+                    #{tag}
+                  </span>
+                ))}
+            </div>
+          </div>
+        )}
+
+        <div className="modal-actions">
+          <button className="soft-button" onClick={onClose} type="button">
+            {t('composer.cancel')}
+          </button>
+          <button className="primary-button" disabled={!form.title.trim() || !form.summary.trim() || submitting} type="submit">
+            {submitting ? t('question.savingQuestion') : <><Icon name="check" size={17} />{t('question.saveQuestion')}</>}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
 
@@ -89,6 +326,7 @@ export default function QuestionPage() {
   const [voted, setVoted]       = useState(0);          // current user's vote on the topic
   const [answerVotes, setAnswerVotes] = useState({});   // { [answerId]: 1 | -1 | 0 }
   const [showAuth, setShowAuth] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
   const [toast, setToast]       = useState('');
   const [copiedPermalink, setCopiedPermalink] = useState('');
   const [highlightAnswerId, setHighlightAnswerId] = useState('');
@@ -205,6 +443,16 @@ export default function QuestionPage() {
     } : prev);
   }, [id]);
 
+  const onTopicUpdate = useCallback((updated) => {
+    if (String(updated.id) !== String(id)) return;
+    setTopic(prev => prev ? {
+      ...prev,
+      ...updated,
+      answersList: prev.answersList,
+      answers: updated.answers ?? prev.answers,
+    } : prev);
+  }, [id]);
+
   // Live answer-score updates from other clients
   const onAnswerVoteSSE = useCallback(({ answerId, score }) => {
     setTopic(prev => prev ? {
@@ -257,7 +505,8 @@ export default function QuestionPage() {
     onAnswerVoteSSE,
     onTopicModeration,
     onAnswerModeration,
-    onAnswerDeleted
+    onAnswerDeleted,
+    onTopicUpdate
   );
 
   /* Vote on the topic */
@@ -424,6 +673,45 @@ export default function QuestionPage() {
       });
   };
 
+  const handleUpdateQuestion = async (form) => {
+    if (!user) { setShowAuth(true); throw new Error('auth required'); }
+
+    const tags = form.tags
+      .split(',')
+      .map((tag) => tag.trim().replace(/^#/, ''))
+      .filter(Boolean)
+      .slice(0, 10);
+
+    const payload = {
+      category: form.category,
+      title: form.title.trim(),
+      summary: form.summary.trim(),
+      tags: tags.length ? tags : ['savol'],
+      images: form.images,
+    };
+
+    const response = await fetch(`${API}/api/forum/topics/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify(payload),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      showToast(t('question.questionUpdateError'));
+      throw new Error(result.error || 'update failed');
+    }
+
+    const updated = result.topic || payload;
+    setTopic(prev => prev ? {
+      ...prev,
+      ...updated,
+      answersList: updated.answersList || prev.answersList,
+      answers: updated.answers ?? prev.answers,
+    } : prev);
+    setShowEdit(false);
+    showToast(t('question.questionUpdated'));
+  };
+
   const handleAnswerModeration = (answerId, field, value) => {
     if (!user?.is_admin && !user?.is_moderator) return;
     if (field === 'correctness' && value === 'correct') {
@@ -521,7 +809,7 @@ export default function QuestionPage() {
     </Layout>
   );
 
-  const isAuthor = user && (topic.user_id === user.id || topic.author === user.name);
+  const isAuthor = Boolean(user && (topic.user_id ? topic.user_id === user.id : topic.author === user.name));
   const canModerate = Boolean(user?.is_admin || user?.is_moderator);
   const answerCount = getAnswerCount(topic);
   const createdAt = formatQuestionCreatedAt(topic.created_at, language);
@@ -612,16 +900,26 @@ export default function QuestionPage() {
                 </div>
               )}
 
-              {canModerate && (
+              {(isAuthor || canModerate) && (
                 <div className="qp-modbar">
                   <button
-                    className={`soft-button ${topic.solved ? 'soft-button--success' : ''}`}
-                    onClick={handleSolvedToggle}
+                    className="soft-button"
+                    onClick={() => setShowEdit(true)}
                     type="button"
                   >
-                    <Icon name={topic.solved ? 'x' : 'check'} size={15} />
-                    {topic.solved ? t('question.markOpen') : t('question.markSolved')}
+                    <Icon name="edit" size={15} />
+                    {t('question.editQuestion')}
                   </button>
+                  {canModerate && (
+                    <button
+                      className={`soft-button ${topic.solved ? 'soft-button--success' : ''}`}
+                      onClick={handleSolvedToggle}
+                      type="button"
+                    >
+                      <Icon name={topic.solved ? 'x' : 'check'} size={15} />
+                      {topic.solved ? t('question.markOpen') : t('question.markSolved')}
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -867,6 +1165,13 @@ export default function QuestionPage() {
       </div>
 
       {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
+      {showEdit && topic && (
+        <EditQuestionModal
+          onClose={() => setShowEdit(false)}
+          onSubmit={handleUpdateQuestion}
+          topic={topic}
+        />
+      )}
     </div>
     </Layout>
   );

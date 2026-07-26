@@ -5,6 +5,7 @@ const { hasModeratorAccess } = require('../middleware/requireModerator');
 
 const router = express.Router();
 const clients = new Set();
+const TOPIC_CATEGORIES = new Set(['all', 'organik', 'anorganik', 'fizikaviy', 'analitik', 'dtm']);
 
 // ── Input sanitization ────────────────────────────────────────────────────────
 function sanitize(str) {
@@ -50,6 +51,10 @@ function sanitizeTopic(body) {
                ? body.tags.slice(0, 10).map(t => sanitize(String(t).slice(0, 50)))
                : [],
   };
+}
+
+function normalizeCategory(category) {
+  return TOPIC_CATEGORIES.has(category) ? category : 'all';
 }
 
 // ── SSE broadcast ─────────────────────────────────────────────────────────────
@@ -105,6 +110,7 @@ router.post('/topics', requireAuth, async (req, res) => {
   if (!clean.title) return res.status(400).json({ error: 'title required' });
   const saved = await db.saveTopic({
     ...clean,
+    category: normalizeCategory(clean.category),
     user_id:  req.user.id,
     author:   req.user.name,
     initials: req.user.initials,
@@ -123,7 +129,7 @@ router.patch('/topics/:id', requireAuth, async (req, res) => {
   const existing = await db.getTopicWithAnswers(topicId);
   if (!existing) return res.status(404).json({ error: 'topic not found' });
 
-  const isAuthor = existing.user_id === req.user.id || existing.author === req.user.name;
+  const isAuthor = existing.user_id ? existing.user_id === req.user.id : existing.author === req.user.name;
   if (!isAuthor && !hasModeratorAccess(req.user)) {
     return res.status(403).json({ error: 'Faqat savol egasi yoki moderator tahrirlashi mumkin' });
   }
@@ -133,10 +139,10 @@ router.patch('/topics/:id', requireAuth, async (req, res) => {
   if (!clean.summary) return res.status(400).json({ error: 'summary required' });
 
   await db.updateTopic(topicId, {
-    category: clean.category,
+    category: normalizeCategory(clean.category),
     title: clean.title,
     summary: clean.summary,
-    formula: clean.formula,
+    formula: clean.formula || undefined,
     tags: clean.tags,
     images: clean.images,
     difficulty: clean.difficulty,

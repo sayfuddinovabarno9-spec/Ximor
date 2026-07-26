@@ -4419,6 +4419,146 @@ a { text-decoration: none; }
   gap: 8px;
 }
 
+.profile-preset-section {
+  display: grid;
+  gap: 9px;
+}
+
+.profile-preset-section h3 {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.profile-cover-presets {
+  display: grid;
+  gap: 9px;
+  grid-template-columns: repeat(auto-fit, minmax(126px, 1fr));
+}
+
+.profile-cover-preset,
+.profile-avatar-preset {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--muted);
+  cursor: pointer;
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 7px;
+  text-align: left;
+  transition: border-color .15s, box-shadow .15s, transform .15s;
+}
+
+.profile-cover-preset:hover,
+.profile-avatar-preset:hover,
+.profile-cover-preset.is-selected,
+.profile-avatar-preset.is-selected {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus);
+  color: var(--text);
+}
+
+.profile-cover-preset:active,
+.profile-avatar-preset:active {
+  transform: translateY(1px);
+}
+
+.profile-cover-preset > span {
+  aspect-ratio: 3.1 / 1;
+  border: 1px solid rgba(255,255,255,.55);
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.06);
+  display: block;
+  overflow: hidden;
+}
+
+.profile-cover-preset b,
+.profile-avatar-preset b {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 850;
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-avatar-presets {
+  display: grid;
+  gap: 9px;
+  grid-template-columns: repeat(auto-fit, minmax(82px, 1fr));
+}
+
+.profile-avatar-preset {
+  align-items: center;
+  justify-items: center;
+  padding: 9px 7px;
+  text-align: center;
+}
+
+.profile-avatar-preset-face {
+  background: var(--preset-bg);
+  border: 3px solid var(--surface);
+  border-radius: 50%;
+  box-shadow: var(--shadow-sm);
+  display: block;
+  height: 58px;
+  overflow: hidden;
+  position: relative;
+  width: 58px;
+}
+
+.profile-avatar-preset-face::before {
+  background: var(--preset-skin);
+  border-radius: 50%;
+  content: '';
+  height: 25px;
+  left: 50%;
+  position: absolute;
+  top: 17px;
+  transform: translateX(-50%);
+  width: 25px;
+}
+
+.profile-avatar-preset-face::after {
+  background: var(--preset-hair);
+  border-radius: 50% 50% 42% 42%;
+  content: '';
+  height: 15px;
+  left: 15px;
+  position: absolute;
+  top: 11px;
+  transform: rotate(-7deg);
+  width: 30px;
+}
+
+.profile-avatar-preset-face i {
+  background: var(--preset-coat);
+  border-radius: 50% 50% 0 0;
+  bottom: -8px;
+  display: block;
+  height: 30px;
+  left: 50%;
+  position: absolute;
+  transform: translateX(-50%);
+  width: 42px;
+}
+
+.profile-avatar-preset-face i::before {
+  background: var(--preset-accent);
+  border-radius: 999px;
+  content: '';
+  height: 22px;
+  left: 18px;
+  position: absolute;
+  top: 5px;
+  width: 7px;
+}
+
 .profile-edit-grid {
   display: grid;
   gap: 12px;

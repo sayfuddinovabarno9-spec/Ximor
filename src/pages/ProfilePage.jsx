@@ -80,12 +80,303 @@ function prepareProfileImage(file, kind) {
   });
 }
 
+const COVER_PRESETS = [
+  {
+    id: 'lab',
+    labelKey: 'profile.coverPresetLab',
+    colors: ['#d7e7e0', '#f7f9f7', '#f0d28c'],
+    accent: '#36584d',
+    pattern: 'molecule',
+    preview: 'linear-gradient(135deg, #d7e7e0 0%, #f7f9f7 58%, #f0d28c 100%)',
+  },
+  {
+    id: 'orbit',
+    labelKey: 'profile.coverPresetOrbit',
+    colors: ['#223b54', '#5f8f9d', '#f3c363'],
+    accent: '#ffffff',
+    pattern: 'orbit',
+    preview: 'linear-gradient(135deg, #223b54 0%, #5f8f9d 58%, #f3c363 100%)',
+  },
+  {
+    id: 'notebook',
+    labelKey: 'profile.coverPresetNotebook',
+    colors: ['#f7f7f2', '#dfe9ee', '#b9d2bd'],
+    accent: '#49665e',
+    pattern: 'grid',
+    preview: 'linear-gradient(135deg, #f7f7f2 0%, #dfe9ee 48%, #b9d2bd 100%)',
+  },
+  {
+    id: 'crystal',
+    labelKey: 'profile.coverPresetCrystal',
+    colors: ['#2f2c4a', '#896b8c', '#e2b46f'],
+    accent: '#f7f0df',
+    pattern: 'crystal',
+    preview: 'linear-gradient(135deg, #2f2c4a 0%, #896b8c 55%, #e2b46f 100%)',
+  },
+  {
+    id: 'reaction',
+    labelKey: 'profile.coverPresetReaction',
+    colors: ['#164a48', '#4f8b71', '#f5eee1'],
+    accent: '#e86d4f',
+    pattern: 'wave',
+    preview: 'linear-gradient(135deg, #164a48 0%, #4f8b71 52%, #f5eee1 100%)',
+  },
+];
+
+const AVATAR_PRESETS = [
+  {
+    id: 'chemist',
+    labelKey: 'profile.avatarPresetChemist',
+    colors: ['#284942', '#b8d9c9'],
+    skin: '#deb083',
+    hair: '#212526',
+    accent: '#d95f4f',
+    coat: '#f4f1e8',
+  },
+  {
+    id: 'neon',
+    labelKey: 'profile.avatarPresetNeon',
+    colors: ['#24243e', '#4b88a2'],
+    skin: '#c89167',
+    hair: '#171b24',
+    accent: '#f2c85b',
+    coat: '#dbe9ef',
+  },
+  {
+    id: 'mint',
+    labelKey: 'profile.avatarPresetMint',
+    colors: ['#d9efe3', '#6c9b8f'],
+    skin: '#e2b88e',
+    hair: '#4b3c35',
+    accent: '#36584d',
+    coat: '#ffffff',
+  },
+  {
+    id: 'violet',
+    labelKey: 'profile.avatarPresetViolet',
+    colors: ['#4d3f68', '#d19a7a'],
+    skin: '#d5a078',
+    hair: '#262033',
+    accent: '#f6e7a4',
+    coat: '#f7f0f5',
+  },
+  {
+    id: 'graphite',
+    labelKey: 'profile.avatarPresetGraphite',
+    colors: ['#263238', '#8aa39b'],
+    skin: '#c98f67',
+    hair: '#15191c',
+    accent: '#7fd1ae',
+    coat: '#edf2ee',
+  },
+  {
+    id: 'solar',
+    labelKey: 'profile.avatarPresetSolar',
+    colors: ['#6f3f36', '#f0c36c'],
+    skin: '#e0a978',
+    hair: '#352622',
+    accent: '#36584d',
+    coat: '#fff7e8',
+  },
+];
+
+function paintLinearGradient(context, width, height, colors) {
+  const gradient = context.createLinearGradient(0, 0, width, height);
+  colors.forEach((color, index) => {
+    gradient.addColorStop(index / Math.max(colors.length - 1, 1), color);
+  });
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, width, height);
+}
+
+function drawCoverPattern(context, width, height, preset) {
+  context.save();
+  context.lineCap = 'round';
+
+  if (preset.pattern === 'molecule') {
+    context.strokeStyle = 'rgba(54, 88, 77, .24)';
+    context.lineWidth = 5;
+    const points = [[130, 235], [285, 135], [475, 202], [690, 104], [870, 178], [1045, 86]];
+    points.forEach(([x, y], index) => {
+      if (index > 0) {
+        const [px, py] = points[index - 1];
+        context.beginPath();
+        context.moveTo(px, py);
+        context.lineTo(x, y);
+        context.stroke();
+      }
+      context.fillStyle = index % 2 ? preset.accent : 'rgba(255,255,255,.78)';
+      context.beginPath();
+      context.arc(x, y, index % 2 ? 22 : 16, 0, Math.PI * 2);
+      context.fill();
+    });
+  }
+
+  if (preset.pattern === 'orbit') {
+    context.translate(width * .5, height * .53);
+    context.strokeStyle = 'rgba(255,255,255,.34)';
+    context.lineWidth = 4;
+    [-24, 26, 74].forEach((rotation, index) => {
+      context.save();
+      context.rotate(rotation * Math.PI / 180);
+      context.beginPath();
+      context.ellipse(0, 0, 420 - index * 48, 92 + index * 4, 0, 0, Math.PI * 2);
+      context.stroke();
+      context.restore();
+    });
+    context.fillStyle = preset.accent;
+    context.beginPath();
+    context.arc(265, -78, 18, 0, Math.PI * 2);
+    context.fill();
+  }
+
+  if (preset.pattern === 'grid') {
+    context.strokeStyle = 'rgba(73, 102, 94, .18)';
+    context.lineWidth = 2;
+    for (let x = 60; x < width; x += 76) {
+      context.beginPath();
+      context.moveTo(x, 0);
+      context.lineTo(x, height);
+      context.stroke();
+    }
+    for (let y = 42; y < height; y += 58) {
+      context.beginPath();
+      context.moveTo(0, y);
+      context.lineTo(width, y);
+      context.stroke();
+    }
+    context.fillStyle = 'rgba(73, 102, 94, .11)';
+    context.fillRect(0, 0, 170, height);
+  }
+
+  if (preset.pattern === 'crystal') {
+    const shards = [[90, 312, 255, 46, 410, 330], [455, 340, 610, 62, 790, 330], [780, 318, 985, 35, 1160, 332]];
+    shards.forEach((shape, index) => {
+      context.fillStyle = index === 1 ? 'rgba(255,255,255,.2)' : 'rgba(255,255,255,.14)';
+      context.beginPath();
+      context.moveTo(shape[0], shape[1]);
+      context.lineTo(shape[2], shape[3]);
+      context.lineTo(shape[4], shape[5]);
+      context.closePath();
+      context.fill();
+      context.strokeStyle = 'rgba(255,255,255,.24)';
+      context.lineWidth = 3;
+      context.stroke();
+    });
+  }
+
+  if (preset.pattern === 'wave') {
+    context.strokeStyle = 'rgba(255,255,255,.34)';
+    context.lineWidth = 7;
+    for (let i = 0; i < 4; i += 1) {
+      context.beginPath();
+      context.moveTo(-40, 95 + i * 58);
+      for (let x = -40; x <= width + 80; x += 120) {
+        context.quadraticCurveTo(x + 60, 52 + i * 58, x + 120, 95 + i * 58);
+      }
+      context.stroke();
+    }
+    context.fillStyle = preset.accent;
+    context.beginPath();
+    context.arc(width - 160, 112, 34, 0, Math.PI * 2);
+    context.fill();
+  }
+
+  context.restore();
+}
+
+function renderCoverPreset(preset) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 1200;
+  canvas.height = 360;
+  const context = canvas.getContext('2d');
+  if (!context) return '';
+  paintLinearGradient(context, canvas.width, canvas.height, preset.colors);
+  drawCoverPattern(context, canvas.width, canvas.height, preset);
+  return canvas.toDataURL('image/jpeg', 0.82);
+}
+
+function renderAvatarPreset(preset, initials = '') {
+  const canvas = document.createElement('canvas');
+  canvas.width = 640;
+  canvas.height = 640;
+  const context = canvas.getContext('2d');
+  if (!context) return '';
+
+  paintLinearGradient(context, canvas.width, canvas.height, preset.colors);
+  context.fillStyle = 'rgba(255,255,255,.16)';
+  context.beginPath();
+  context.arc(520, 110, 86, 0, Math.PI * 2);
+  context.fill();
+  context.beginPath();
+  context.arc(116, 510, 118, 0, Math.PI * 2);
+  context.fill();
+
+  context.fillStyle = preset.coat;
+  context.beginPath();
+  context.moveTo(175, 630);
+  context.quadraticCurveTo(320, 430, 465, 630);
+  context.closePath();
+  context.fill();
+  context.fillStyle = preset.accent;
+  context.fillRect(300, 475, 40, 150);
+
+  context.fillStyle = preset.skin;
+  context.beginPath();
+  context.arc(320, 284, 132, 0, Math.PI * 2);
+  context.fill();
+
+  context.fillStyle = preset.hair;
+  context.beginPath();
+  context.moveTo(186, 273);
+  context.quadraticCurveTo(214, 102, 370, 145);
+  context.quadraticCurveTo(468, 172, 453, 286);
+  context.quadraticCurveTo(384, 232, 306, 226);
+  context.quadraticCurveTo(238, 222, 186, 273);
+  context.fill();
+
+  context.strokeStyle = '#1d2528';
+  context.lineWidth = 12;
+  context.beginPath();
+  context.arc(270, 302, 35, 0, Math.PI * 2);
+  context.stroke();
+  context.beginPath();
+  context.arc(370, 302, 35, 0, Math.PI * 2);
+  context.stroke();
+  context.beginPath();
+  context.moveTo(305, 302);
+  context.lineTo(335, 302);
+  context.stroke();
+
+  context.strokeStyle = 'rgba(29,37,40,.62)';
+  context.lineWidth = 8;
+  context.beginPath();
+  context.moveTo(280, 382);
+  context.quadraticCurveTo(320, 408, 362, 382);
+  context.stroke();
+
+  const badgeText = String(initials || '?').slice(0, 2).toUpperCase();
+  context.fillStyle = 'rgba(255,255,255,.86)';
+  context.beginPath();
+  context.arc(505, 500, 58, 0, Math.PI * 2);
+  context.fill();
+  context.fillStyle = preset.accent;
+  context.font = '700 34px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  context.fillText(badgeText, 505, 501);
+
+  return canvas.toDataURL('image/jpeg', 0.86);
+}
+
 function EditProfileModal({ authHeaders, onClose, onSaved, profile }) {
   const { t } = useLanguage();
   const avatarInputRef = useRef(null);
   const coverInputRef = useRef(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [selectedCover, setSelectedCover] = useState('');
+  const [selectedAvatar, setSelectedAvatar] = useState('');
   const [form, setForm] = useState({
     username: profile.username || '',
     name: profile.name || '',
@@ -108,11 +399,33 @@ function EditProfileModal({ authHeaders, onClose, onSaved, profile }) {
     try {
       const src = await prepareProfileImage(file, kind);
       update(key, src);
+      if (key === 'cover_url') setSelectedCover('');
+      if (key === 'avatar_url') setSelectedAvatar('');
     } catch {
       setError(t('profile.imageError'));
     } finally {
       event.target.value = '';
     }
+  };
+
+  const selectCoverPreset = (preset) => {
+    const src = renderCoverPreset(preset);
+    if (!src) return;
+    update('cover_url', src);
+    setSelectedCover(preset.id);
+  };
+
+  const selectAvatarPreset = (preset) => {
+    const src = renderAvatarPreset(preset, profile.initials);
+    if (!src) return;
+    update('avatar_url', src);
+    setSelectedAvatar(preset.id);
+  };
+
+  const removeImage = (key) => {
+    update(key, '');
+    if (key === 'cover_url') setSelectedCover('');
+    if (key === 'avatar_url') setSelectedAvatar('');
   };
 
   const save = async (event) => {
@@ -159,10 +472,27 @@ function EditProfileModal({ authHeaders, onClose, onSaved, profile }) {
               {t('profile.coverPhoto')}
             </button>
             {form.cover_url && (
-              <button className="soft-button" type="button" onClick={() => update('cover_url', '')}>
+              <button className="soft-button" type="button" onClick={() => removeImage('cover_url')}>
                 {t('profile.removePhoto')}
               </button>
             )}
+          </div>
+          <div className="profile-preset-section">
+            <h3>{t('profile.coverSamples')}</h3>
+            <div className="profile-cover-presets">
+              {COVER_PRESETS.map(preset => (
+                <button
+                  aria-label={t(preset.labelKey)}
+                  className={`profile-cover-preset ${selectedCover === preset.id ? 'is-selected' : ''}`}
+                  key={preset.id}
+                  onClick={() => selectCoverPreset(preset)}
+                  type="button"
+                >
+                  <span style={{ background: preset.preview }} />
+                  <b>{t(preset.labelKey)}</b>
+                </button>
+              ))}
+            </div>
           </div>
           <div className="profile-avatar-tool">
             <ProfilePhoto profile={{ ...profile, avatar_url: form.avatar_url, initials: profile.initials }} />
@@ -172,10 +502,36 @@ function EditProfileModal({ authHeaders, onClose, onSaved, profile }) {
                 {t('profile.avatarPhoto')}
               </button>
               {form.avatar_url && (
-                <button className="soft-button" type="button" onClick={() => update('avatar_url', '')}>
+                <button className="soft-button" type="button" onClick={() => removeImage('avatar_url')}>
                   {t('profile.removePhoto')}
                 </button>
               )}
+            </div>
+          </div>
+          <div className="profile-preset-section">
+            <h3>{t('profile.avatarSamples')}</h3>
+            <div className="profile-avatar-presets">
+              {AVATAR_PRESETS.map(preset => (
+                <button
+                  aria-label={t(preset.labelKey)}
+                  className={`profile-avatar-preset ${selectedAvatar === preset.id ? 'is-selected' : ''}`}
+                  key={preset.id}
+                  onClick={() => selectAvatarPreset(preset)}
+                  style={{
+                    '--preset-bg': `linear-gradient(135deg, ${preset.colors[0]}, ${preset.colors[1]})`,
+                    '--preset-skin': preset.skin,
+                    '--preset-hair': preset.hair,
+                    '--preset-accent': preset.accent,
+                    '--preset-coat': preset.coat,
+                  }}
+                  type="button"
+                >
+                  <span className="profile-avatar-preset-face">
+                    <i />
+                  </span>
+                  <b>{t(preset.labelKey)}</b>
+                </button>
+              ))}
             </div>
           </div>
           <input accept="image/*" hidden ref={coverInputRef} type="file" onChange={event => handleImage(event, 'cover_url', 'cover')} />
