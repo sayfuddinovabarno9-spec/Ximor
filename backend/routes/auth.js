@@ -5,6 +5,22 @@ const db        = require('../db');
 const { sign, requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
+const DEFAULT_OWNER_ADMIN_EMAILS = ['nuriddinzamolitdinov@gmail.com'];
+
+function staffEmailList(value) {
+  return String(value || '')
+    .split(',')
+    .map(item => item.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function ownerAdminEmails() {
+  return [
+    ...DEFAULT_OWNER_ADMIN_EMAILS,
+    ...staffEmailList(process.env.ADMIN_EMAILS || process.env.ADMIN_EMAIL),
+    ...staffEmailList(process.env.OWNER_ADMIN_EMAILS || process.env.OWNER_ADMIN_EMAIL),
+  ];
+}
 
 function publicUser(user) {
   let interests = [];
@@ -117,8 +133,11 @@ router.post('/login', loginLimiter, async (req, res) => {
 router.post('/bootstrap-admin', requireAuth, async (req, res) => {
   const setupCode = process.env.ADMIN_SETUP_CODE || process.env.ADMIN_BOOTSTRAP_CODE || '';
   const hasAdmin = await db.hasAnyAdmin();
+  const currentUser = await db.getUserById(req.user.id);
+  const currentEmail = String(currentUser?.email || '').toLowerCase();
+  const isOwnerAdminEmail = currentEmail && ownerAdminEmails().includes(currentEmail);
 
-  if (hasAdmin) {
+  if (hasAdmin && !isOwnerAdminEmail) {
     if (!setupCode) return res.status(403).json({ error: 'Admin allaqachon mavjud' });
     if (String(req.body?.code || '') !== setupCode) {
       return res.status(403).json({ error: "Setup kodi noto'g'ri" });
