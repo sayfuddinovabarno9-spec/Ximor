@@ -573,6 +573,75 @@ async function updateUserAdmin(id, fields) {
   await pool.query(`UPDATE users SET ${sets.join(', ')} WHERE id = $${i}`, vals);
 }
 
+async function hasAnyAdmin() {
+  const row = await q1('SELECT EXISTS(SELECT 1 FROM users WHERE is_admin = TRUE) AS exists');
+  return Boolean(row?.exists);
+}
+
+async function promoteUserToAdmin(id) {
+  return q1(`
+    UPDATE users
+    SET is_admin = TRUE
+    WHERE id = $1 AND banned_at IS NULL
+    RETURNING id, username, name, initials, role, score, is_admin, is_moderator, banned_at, bio
+  `, [id]);
+}
+
+function parseStaffList(value) {
+  return String(value || '')
+    .split(',')
+    .map(item => item.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+async function bootstrapConfiguredStaff(env = process.env) {
+  const adminUsernames = parseStaffList(env.ADMIN_USERNAMES || env.ADMIN_USERNAME);
+  const adminEmails = parseStaffList(env.ADMIN_EMAILS || env.ADMIN_EMAIL);
+  const moderatorUsernames = parseStaffList(env.MODERATOR_USERNAMES || env.MODERATOR_USERNAME);
+  const moderatorEmails = parseStaffList(env.MODERATOR_EMAILS || env.MODERATOR_EMAIL);
+
+  const results = { admins: 0, moderators: 0 };
+
+  if (adminUsernames.length) {
+    const rows = await q(
+      'UPDATE users SET is_admin = TRUE WHERE LOWER(username) = ANY($1) RETURNING id',
+      [adminUsernames]
+    );
+    results.admins += rows.length;
+  }
+  if (adminEmails.length) {
+    const rows = await q(
+      'UPDATE users SET is_admin = TRUE WHERE LOWER(email) = ANY($1) RETURNING id',
+      [adminEmails]
+    );
+    results.admins += rows.length;
+  }
+  if (moderatorUsernames.length) {
+    const rows = await q(
+      `UPDATE users
+       SET is_moderator = TRUE,
+           role = CASE WHEN role IN ('Shogird','Ishtirokchi') THEN 'Moderator' ELSE role END
+       WHERE LOWER(username) = ANY($1)
+       RETURNING id`,
+      [moderatorUsernames]
+    );
+    results.moderators += rows.length;
+  }
+  if (moderatorEmails.length) {
+    const rows = await q(
+      `UPDATE users
+       SET is_moderator = TRUE,
+           role = CASE WHEN role IN ('Shogird','Ishtirokchi') THEN 'Moderator' ELSE role END
+       WHERE LOWER(email) = ANY($1)
+       RETURNING id`,
+      [moderatorEmails]
+    );
+    results.moderators += rows.length;
+  }
+
+  return results;
+}
+
 async function getAdminTopics(limit = 50) {
   const rows = await q(`
     SELECT id, category, title, author, score, answers, solved, pinned, hot, created_at
@@ -586,7 +655,44 @@ async function adminDeleteTopic(id) {
 }
 
 async function adminDeleteAnswer(id) {
-  await pool.query('DELETE FROM answers WHERE id = $1', [id]);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      'SELECT topic_id, accepted FROM answers WHERE id = $1 FOR UPDATE',
+      [id]
+    );
+    const answer = rows[0] ?? null;
+    if (!answer) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+
+    await client.query('DELETE FROM answers WHERE id = $1', [id]);
+    const solved = await client.query(
+      'SELECT EXISTS(SELECT 1 FROM answers WHERE topic_id = $1 AND accepted = TRUE) AS solved',
+      [answer.topic_id]
+    );
+    const updated = await client.query(
+      `UPDATE topics
+       SET answers = GREATEST(answers - 1, 0),
+           solved = $1
+       WHERE id = $2
+       RETURNING answers, solved`,
+      [Boolean(solved.rows[0]?.solved), answer.topic_id]
+    );
+    await client.query('COMMIT');
+    return {
+      topic_id: answer.topic_id,
+      answers: updated.rows[0]?.answers ?? 0,
+      solved: Boolean(updated.rows[0]?.solved),
+    };
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 async function adminUpdateTopic(id, fields) {
@@ -833,7 +939,7 @@ module.exports = {
   createNotification, getNotifications, markNotificationsRead,
   searchTopics,
   // Admin
-  getAdminStats, getAllUsersAdmin, updateUserAdmin,
+  getAdminStats, getAllUsersAdmin, updateUserAdmin, hasAnyAdmin, promoteUserToAdmin, bootstrapConfiguredStaff,
   getAdminTopics, adminDeleteTopic, adminDeleteAnswer, adminUpdateTopic, moderateAnswer,
   broadcastAnnouncement, getRecentActivity,
   // Votes & saves

@@ -67,6 +67,7 @@ router.patch('/users/:id', async (req, res) => {
     }
     if ('is_moderator' in body) {
       fields.is_moderator = Boolean(body.is_moderator);
+      if (fields.is_moderator && !('role' in body)) fields.role = 'Moderator';
     }
     if ('role' in body) {
       fields.role = String(body.role || 'Ishtirokchi').trim().slice(0, 80) || 'Ishtirokchi';
@@ -117,8 +118,15 @@ router.delete('/topics/:id', async (req, res) => {
 router.delete('/answers/:id', async (req, res) => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: 'Invalid id' });
-  await db.adminDeleteAnswer(id);
-  res.json({ ok: true });
+  const deleted = await db.adminDeleteAnswer(id);
+  if (!deleted) return res.status(404).json({ error: 'Javob topilmadi' });
+  broadcast('answerDeleted', {
+    topicId: deleted.topic_id,
+    answerId: id,
+    answers: deleted.answers,
+    solved: deleted.solved,
+  });
+  res.json({ ok: true, ...deleted });
 });
 
 router.patch('/answers/:id/moderation', async (req, res) => {

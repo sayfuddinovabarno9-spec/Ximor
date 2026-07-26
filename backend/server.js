@@ -78,6 +78,10 @@ async function start() {
       console.log('✅ Schema ready');
       await db.seedDemo();
       console.log('🌱 Seed done');
+      const staff = await db.bootstrapConfiguredStaff();
+      if (staff.admins || staff.moderators) {
+        console.log(`🛡️ Staff bootstrap: ${staff.admins} admin, ${staff.moderators} moderator`);
+      }
       dbReady = true;
     } catch (err) {
       console.error('❌ DB init failed, retrying in 5s:', err.message);

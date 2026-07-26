@@ -3,16 +3,15 @@ import Layout from '../components/Layout';
 
 const BACKEND = import.meta.env.VITE_API_URL || 'http://localhost:3002';
 
-const GRAD_PALETTES = [
-  ['#36584d', '#59616d'],
-  ['#4d5b55', '#6c6258'],
-  ['#59616d', '#7b6847'],
-  ['#36584d', '#4d5b55'],
+const PLACEHOLDER_COLORS = [
+  '#36584d',
+  '#4d5b55',
+  '#59616d',
+  '#6c6258',
 ];
 
-function gradientFor(idx) {
-  const [a, b] = GRAD_PALETTES[idx % GRAD_PALETTES.length];
-  return `linear-gradient(135deg, ${a}, ${b})`;
+function placeholderColorFor(idx) {
+  return PLACEHOLDER_COLORS[idx % PLACEHOLDER_COLORS.length];
 }
 
 function formatDate(rfc) {
@@ -52,7 +51,7 @@ function NewsCard({ article, idx }) {
       target="_blank"
       rel="noopener noreferrer"
     >
-      <div className="news-card-img" style={!showImg ? { background: gradientFor(idx) } : {}}>
+      <div className="news-card-img" style={!showImg ? { background: placeholderColorFor(idx) } : {}}>
         {showImg ? (
           <img
             src={article.image}

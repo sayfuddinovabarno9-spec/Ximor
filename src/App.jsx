@@ -194,7 +194,7 @@ const INITIAL_TOPICS = [
     difficulty: "O'rta",
     participants: ["AK", "SY"],
     saved: false,
-    voted: 1,
+    voted: 0,
     answersList: [
       {
         author: "Sardor Yusupov",
@@ -305,7 +305,7 @@ function CategoryMark({ categoryId }) {
   );
 }
 
-function TopicCard({ density, onOpen, onSave, onVote, onTagClick, topic }) {
+function TopicCard({ density, onOpen, onSave, onVote, onTagClick, topic, votePending }) {
   const category = CATEGORIES.find((item) => item.id === topic.category) || CATEGORIES[0];
   const [copied, setCopied] = useState(false);
 
@@ -324,7 +324,9 @@ function TopicCard({ density, onOpen, onSave, onVote, onTagClick, topic }) {
       <div className="vote-rail" onClick={(event) => event.stopPropagation()}>
         <button
           aria-label="Yuqoriga ovoz berish"
+          aria-busy={votePending}
           className={topic.voted === 1 ? "is-active" : ""}
+          disabled={votePending}
           title="Yuqoriga ovoz"
           onClick={() => onVote(topic.id, 1)}
         >
@@ -333,7 +335,9 @@ function TopicCard({ density, onOpen, onSave, onVote, onTagClick, topic }) {
         <strong>{topic.score}</strong>
         <button
           aria-label="Pastga ovoz berish"
+          aria-busy={votePending}
           className={topic.voted === -1 ? "is-danger" : ""}
+          disabled={votePending}
           title="Pastga ovoz"
           onClick={() => onVote(topic.id, -1)}
         >
@@ -954,6 +958,9 @@ function Forum({ theme, onThemeToggle }) {
   const [topics, setTopics] = useState([]);
   const [topicsLoaded, setTopicsLoaded] = useState(false);
   const [usingDemoTopics, setUsingDemoTopics] = useState(false);
+  const [pendingVoteIds, setPendingVoteIds] = useState(() => new Set());
+  const voteStateRef = useRef({});
+  const pendingVoteIdsRef = useRef(new Set());
   const [activeCategory, setActiveCategory] = useState("all");
   const [activeSort, setActiveSort] = useState("recent");
   const [density, setDensity] = useState("comfortable");
@@ -993,9 +1000,32 @@ function Forum({ theme, onThemeToggle }) {
     }));
   }, []);
 
+  const handleIncomingAnswerDeleted = useCallback(({ topicId, answerId, answers, solved }) => {
+    setTopics(prev => prev.map(t => {
+      if (t.id !== topicId) return t;
+      return {
+        ...t,
+        answers: answers ?? Math.max((t.answers || 1) - 1, 0),
+        solved,
+        answersList: t.answersList.filter(a => a.id !== answerId),
+      };
+    }));
+  }, []);
+
   // Real-time: merge all server-stored topics when we first connect
   const handleInitTopics = useCallback((serverTopics) => {
-    setTopics(serverTopics.length ? serverTopics : INITIAL_TOPICS);
+    setTopics((currentTopics) => {
+      const currentById = new Map(currentTopics.map((topic) => [Number(topic.id), topic]));
+      const incoming = serverTopics.length ? serverTopics : INITIAL_TOPICS;
+      return incoming.map((topic) => {
+        const current = currentById.get(Number(topic.id));
+        return {
+          ...topic,
+          saved: current?.saved ?? false,
+          voted: voteStateRef.current[topic.id] ?? current?.voted ?? 0,
+        };
+      });
+    });
     setUsingDemoTopics(serverTopics.length === 0);
     setTopicsLoaded(true);
   }, []);
@@ -1030,7 +1060,9 @@ function Forum({ theme, onThemeToggle }) {
     handleIncomingVote,
     handleIncomingAccept,
     null,
-    handleIncomingTopicModeration
+    handleIncomingTopicModeration,
+    null,
+    handleIncomingAnswerDeleted
   );
 
   useEffect(() => {
@@ -1049,19 +1081,44 @@ function Forum({ theme, onThemeToggle }) {
 
   // After login or topics load, sync saved state + per-user vote state from the server
   useEffect(() => {
-    if (!user || !token || !topicsLoaded) return;
+    if (!topicsLoaded) return undefined;
+    if (!user || !token) {
+      voteStateRef.current = {};
+      setTopics((current) => current.map((topic) => ({ ...topic, saved: false, voted: 0 })));
+      return undefined;
+    }
+
+    let active = true;
     const headers = { Authorization: `Bearer ${token}` };
     Promise.all([
-      fetch(`${BACKEND}/api/forum/saved`, { headers }).then(r => r.ok ? r.json() : []).catch(() => []),
-      fetch(`${BACKEND}/api/forum/my-votes`, { headers }).then(r => r.ok ? r.json() : {}).catch(() => ({})),
+      fetch(`${BACKEND}/api/forum/saved`, { headers }).then((response) => {
+        if (!response.ok) throw new Error('saved state failed');
+        return response.json();
+      }),
+      fetch(`${BACKEND}/api/forum/my-votes`, { headers }).then((response) => {
+        if (!response.ok) throw new Error('vote state failed');
+        return response.json();
+      }),
     ]).then(([savedIds, myVotes]) => {
+      if (!active) return;
       const savedSet = new Set(savedIds.map(Number));
+      voteStateRef.current = Object.fromEntries(
+        Object.entries(myVotes).map(([topicId, direction]) => [Number(topicId), Number(direction)])
+      );
       setTopics(prev => prev.map(t => ({
         ...t,
         saved:  savedSet.has(t.id),
-        voted:  myVotes[t.id] ?? t.voted,
+        voted:  voteStateRef.current[t.id] ?? 0,
       })));
+    }).catch(() => {
+      if (!active) return;
+      voteStateRef.current = {};
+      setTopics((current) => current.map((topic) => ({ ...topic, saved: false, voted: 0 })));
     });
+
+    return () => {
+      active = false;
+    };
   }, [user?.id, topicsLoaded, token]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const showToast = (message) => {
@@ -1098,25 +1155,60 @@ function Forum({ theme, onThemeToggle }) {
 
   const activeCategoryName = CATEGORIES.find((item) => item.id === activeCategory)?.name || "Hammasi";
 
-  const handleVote = (topicId, direction) => {
+  const handleVote = async (topicId, direction) => {
     if (!user) { setShowAuth(true); return; }
-    // Optimistic update
-    setTopics(prev => prev.map(t => {
-      if (t.id !== topicId) return t;
-      const toggling = t.voted === direction;
-      return { ...t, score: t.score + (toggling ? -direction : direction - t.voted), voted: toggling ? 0 : direction };
-    }));
-    showToast(direction > 0 ? "Ovoz qo'shildi" : "Ovoz yangilandi");
-    // Persist — server de-dupes via topic_votes table and returns authoritative state
-    fetch(`${BACKEND}/api/forum/topics/${topicId}/vote`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: JSON.stringify({ direction }),
-    }).then(r => r.ok ? r.json() : Promise.reject())
-      .then(({ score, voted }) => {
-        setTopics(prev => prev.map(t => t.id === topicId ? { ...t, score, voted } : t));
-      })
-      .catch(() => {});
+    if (usingDemoTopics) {
+      showToast("Demo rejimda ovozlar saqlanmaydi");
+      return;
+    }
+    if (pendingVoteIdsRef.current.has(topicId)) return;
+
+    const currentTopic = topics.find((topic) => topic.id === topicId);
+    if (!currentTopic) return;
+    const previous = { score: currentTopic.score, voted: currentTopic.voted ?? 0 };
+    const toggling = previous.voted === direction;
+    const optimistic = {
+      score: previous.score + (toggling ? -direction : direction - previous.voted),
+      voted: toggling ? 0 : direction,
+    };
+
+    pendingVoteIdsRef.current.add(topicId);
+    setPendingVoteIds(new Set(pendingVoteIdsRef.current));
+    voteStateRef.current = { ...voteStateRef.current, [topicId]: optimistic.voted };
+    setTopics((current) => current.map((topic) => (
+      topic.id === topicId ? { ...topic, ...optimistic } : topic
+    )));
+
+    try {
+      const response = await fetch(`${BACKEND}/api/forum/topics/${topicId}/vote`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ direction }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'vote failed');
+
+      const serverScore = Number(result.score);
+      const serverVoted = Number(result.voted);
+      if (!Number.isFinite(serverScore) || ![-1, 0, 1].includes(serverVoted)) {
+        throw new Error('invalid vote response');
+      }
+
+      voteStateRef.current = { ...voteStateRef.current, [topicId]: serverVoted };
+      setTopics((current) => current.map((topic) => (
+        topic.id === topicId ? { ...topic, score: serverScore, voted: serverVoted } : topic
+      )));
+      showToast(serverVoted === 0 ? "Ovoz olib tashlandi" : "Ovoz saqlandi");
+    } catch {
+      voteStateRef.current = { ...voteStateRef.current, [topicId]: previous.voted };
+      setTopics((current) => current.map((topic) => (
+        topic.id === topicId ? { ...topic, ...previous } : topic
+      )));
+      showToast("Ovoz saqlanmadi. Qayta urinib ko'ring");
+    } finally {
+      pendingVoteIdsRef.current.delete(topicId);
+      setPendingVoteIds(new Set(pendingVoteIdsRef.current));
+    }
   };
 
   const handleSave = (topicId) => {
@@ -1367,6 +1459,7 @@ function Forum({ theme, onThemeToggle }) {
                   onVote={handleVote}
                   onTagClick={tag => setQuery(tag)}
                   topic={topic}
+                  votePending={usingDemoTopics || pendingVoteIds.has(topic.id)}
                 />
               ))
             )}

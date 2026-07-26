@@ -8,6 +8,22 @@ const BACKEND = import.meta.env.VITE_API_URL || 'http://localhost:3002';
 
 const ROLES = ['Shogird', 'Ishtirokchi', 'O\'rta daraja', 'Mutaxassis', 'Organik kimyo', 'Anorganik kimyo', 'Analitik kimyo', 'Fizikaviy kimyo', 'Moderator'];
 
+const PERMISSIONS = [
+  { area: 'Staff', label: 'Admin yaratish', admin: true, moderator: false },
+  { area: 'Staff', label: 'Moderator tayinlash', admin: true, moderator: false },
+  { area: 'Staff', label: 'Rol nomini o\'zgartirish', admin: true, moderator: false },
+  { area: 'Users', label: 'Oddiy foydalanuvchini bloklash', admin: true, moderator: true },
+  { area: 'Users', label: 'Blokni olib tashlash', admin: true, moderator: true },
+  { area: 'Questions', label: 'Savolni yechildi deb belgilash', admin: true, moderator: true },
+  { area: 'Questions', label: 'Savolni ochiq qilish', admin: true, moderator: true },
+  { area: 'Answers', label: 'Javobni foydali yoki foydasiz belgilash', admin: true, moderator: true },
+  { area: 'Answers', label: 'Javobni to\'g\'ri yoki noto\'g\'ri belgilash', admin: true, moderator: true },
+  { area: 'Answers', label: 'Javobni o\'chirish', admin: true, moderator: true },
+  { area: 'Topics', label: 'Mavzuni mahkamlash yoki qaynoq qilish', admin: true, moderator: false },
+  { area: 'Topics', label: 'Mavzuni o\'chirish', admin: true, moderator: false },
+  { area: 'Notify', label: 'Umumiy e\'lon yuborish', admin: true, moderator: false },
+];
+
 function StatCard({ label, value, sub, color }) {
   return (
     <div className="adm-stat" style={{ '--adm-color': color }}>
@@ -24,6 +40,14 @@ function timeAgo(iso) {
   if (d < 3600)  return `${Math.floor(d/60)} daq`;
   if (d < 86400) return `${Math.floor(d/3600)} soat`;
   return `${Math.floor(d/86400)} kun`;
+}
+
+function PermissionBadge({ allowed }) {
+  return (
+    <span className={`adm-badge ${allowed ? 'adm-badge--ok' : 'adm-badge--banned'}`}>
+      {allowed ? 'Bor' : "Yo'q"}
+    </span>
+  );
 }
 
 export default function AdminPage({ theme, onThemeToggle }) {
@@ -172,6 +196,7 @@ export default function AdminPage({ theme, onThemeToggle }) {
             { id: 'overview', label: 'Ko\'rinish' },
             { id: 'users',    label: 'Foydalanuvchilar' },
             { id: 'content',  label: 'Kontent' },
+            { id: 'permissions', label: 'Huquqlar' },
             isAdmin ? { id: 'announce', label: 'E\'lon' } : null,
           ].filter(Boolean).map(t => (
             <button
@@ -295,7 +320,14 @@ export default function AdminPage({ theme, onThemeToggle }) {
                                     </button>
                                     <button
                                       className={`adm-btn ${u.is_moderator ? 'adm-btn--mod-active' : ''}`}
-                                      onClick={() => userAction(u.id, { is_moderator: !u.is_moderator }, u.is_moderator ? 'Moderator huquqi olindi' : 'Moderator qilindi')}
+                                      onClick={() => {
+                                        const nextModerator = !u.is_moderator;
+                                        userAction(
+                                          u.id,
+                                          { is_moderator: nextModerator, ...(nextModerator ? { role: 'Moderator' } : {}) },
+                                          u.is_moderator ? 'Moderator huquqi olindi' : 'Moderator qilindi'
+                                        );
+                                      }}
                                       title={u.is_moderator ? 'Moderator huquqini olish' : 'Moderator qilish'}
                                     >
                                       Mod
@@ -402,6 +434,38 @@ export default function AdminPage({ theme, onThemeToggle }) {
                 </table>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ── Permissions ── */}
+        {tab === 'permissions' && (
+          <div className="adm-panel">
+            <div className="adm-panel-toolbar">
+              <h3>Rol huquqlari</h3>
+              <span className="adm-muted">Admin moderatorlarni tayinlaydi</span>
+            </div>
+            <div className="adm-table-wrap">
+              <table className="adm-table">
+                <thead>
+                  <tr>
+                    <th>Bo'lim</th>
+                    <th>Huquq</th>
+                    <th>Admin</th>
+                    <th>Moderator</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {PERMISSIONS.map(permission => (
+                    <tr key={`${permission.area}-${permission.label}`}>
+                      <td><span className="adm-muted">{permission.area}</span></td>
+                      <td>{permission.label}</td>
+                      <td><PermissionBadge allowed={permission.admin} /></td>
+                      <td><PermissionBadge allowed={permission.moderator} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 

@@ -92,6 +92,25 @@ router.post('/login', loginLimiter, async (req, res) => {
   res.json({ token, user: publicUser(user) });
 });
 
+// ── POST /api/auth/bootstrap-admin ────────────────────────────────────────────
+router.post('/bootstrap-admin', requireAuth, async (req, res) => {
+  const setupCode = process.env.ADMIN_SETUP_CODE || process.env.ADMIN_BOOTSTRAP_CODE || '';
+  const hasAdmin = await db.hasAnyAdmin();
+
+  if (hasAdmin) {
+    if (!setupCode) return res.status(403).json({ error: 'Admin allaqachon mavjud' });
+    if (String(req.body?.code || '') !== setupCode) {
+      return res.status(403).json({ error: "Setup kodi noto'g'ri" });
+    }
+  }
+
+  const promoted = await db.promoteUserToAdmin(req.user.id);
+  if (!promoted) return res.status(404).json({ error: 'Foydalanuvchi topilmadi' });
+
+  const token = signUser(promoted);
+  res.json({ ok: true, token, user: publicUser(promoted) });
+});
+
 // ── GET /api/auth/me ──────────────────────────────────────────────────────────
 router.get('/me', requireAuth, async (req, res) => {
   const user = await db.getUserById(req.user.id);

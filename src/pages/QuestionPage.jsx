@@ -35,6 +35,7 @@ function Icon({ name, size=18 }) {
     eye:       "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12ZM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
     thumbsUp:  "M7 10v11M15 5.9 14 10h5.7a2 2 0 0 1 2 2.4l-1.4 7a2 2 0 0 1-2 1.6H7M7 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3M15 5.9V3a2 2 0 0 0-2-2l-3 9",
     thumbsDown:"M17 14V3M9 18.1 10 14H4.3a2 2 0 0 1-2-2.4l1.4-7A2 2 0 0 1 5.7 3H17M17 14h3a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-3M9 18.1V21a2 2 0 0 0 2 2l3-9",
+    trash:     "M3 6h18M8 6V4h8v2M6 6l1 15h10l1-15M10 11v6M14 11v6",
     x:         "M18 6 6 18M6 6l12 12",
   };
   return (
@@ -187,6 +188,16 @@ export default function QuestionPage() {
     });
   }, [id]);
 
+  const onAnswerDeleted = useCallback(({ topicId, answerId, answers, solved }) => {
+    if (String(topicId) !== String(id)) return;
+    setTopic(prev => prev ? {
+      ...prev,
+      answers: answers ?? Math.max((prev.answers || 1) - 1, 0),
+      solved,
+      answersList: prev.answersList.filter(a => a.id !== answerId),
+    } : prev);
+  }, [id]);
+
   useForumStream(
     () => {},
     null,
@@ -195,7 +206,8 @@ export default function QuestionPage() {
     onAccept,
     onAnswerVoteSSE,
     onTopicModeration,
-    onAnswerModeration
+    onAnswerModeration,
+    onAnswerDeleted
   );
 
   /* Vote on the topic */
@@ -387,6 +399,36 @@ export default function QuestionPage() {
           answersList: prev.answersList.map(a => a.id === answerId ? { ...a, ...updated } : a),
         } : prev);
         showToast('Javob belgilandi');
+      })
+      .catch(() => {
+        setTopic(snapshot);
+        showToast('Xato yuz berdi');
+      });
+  };
+
+  const handleDeleteAnswer = (answerId) => {
+    if (!user?.is_admin && !user?.is_moderator) return;
+    if (!confirm("Bu javobni o'chirasizmi?")) return;
+
+    const snapshot = topic;
+    setTopic(prev => {
+      if (!prev) return prev;
+      const answersList = prev.answersList.filter(a => a.id !== answerId);
+      return {
+        ...prev,
+        answers: Math.max((prev.answers || 1) - 1, 0),
+        solved: answersList.some(a => a.accepted),
+        answersList,
+      };
+    });
+
+    fetch(`${API}/api/admin/answers/${answerId}`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    }).then(r => r.ok ? r.json() : Promise.reject())
+      .then(({ answers, solved }) => {
+        setTopic(prev => prev ? { ...prev, answers, solved } : prev);
+        showToast("Javob o'chirildi");
       })
       .catch(() => {
         setTopic(snapshot);
@@ -637,6 +679,15 @@ export default function QuestionPage() {
                             type="button"
                           >
                             <Icon name="x" size={14} />
+                          </button>
+                          <button
+                            aria-label="Javobni o'chirish"
+                            className="qp-mod-chip is-danger"
+                            data-tooltip="O'chirish"
+                            onClick={() => handleDeleteAnswer(ans.id)}
+                            type="button"
+                          >
+                            <Icon name="trash" size={14} />
                           </button>
                         </div>
                       )}
