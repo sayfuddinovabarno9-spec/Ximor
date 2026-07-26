@@ -85,11 +85,13 @@ async function initSchema() {
       accepted   BOOLEAN DEFAULT FALSE,
       score      INTEGER DEFAULT 0,
       text       TEXT    NOT NULL,
+      images     TEXT    DEFAULT '[]',
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
 
     CREATE INDEX IF NOT EXISTS idx_answers_topic ON answers(topic_id);
     ALTER TABLE answers ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+    ALTER TABLE answers ADD COLUMN IF NOT EXISTS images TEXT DEFAULT '[]';
     ALTER TABLE answers ADD COLUMN IF NOT EXISTS moderation_helpfulness TEXT;
     ALTER TABLE answers ADD COLUMN IF NOT EXISTS moderation_correctness  TEXT;
     ALTER TABLE answers ADD COLUMN IF NOT EXISTS moderated_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
@@ -239,6 +241,7 @@ function hydrateAnswer(row) {
   return {
     ...row,
     accepted: Boolean(row.accepted),
+    images: safeJson(row.images, []),
     moderation_helpfulness: row.moderation_helpfulness ?? null,
     moderation_correctness: row.moderation_correctness ?? null,
   };
@@ -430,11 +433,11 @@ async function acceptAnswer(topicId, answerId) {
 // ── Answers ───────────────────────────────────────────────────────────────────
 async function saveAnswer(topicId, answer) {
   const row = await q1(`
-    INSERT INTO answers (topic_id, user_id, author, initials, role, score, text)
-    VALUES ($1, $2, $3, $4, $5, $6, $7)
+    INSERT INTO answers (topic_id, user_id, author, initials, role, score, text, images)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     RETURNING *
   `, [topicId, answer.user_id ?? null, answer.author ?? 'Anonim', answer.initials ?? 'AN',
-      answer.role ?? 'Ishtirokchi', answer.score ?? 0, answer.text ?? '']);
+      answer.role ?? 'Ishtirokchi', answer.score ?? 0, answer.text ?? '', JSON.stringify(answer.images ?? [])]);
   if (!row) return null;
   await pool.query(
     "UPDATE topics SET answers = answers + 1, activity = 'Hozir', solved = FALSE WHERE id = $1",

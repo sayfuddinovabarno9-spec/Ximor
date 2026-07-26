@@ -5,7 +5,7 @@ export default function AttachmentGallery({ images = [], size = 'thumb' }) {
     <div className={`attachment-gallery attachment-gallery--${size}`}>
       {images.map(image => (
         <figure key={image.id}>
-          <img alt={image.name || 'Savol rasmi'} src={image.src} />
+          <img alt={image.name || 'Rasm'} src={image.src} />
         </figure>
       ))}
     </div>

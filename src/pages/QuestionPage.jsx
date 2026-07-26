@@ -11,6 +11,7 @@ import RichText from '../components/RichText';
 import { avatarBg } from '../utils/avatarColor';
 import copyToClipboard from '../utils/copyToClipboard';
 import { formatQuestionCreatedAt } from '../utils/dateTime';
+import { mergeAnswerIntoList } from '../utils/forumAnswers';
 import { prepareForumImage } from '../utils/forumImage';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:3002';
@@ -321,6 +322,7 @@ export default function QuestionPage() {
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState('');
   const [answer, setAnswer]     = useState('');
+  const [answerImages, setAnswerImages] = useState([]);
   const [busy, setBusy]         = useState(false);
   const [votePending, setVotePending] = useState(false);
   const [voted, setVoted]       = useState(0);          // current user's vote on the topic
@@ -332,6 +334,7 @@ export default function QuestionPage() {
   const [highlightAnswerId, setHighlightAnswerId] = useState('');
   const toastRef                = useRef(null);
   const answerRef               = useRef(null);
+  const answerImageInputRef     = useRef(null);
   const copiedTimerRef          = useRef(null);
   const highlightTimerRef       = useRef(null);
 
@@ -363,6 +366,26 @@ export default function QuestionPage() {
     } catch {
       showToast(t('question.copyFailed'));
     }
+  };
+
+  const handleAnswerImages = async (event) => {
+    const files = Array.from(event.target.files || [])
+      .filter((file) => file.type.startsWith('image/'))
+      .slice(0, Math.max(0, 4 - answerImages.length));
+
+    if (!files.length) return;
+
+    const results = await Promise.allSettled(files.map(prepareForumImage));
+    const images = results
+      .filter((result) => result.status === 'fulfilled')
+      .map((result) => result.value);
+
+    setAnswerImages((current) => [...current, ...images].slice(0, 4));
+    event.target.value = '';
+  };
+
+  const removeAnswerImage = (imageId) => {
+    setAnswerImages((current) => current.filter((image) => image.id !== imageId));
   };
 
   /* Fetch topic on mount */
@@ -411,9 +434,8 @@ export default function QuestionPage() {
     if (String(topicId) !== String(id)) return;
     setTopic(prev => {
       if (!prev) return prev;
-      const already = prev.answersList.some(x => x.id === a.id);
-      const answersList = already ? prev.answersList : [...prev.answersList, a];
-      return { ...prev, answers: answersList.length, answersList };
+      const answersList = mergeAnswerIntoList(prev.answersList, a);
+      return { ...prev, answers: answers ?? answersList.length, answersList };
     });
   }, [id]);
 
@@ -597,16 +619,21 @@ export default function QuestionPage() {
   const submitAnswer = async (e) => {
     e.preventDefault();
     if (!user) { setShowAuth(true); return; }
-    if (!answer.trim() || busy) return;
+    if ((!answer.trim() && answerImages.length === 0) || busy) return;
+
+    const text = answer.trim();
+    const images = answerImages;
+    const optimisticId = Date.now();
 
     const newAnswer = {
-      id:       Date.now(),
+      id:       optimisticId,
       author:   user.name,
       initials: user.initials,
       role:     user.role,
       accepted: false,
       score:    0,
-      text:     answer.trim(),
+      text,
+      images,
     };
 
     setBusy(true);
@@ -617,14 +644,23 @@ export default function QuestionPage() {
       answersList: [...prev.answersList, newAnswer],
     } : prev);
     setAnswer('');
+    setAnswerImages([]);
     showToast(t('forum.answerSent'));
 
     try {
-      await fetch(`${API}/api/forum/topics/${id}/answers`, {
+      const response = await fetch(`${API}/api/forum/topics/${id}/answers`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify(newAnswer),
       });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'answer failed');
+      if (result.answer) {
+        setTopic(prev => prev ? {
+          ...prev,
+          answersList: mergeAnswerIntoList(prev.answersList, result.answer),
+        } : prev);
+      }
     } catch { /* optimistic update already applied */ }
     finally { setBusy(false); }
   };
@@ -1037,6 +1073,7 @@ export default function QuestionPage() {
                         </button>
                       </div>
                       <RichText className="qp-answer-text" text={ans.text} />
+                      <AttachmentGallery images={ans.images} size="large" />
                       {canModerate && (
                         <div className="qp-mod-controls">
                           <button
@@ -1109,15 +1146,51 @@ export default function QuestionPage() {
                   placeholder={t('forum.answerPlaceholder')}
                   rows={5}
                 />
-                {answer.trim() && (
+                {answerImages.length > 0 && (
+                  <div className="composer-editor-images">
+                    {answerImages.map((image) => (
+                      <figure key={image.id}>
+                        <img alt={image.name} src={image.src} />
+                        <button
+                          aria-label={t('composer.removeImage', { name: image.name })}
+                          onClick={() => removeAnswerImage(image.id)}
+                          type="button"
+                        >
+                          <Icon name="x" size={14} />
+                        </button>
+                      </figure>
+                    ))}
+                  </div>
+                )}
+                <div className="composer-editor-footer">
+                  <input
+                    accept="image/*"
+                    multiple
+                    onChange={handleAnswerImages}
+                    ref={answerImageInputRef}
+                    type="file"
+                  />
+                  <button
+                    className="composer-attach-button"
+                    disabled={answerImages.length >= 4}
+                    onClick={() => answerImageInputRef.current?.click()}
+                    type="button"
+                  >
+                    <Icon name="image" size={17} />
+                    {t('composer.image')}
+                  </button>
+                  <span>{answerImages.length}/4</span>
+                </div>
+                {(answer.trim() || answerImages.length > 0) && (
                   <div className="latex-live-preview answer-live-preview">
                     <div className="latex-live-preview-label">{t('composer.previewLabel')}</div>
                     <RichText className="qp-answer-text" text={answer} />
+                    <AttachmentGallery images={answerImages} />
                   </div>
                 )}
                 <button
                   className="primary-button"
-                  disabled={!answer.trim() || busy}
+                  disabled={(!answer.trim() && answerImages.length === 0) || busy}
                   type="submit"
                 >
                   <Icon name="send" size={16} />

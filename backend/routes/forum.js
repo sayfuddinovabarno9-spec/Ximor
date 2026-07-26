@@ -19,10 +19,10 @@ function sanitize(str) {
     .trim();
 }
 
-function sanitizeTopic(body) {
+function sanitizeImages(imagesInput, defaultName = 'Rasm') {
   let imageBytes = 0;
-  const images = Array.isArray(body.images)
-    ? body.images
+  return Array.isArray(imagesInput)
+    ? imagesInput
         .slice(0, 4)
         .map((image) => {
           const src = typeof image?.src === 'string' ? image.src : '';
@@ -31,14 +31,16 @@ function sanitizeTopic(body) {
           imageBytes += src.length;
           return {
             id: sanitize(String(image.id || '').slice(0, 180)),
-            name: sanitize(String(image.name || 'Savol rasmi').slice(0, 180)),
+            name: sanitize(String(image.name || defaultName).slice(0, 180)),
             size: Math.max(0, Number(image.size) || 0),
             src,
           };
         })
         .filter(Boolean)
     : [];
+}
 
+function sanitizeTopic(body) {
   return {
     ...body,
     category: sanitize(String(body.category || 'all').slice(0, 50)),
@@ -46,10 +48,18 @@ function sanitizeTopic(body) {
     summary: body.summary ? sanitize(String(body.summary).slice(0, 20_000)) : '',
     formula: body.formula ? sanitize(String(body.formula).slice(0, 1000)) : '',
     difficulty: body.difficulty ? sanitize(String(body.difficulty).slice(0, 80)) : undefined,
-    images,
+    images: sanitizeImages(body.images, 'Savol rasmi'),
     tags:    Array.isArray(body.tags)
                ? body.tags.slice(0, 10).map(t => sanitize(String(t).slice(0, 50)))
                : [],
+  };
+}
+
+function sanitizeAnswer(body) {
+  const raw = body?.text ?? body?.content ?? '';
+  return {
+    text: sanitize(String(raw).slice(0, 20_000)),
+    images: sanitizeImages(body?.images, 'Javob rasmi'),
   };
 }
 
@@ -160,21 +170,27 @@ router.post('/topics/:id/answers', requireAuth, async (req, res) => {
   const topic   = await db.getTopicWithAnswers(topicId);
   if (!topic) return res.status(404).json({ error: 'topic not found' });
 
-  const raw = req.body?.text || req.body?.content || '';
-  if (!raw.trim()) return res.status(400).json({ error: 'content required' });
+  const clean = sanitizeAnswer(req.body);
+  if (!clean.text.trim() && clean.images.length === 0) {
+    return res.status(400).json({ error: 'content required' });
+  }
 
   const saved = await db.saveAnswer(topicId, {
     user_id:  req.user.id,
-    text:     sanitize(String(raw).slice(0, 20_000)),
+    text:     clean.text,
+    images:   clean.images,
     author:   req.user.name,
     initials: req.user.initials,
     role:     req.user.role,
     score:    0,
   });
 
+  const clientId = req.body?.id == null ? null : sanitize(String(req.body.id).slice(0, 80));
+
   if (saved) {
     const updated = await db.getTopicWithAnswers(topicId);
-    broadcast('answer', { topicId, answer: saved, answers: updated.answers });
+    const answer = { ...saved, client_id: clientId };
+    broadcast('answer', { topicId, answer, answers: updated.answers });
     // Notify the topic author that their question got a new answer
     if (topic.user_id && topic.user_id !== req.user.id) {
       await db.createNotification(
@@ -185,7 +201,7 @@ router.post('/topics/:id/answers', requireAuth, async (req, res) => {
     broadcast('notification', { topicId });
   }
 
-  res.json({ ok: true, listeners: clients.size });
+  res.json({ ok: true, answer: saved ? { ...saved, client_id: clientId } : null, listeners: clients.size });
 });
 
 // ── PATCH /api/forum/topics/:id/vote ─────────────────────────────────────────

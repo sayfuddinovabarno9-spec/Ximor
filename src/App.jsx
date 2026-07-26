@@ -22,6 +22,7 @@ import MessagesPage from "./pages/MessagesPage";
 import { avatarBg } from "./utils/avatarColor";
 import copyToClipboard from "./utils/copyToClipboard";
 import { formatQuestionCreatedAt } from "./utils/dateTime";
+import { mergeAnswerIntoList } from "./utils/forumAnswers";
 import { prepareForumImage } from "./utils/forumImage";
 
 const BACKEND = import.meta.env.VITE_API_URL || 'http://localhost:3002';
@@ -462,7 +463,9 @@ function ThreadDrawer({
 }) {
   const { language, t } = useLanguage();
   const [answer, setAnswer] = useState("");
+  const [answerImages, setAnswerImages] = useState([]);
   const answerRef = useRef(null);
+  const answerImageInputRef = useRef(null);
   const createdAt = formatQuestionCreatedAt(topic?.created_at, language);
 
   useEffect(() => {
@@ -475,11 +478,36 @@ function ThreadDrawer({
 
   if (!topic) return null;
 
+  const handleAnswerImages = async (event) => {
+    const files = Array.from(event.target.files || [])
+      .filter((file) => file.type.startsWith("image/"))
+      .slice(0, Math.max(0, 4 - answerImages.length));
+
+    if (!files.length) return;
+
+    const results = await Promise.allSettled(files.map(prepareForumImage));
+    const images = results
+      .filter((result) => result.status === "fulfilled")
+      .map((result) => result.value);
+
+    setAnswerImages((current) => [...current, ...images].slice(0, 4));
+    event.target.value = "";
+  };
+
+  const removeAnswerImage = (imageId) => {
+    setAnswerImages((current) => current.filter((image) => image.id !== imageId));
+  };
+
   const submitAnswer = (event) => {
     event.preventDefault();
-    if (!answer.trim()) return;
-    onAddAnswer(topic.id, answer.trim());
+    if (!answer.trim() && answerImages.length === 0) return;
+    const submitted = onAddAnswer(topic.id, {
+      text: answer.trim(),
+      images: answerImages,
+    });
+    if (submitted === false) return;
     setAnswer("");
+    setAnswerImages([]);
   };
 
   return (
@@ -609,6 +637,7 @@ function ThreadDrawer({
                   </div>
                 </div>
                 <RichText text={item.text} />
+                <AttachmentGallery images={item.images} />
               </article>
               );
             })
@@ -625,13 +654,49 @@ function ThreadDrawer({
             placeholder={t('forum.answerPlaceholder')}
             value={answer}
           />
-          {answer.trim() && (
+          {answerImages.length > 0 && (
+            <div className="composer-editor-images">
+              {answerImages.map((image) => (
+                <figure key={image.id}>
+                  <img alt={image.name} src={image.src} />
+                  <button
+                    aria-label={t('composer.removeImage', { name: image.name })}
+                    onClick={() => removeAnswerImage(image.id)}
+                    type="button"
+                  >
+                    <Icon name="close" size={14} />
+                  </button>
+                </figure>
+              ))}
+            </div>
+          )}
+          <div className="composer-editor-footer">
+            <input
+              accept="image/*"
+              multiple
+              onChange={handleAnswerImages}
+              ref={answerImageInputRef}
+              type="file"
+            />
+            <button
+              className="composer-attach-button"
+              disabled={answerImages.length >= 4}
+              onClick={() => answerImageInputRef.current?.click()}
+              type="button"
+            >
+              <Icon name="image" size={17} />
+              {t('composer.image')}
+            </button>
+            <span>{answerImages.length}/4</span>
+          </div>
+          {(answer.trim() || answerImages.length > 0) && (
             <div className="latex-live-preview answer-live-preview">
               <div className="latex-live-preview-label">{t('composer.previewLabel')}</div>
               <RichText text={answer} />
+              <AttachmentGallery images={answerImages} />
             </div>
           )}
-          <button className="primary-button" disabled={!answer.trim()} type="submit">
+          <button className="primary-button" disabled={!answer.trim() && answerImages.length === 0} type="submit">
             <Icon name="send" size={17} />
             {t('forum.sendAnswer')}
           </button>
@@ -1124,13 +1189,12 @@ function Forum({ theme, onThemeToggle }) {
   const handleIncomingAnswer = useCallback(({ topicId, answer, answers }) => {
     setTopics(prev => prev.map(t => {
       if (t.id !== topicId) return t;
-      // Deduplicate: if our optimistic update already added this id, skip
-      const already = t.answersList.some(a => a.id === answer.id);
+      const answersList = mergeAnswerIntoList(t.answersList, answer);
       return {
         ...t,
-        answers,
+        answers: answers ?? answersList.length,
         activity: 'Hozir',
-        answersList: already ? t.answersList : [...t.answersList, answer],
+        answersList,
       };
     }));
   }, []);
@@ -1420,18 +1484,23 @@ function Forum({ theme, onThemeToggle }) {
       });
   };
 
-  const handleAddAnswer = (topicId, text) => {
-    if (!user) { setShowAuth(true); return; }
+  const handleAddAnswer = (topicId, answerInput) => {
+    if (!user) { setShowAuth(true); return false; }
+    const text = typeof answerInput === "string" ? answerInput : answerInput?.text || "";
+    const images = Array.isArray(answerInput?.images) ? answerInput.images : [];
+    if (!text.trim() && images.length === 0) return false;
     const nowLabel = t('common.now');
+    const optimisticId = Date.now();
 
     const answer = {
-      id:       Date.now(),
+      id:       optimisticId,
       author:   user.name,
       initials: user.initials,
       role:     user.role,
       accepted: false,
       score:    0,
-      text,
+      text:     text.trim(),
+      images,
     };
 
     // Optimistic update
@@ -1448,7 +1517,17 @@ function Forum({ theme, onThemeToggle }) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify(answer),
-    }).catch(() => {});
+    }).then((response) => response.ok ? response.json() : Promise.reject())
+      .then((result) => {
+        if (!result.answer) return;
+        setTopics(prev => prev.map(t => (
+          t.id === topicId
+            ? { ...t, answersList: mergeAnswerIntoList(t.answersList, result.answer) }
+            : t
+        )));
+      })
+      .catch(() => {});
+    return true;
   };
 
   const handleCreateTopic = async (form) => {

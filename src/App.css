@@ -2298,6 +2298,12 @@ a { text-decoration: none; }
   padding: 10px;
 }
 
+.answer-box .composer-editor-images,
+.qp-answer-box .composer-editor-images {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
 .composer-editor-images figure {
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -2337,6 +2343,13 @@ a { text-decoration: none; }
   gap: 8px;
   min-height: 42px;
   padding: 5px 8px;
+}
+
+.answer-box .composer-editor-footer,
+.qp-answer-box .composer-editor-footer {
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
 }
 
 .composer-modal .composer-editor-footer {
