@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { avatarBg } from '../utils/avatarColor';
+import { useLanguage } from '../context/LanguageContext';
 
 const BACKEND = import.meta.env.VITE_API_URL || 'http://localhost:3002';
 
@@ -53,6 +54,7 @@ function Avatar({ initials, name }) {
 }
 
 export default function InsightsPanel({ onSpotlightClick }) {
+  const { t } = useLanguage();
   const [stats, setStats] = useState(null);
 
   useEffect(() => {
@@ -69,8 +71,8 @@ export default function InsightsPanel({ onSpotlightClick }) {
     <aside className="insights-panel">
       <div className="panel-card live-card">
         <div className="section-heading">
-          <h3><span className="live-dot" />Jonli xona</h3>
-          <span>{connections} ulanish</span>
+          <h3><span className="live-dot" />{t('insights.liveRoom')}</h3>
+          <span>{t('insights.connections', { count: connections })}</span>
         </div>
         <div className="live-grid">
           {users.map(e => (
@@ -82,8 +84,8 @@ export default function InsightsPanel({ onSpotlightClick }) {
       <div className="panel-card best-users-card">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Community</span>
-            <h3>Eng faol foydalanuvchilar</h3>
+            <span className="eyebrow">{t('insights.community')}</span>
+            <h3>{t('insights.topUsers')}</h3>
           </div>
           <UsersIcon />
         </div>
@@ -94,7 +96,7 @@ export default function InsightsPanel({ onSpotlightClick }) {
               <Avatar initials={user.initials} name={user.name} />
               <div>
                 <strong>{user.name}</strong>
-                <span>{USER_BADGES[i] ?? 'Faol ishtirokchi'}</span>
+                <span>{t('insights.userBadges')[i] ?? t('insights.activeUser')}</span>
               </div>
               <b>{formatScore(user.score)}</b>
             </div>
@@ -103,12 +105,12 @@ export default function InsightsPanel({ onSpotlightClick }) {
       </div>
 
       <div className="panel-card spotlight-card">
-        <span className="eyebrow">Hafta chaqiruvi</span>
-        <h3>Reaksiya marafoni</h3>
-        <p>Har kuni bitta kimyo reaksiyasini to'liq mexanizm bilan yozing va community bilan muhokama qiling.</p>
+        <span className="eyebrow">{t('insights.weeklyChallenge')}</span>
+        <h3>{t('insights.reactionMarathon')}</h3>
+        <p>{t('insights.challengeText')}</p>
         <button className="primary-button" type="button" onClick={onSpotlightClick}>
           <SparkIcon />
-          Ko'rish
+          {t('insights.view')}
         </button>
       </div>
     </aside>
