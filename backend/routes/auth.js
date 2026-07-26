@@ -10,6 +10,7 @@ function publicUser(user) {
   return {
     id: user.id,
     username: user.username,
+    email: user.email || '',
     name: user.name,
     initials: user.initials,
     role: user.role,
@@ -24,6 +25,7 @@ function signUser(user) {
   return sign({
     id: user.id,
     username: user.username,
+    email: user.email || '',
     name: user.name,
     initials: user.initials,
     role: user.role,
@@ -46,8 +48,8 @@ const loginLimiter = rateLimit({
 router.post('/register', registerLimiter, async (req, res) => {
   const { username, name, password, email } = req.body || {};
 
-  if (!username || !name || !password)
-    return res.status(400).json({ error: "username, name va password kerak" });
+  if (!username || !name || !password || !email)
+    return res.status(400).json({ error: "email, username, name va password kerak" });
   if (username.length < 3)
     return res.status(400).json({ error: "Username kamida 3 ta belgi bo'lishi kerak" });
   if (!/^[a-z0-9_.-]+$/i.test(username))
@@ -56,7 +58,8 @@ router.post('/register', registerLimiter, async (req, res) => {
     return res.status(400).json({ error: "Parol kamida 6 ta belgi bo'lishi kerak" });
   if (name.trim().length < 2)
     return res.status(400).json({ error: "Ism kamida 2 ta belgi bo'lishi kerak" });
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+  const normalizedEmail = String(email || '').toLowerCase().trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail))
     return res.status(400).json({ error: "Email manzili noto'g'ri" });
 
   const hash     = await bcrypt.hash(password, 10);
@@ -66,7 +69,7 @@ router.post('/register', registerLimiter, async (req, res) => {
     name:     name.trim().slice(0, 80),
     initials,
     password: hash,
-    email:    email?.toLowerCase().trim() || null,
+    email:    normalizedEmail,
   });
 
   if (!user) return res.status(409).json({ error: "Bu username yoki email band, boshqasini tanlang" });
@@ -77,11 +80,14 @@ router.post('/register', registerLimiter, async (req, res) => {
 
 // ── POST /api/auth/login ──────────────────────────────────────────────────────
 router.post('/login', loginLimiter, async (req, res) => {
-  const { username, password } = req.body || {};
-  if (!username || !password)
-    return res.status(400).json({ error: "username va password kerak" });
+  const { email, username, password } = req.body || {};
+  const normalizedEmail = String(email || username || '').toLowerCase().trim();
+  if (!normalizedEmail || !password)
+    return res.status(400).json({ error: "email va password kerak" });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail))
+    return res.status(400).json({ error: "Email manzili noto'g'ri" });
 
-  const user = await db.getUserByUsername(username.toLowerCase().trim());
+  const user = await db.getUserByEmail(normalizedEmail);
   if (!user) return res.status(401).json({ error: "Foydalanuvchi topilmadi" });
 
   const ok = await bcrypt.compare(password, user.password);

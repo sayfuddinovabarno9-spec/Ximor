@@ -389,7 +389,7 @@ async function createUser({ username, name, initials, role = 'Shogird', password
       INSERT INTO users (username, name, initials, role, password, email)
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING id, username, name, initials, role, score, email, is_admin, is_moderator
-    `, [username, name, initials, role, password, email || null]);
+    `, [username, name, initials, role, password, email]);
   } catch (e) {
     if (e.code === '23505') return null; // unique_violation = username or email taken
     throw e;
@@ -400,9 +400,13 @@ async function getUserByUsername(username) {
   return q1('SELECT * FROM users WHERE username = $1', [username]);
 }
 
+async function getUserByEmail(email) {
+  return q1('SELECT * FROM users WHERE LOWER(email) = LOWER($1)', [email]);
+}
+
 async function getUserById(id) {
   return q1(`
-    SELECT id, username, name, initials, role, score, is_admin, is_moderator, banned_at, bio
+    SELECT id, username, name, initials, role, score, email, is_admin, is_moderator, banned_at, bio
     FROM users WHERE id = $1
   `, [id]);
 }
@@ -806,7 +810,7 @@ async function getAdminStats() {
 
 async function getAllUsersAdmin(limit = 100, offset = 0) {
   return q(`
-    SELECT u.id, u.username, u.name, u.initials, u.role, u.score,
+    SELECT u.id, u.username, u.email, u.name, u.initials, u.role, u.score,
            u.is_admin, u.is_moderator, u.banned_at, u.created_at,
            (SELECT COUNT(*)::INTEGER FROM topics  WHERE author = u.name)  AS topics_count,
            (SELECT COUNT(*)::INTEGER FROM answers WHERE author = u.name)  AS answers_count,
@@ -841,7 +845,7 @@ async function promoteUserToAdmin(id) {
     UPDATE users
     SET is_admin = TRUE
     WHERE id = $1 AND banned_at IS NULL
-    RETURNING id, username, name, initials, role, score, is_admin, is_moderator, banned_at, bio
+    RETURNING id, username, name, initials, role, score, email, is_admin, is_moderator, banned_at, bio
   `, [id]);
 }
 
@@ -853,37 +857,19 @@ function parseStaffList(value) {
 }
 
 async function bootstrapConfiguredStaff(env = process.env) {
-  const adminUsernames = parseStaffList(env.ADMIN_USERNAMES || env.ADMIN_USERNAME);
   const adminEmails = parseStaffList(env.ADMIN_EMAILS || env.ADMIN_EMAIL);
-  const moderatorUsernames = parseStaffList(env.MODERATOR_USERNAMES || env.MODERATOR_USERNAME);
   const moderatorEmails = parseStaffList(env.MODERATOR_EMAILS || env.MODERATOR_EMAIL);
+  const adminUsernames = parseStaffList(env.ADMIN_USERNAMES || env.ADMIN_USERNAME);
+  const moderatorUsernames = parseStaffList(env.MODERATOR_USERNAMES || env.MODERATOR_USERNAME);
 
   const results = { admins: 0, moderators: 0 };
 
-  if (adminUsernames.length) {
-    const rows = await q(
-      'UPDATE users SET is_admin = TRUE WHERE LOWER(username) = ANY($1) RETURNING id',
-      [adminUsernames]
-    );
-    results.admins += rows.length;
-  }
   if (adminEmails.length) {
     const rows = await q(
       'UPDATE users SET is_admin = TRUE WHERE LOWER(email) = ANY($1) RETURNING id',
       [adminEmails]
     );
     results.admins += rows.length;
-  }
-  if (moderatorUsernames.length) {
-    const rows = await q(
-      `UPDATE users
-       SET is_moderator = TRUE,
-           role = CASE WHEN role IN ('Shogird','Ishtirokchi') THEN 'Moderator' ELSE role END
-       WHERE LOWER(username) = ANY($1)
-       RETURNING id`,
-      [moderatorUsernames]
-    );
-    results.moderators += rows.length;
   }
   if (moderatorEmails.length) {
     const rows = await q(
@@ -893,6 +879,26 @@ async function bootstrapConfiguredStaff(env = process.env) {
        WHERE LOWER(email) = ANY($1)
        RETURNING id`,
       [moderatorEmails]
+    );
+    results.moderators += rows.length;
+  }
+  if (adminUsernames.length) {
+    console.warn('ADMIN_USERNAMES is legacy; prefer ADMIN_EMAILS for staff bootstrap.');
+    const rows = await q(
+      'UPDATE users SET is_admin = TRUE WHERE LOWER(username) = ANY($1) RETURNING id',
+      [adminUsernames]
+    );
+    results.admins += rows.length;
+  }
+  if (moderatorUsernames.length) {
+    console.warn('MODERATOR_USERNAMES is legacy; prefer MODERATOR_EMAILS for staff bootstrap.');
+    const rows = await q(
+      `UPDATE users
+       SET is_moderator = TRUE,
+           role = CASE WHEN role IN ('Shogird','Ishtirokchi') THEN 'Moderator' ELSE role END
+       WHERE LOWER(username) = ANY($1)
+       RETURNING id`,
+      [moderatorUsernames]
     );
     results.moderators += rows.length;
   }
@@ -1203,7 +1209,7 @@ module.exports = {
   initSchema, seedDemo,
   getAllTopics, getTopicWithAnswers, saveTopic, updateScore, acceptAnswer,
   saveAnswer,
-  createUser, getUserByUsername, getUserById, addUserScore, getUserProfile,
+  createUser, getUserByUsername, getUserByEmail, getUserById, addUserScore, getUserProfile,
   getUserAnswers, updateUserBio,
   getAllTournaments, getTournamentById, registerForTournament,
   getLeaderboard,

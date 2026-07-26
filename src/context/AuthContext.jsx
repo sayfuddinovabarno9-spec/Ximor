@@ -18,6 +18,7 @@ export function AuthProvider({ children }) {
       return {
         id: payload.id,
         username: payload.username,
+        email: payload.email || '',
         name: payload.name,
         initials: payload.initials,
         role: payload.role,
@@ -36,6 +37,7 @@ export function AuthProvider({ children }) {
       .then(u => setUser({
         id: u.id,
         username: u.username,
+        email: u.email || '',
         name: u.name,
         initials: u.initials,
         role: u.role,
@@ -79,11 +81,11 @@ export function AuthProvider({ children }) {
     return data.user;
   }, [saveSession, t]);
 
-  const login = useCallback(async (username, password) => {
+  const login = useCallback(async (email, password) => {
     const res  = await fetch(`${API}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ email, password }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || t('auth.loginError'));

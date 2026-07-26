@@ -28,7 +28,7 @@ export default function AuthModal({ onClose, onSuccess }) {
     setBusy(true);
     try {
       if (mode === 'login') {
-        await login(form.username, form.password);
+        await login(form.email, form.password);
       } else {
         await register(form.username, form.name, form.password, form.email);
       }
@@ -75,21 +75,34 @@ export default function AuthModal({ onClose, onSuccess }) {
               <input ref={firstRef} placeholder="Aziza Karimova" value={form.name}
                      onChange={e => set('name', e.target.value)} required autoComplete="name" />
             </label>
-            <label>
-              Email <span style={{ opacity: 0.5, fontWeight: 400 }}>({t('common.optional')})</span>
-              <input type="email" placeholder="aziza@example.com" value={form.email}
-                     onChange={e => set('email', e.target.value)} autoComplete="email" />
-            </label>
           </>
         )}
 
         <label>
-          {t('auth.username')}
-          <input ref={mode === 'login' ? firstRef : null}
-                 placeholder="aziza_kimyo" value={form.username}
-                 onChange={e => set('username', e.target.value)}
-                 required autoComplete="username" />
+          {t('auth.email')}
+          <input
+            ref={mode === 'login' ? firstRef : null}
+            type="email"
+            placeholder="aziza@example.com"
+            value={form.email}
+            onChange={e => set('email', e.target.value)}
+            required
+            autoComplete="email"
+          />
         </label>
+
+        {mode === 'register' && (
+          <label>
+            {t('auth.username')}
+            <input
+              placeholder="aziza_kimyo"
+              value={form.username}
+              onChange={e => set('username', e.target.value)}
+              required
+              autoComplete="username"
+            />
+          </label>
+        )}
 
         <label>
           {t('auth.password')}
