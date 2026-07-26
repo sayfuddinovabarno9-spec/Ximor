@@ -7,7 +7,11 @@ import { useLanguage } from '../context/LanguageContext';
 
 const BACKEND = import.meta.env.VITE_API_URL || 'http://localhost:3002';
 
-const ROLES = ['Shogird', 'Ishtirokchi', 'O\'rta daraja', 'Mutaxassis', 'Organik kimyo', 'Anorganik kimyo', 'Analitik kimyo', 'Fizikaviy kimyo', 'Moderator'];
+const ROLES = ['Shogird', 'Ishtirokchi', 'O\'rta daraja', 'Mutaxassis', 'Moderator'];
+
+function roleSelectValue(role) {
+  return ROLES.includes(role) ? role : 'Mutaxassis';
+}
 
 const PERMISSIONS = [
   { area: 'Staff', label: 'Admin yaratish', admin: true, moderator: false },
@@ -344,7 +348,7 @@ export default function AdminPage({ theme, onThemeToggle }) {
                           {isAdmin ? (
                             <select
                               className="adm-role-select"
-                              value={u.role}
+                              value={roleSelectValue(u.role)}
                               onChange={e => userAction(u.id, { role: e.target.value }, 'Rol o\'zgartirildi')}
                             >
                               {ROLES.map(r => <option key={r}>{r}</option>)}

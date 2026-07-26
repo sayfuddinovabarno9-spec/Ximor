@@ -11,6 +11,26 @@ const pool = new Pool({
   ssl: isLocal ? false : { rejectUnauthorized: false },
 });
 
+const USER_ROLES = ['Shogird', 'Ishtirokchi', "O'rta daraja", 'Mutaxassis', 'Moderator'];
+const LEGACY_SUBJECT_ROLES = new Set([
+  'Organik kimyo',
+  'Anorganik kimyo',
+  'Analitik kimyo',
+  'Fizikaviy kimyo',
+  'Olimpiadalar',
+  'DTM tayyorgarlik',
+  '10-sinf',
+  '11-sinf',
+  'Abituriyent',
+]);
+
+function normalizeUserRole(value, fallback = 'Shogird') {
+  const role = String(value || '').trim();
+  if (USER_ROLES.includes(role)) return role;
+  if (LEGACY_SUBJECT_ROLES.has(role)) return 'Mutaxassis';
+  return fallback;
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 async function q(sql, params)  { const r = await pool.query(sql, params); return r.rows; }
 async function q1(sql, params) { const r = await pool.query(sql, params); return r.rows[0] ?? null; }
@@ -132,6 +152,15 @@ async function initSchema() {
     ALTER TABLE users ADD COLUMN IF NOT EXISTS study_goal    TEXT        DEFAULT '';
     ALTER TABLE users ADD COLUMN IF NOT EXISTS interests     TEXT        DEFAULT '[]';
     UPDATE users SET is_moderator = TRUE WHERE role = 'Moderator' AND is_moderator = FALSE;
+    UPDATE users
+       SET role = 'Mutaxassis'
+     WHERE role IN ('Organik kimyo','Anorganik kimyo','Analitik kimyo','Fizikaviy kimyo','Olimpiadalar','DTM tayyorgarlik','10-sinf','11-sinf','Abituriyent');
+    UPDATE topics
+       SET role = 'Mutaxassis'
+     WHERE role IN ('Organik kimyo','Anorganik kimyo','Analitik kimyo','Fizikaviy kimyo','Olimpiadalar','DTM tayyorgarlik','10-sinf','11-sinf','Abituriyent');
+    UPDATE answers
+       SET role = 'Mutaxassis'
+     WHERE role IN ('Organik kimyo','Anorganik kimyo','Analitik kimyo','Fizikaviy kimyo','Olimpiadalar','DTM tayyorgarlik','10-sinf','11-sinf','Abituriyent');
 
     CREATE TABLE IF NOT EXISTS saved_topics (
       user_id   INTEGER NOT NULL REFERENCES users(id)   ON DELETE CASCADE,
@@ -583,7 +612,7 @@ async function updateUserProfile(userId, fields) {
   const clean = {
     username: String(fields.username || '').toLowerCase().trim(),
     name: String(fields.name || '').trim(),
-    role: String(fields.role || '').trim(),
+    role: normalizeUserRole(fields.role, 'Shogird'),
     headline: String(fields.headline || '').trim(),
     bio: String(fields.bio || '').trim(),
     location: String(fields.location || '').trim(),
@@ -622,7 +651,7 @@ async function updateUserProfile(userId, fields) {
     clean.username,
     clean.name.slice(0, 80),
     initials,
-    clean.role.slice(0, 80) || 'Shogird',
+    clean.role,
     clean.headline.slice(0, 120),
     clean.bio.slice(0, 600),
     clean.location.slice(0, 80),
@@ -1253,14 +1282,14 @@ async function seedDemo() {
   if (!existing) {
     const hash = await bcrypt.hash('demo123456', 10);
     const demoUsers = [
-      { username: 'aziza_kimyo',  email: 'aziza@example.com',   name: 'Aziza Karimova',      role: 'Organik kimyo',   score: 18400 },
-      { username: 'sardor_yu',    email: 'sardor@example.com',  name: 'Sardor Yusupov',      role: 'Anorganik kimyo', score: 12100 },
-      { username: 'nilufar_r',    email: 'nilufar@example.com', name: 'Nilufar Rashidova',   role: 'Analitik kimyo',  score: 9300  },
-      { username: 'farrux_t',     email: 'farrux@example.com',  name: "Farrux Toshpo'latov", role: 'Fizikaviy kimyo', score: 7800  },
-      { username: 'nodira_s',     email: 'nodira@example.com',  name: 'Nodira Saidova',      role: 'Olimpiadalar',    score: 6400  },
-      { username: 'jasur_i',      email: 'jasur@example.com',   name: 'Jasur Ibragimov',     role: 'Anorganik kimyo', score: 4200  },
-      { username: 'mukhtor_n',    email: 'mukhtor@example.com', name: 'Mukhtor Nazarov',     role: 'Organik kimyo',   score: 2100  },
-      { username: 'sevara_t',     email: 'sevara@example.com',  name: 'Sevara Toshmatova',   role: 'Analitik kimyo',  score: 1350  },
+      { username: 'aziza_kimyo',  email: 'aziza@example.com',   name: 'Aziza Karimova',      role: 'Mutaxassis',      score: 18400 },
+      { username: 'sardor_yu',    email: 'sardor@example.com',  name: 'Sardor Yusupov',      role: 'Mutaxassis',      score: 12100 },
+      { username: 'nilufar_r',    email: 'nilufar@example.com', name: 'Nilufar Rashidova',   role: 'Mutaxassis',      score: 9300  },
+      { username: 'farrux_t',     email: 'farrux@example.com',  name: "Farrux Toshpo'latov", role: "O'rta daraja",     score: 7800  },
+      { username: 'nodira_s',     email: 'nodira@example.com',  name: 'Nodira Saidova',      role: "O'rta daraja",     score: 6400  },
+      { username: 'jasur_i',      email: 'jasur@example.com',   name: 'Jasur Ibragimov',     role: 'Ishtirokchi',     score: 4200  },
+      { username: 'mukhtor_n',    email: 'mukhtor@example.com', name: 'Mukhtor Nazarov',     role: 'Ishtirokchi',     score: 2100  },
+      { username: 'sevara_t',     email: 'sevara@example.com',  name: 'Sevara Toshmatova',   role: 'Shogird',         score: 1350  },
     ];
     for (const u of demoUsers) {
       const initials = u.name.replace(/'/g, '').split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
@@ -1334,6 +1363,7 @@ async function seedDemo() {
 
 module.exports = {
   pool,
+  USER_ROLES, normalizeUserRole,
   initSchema, seedDemo,
   getAllTopics, getTopicWithAnswers, saveTopic, updateTopic, updateScore, acceptAnswer,
   saveAnswer,

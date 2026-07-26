@@ -70,7 +70,7 @@ router.patch('/users/:id', async (req, res) => {
       if (fields.is_moderator && !('role' in body)) fields.role = 'Moderator';
     }
     if ('role' in body) {
-      fields.role = String(body.role || 'Ishtirokchi').trim().slice(0, 80) || 'Ishtirokchi';
+      fields.role = db.normalizeUserRole(body.role, 'Ishtirokchi');
     }
     if ('score' in body) {
       const score = Number(body.score);

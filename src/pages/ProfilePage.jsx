@@ -7,6 +7,11 @@ import { useLanguage } from '../context/LanguageContext';
 import { formatQuestionCreatedAt } from '../utils/dateTime';
 
 const BACKEND = import.meta.env.VITE_API_URL || 'http://localhost:3002';
+const PROFILE_ROLES = ['Shogird', 'Ishtirokchi', 'O\'rta daraja', 'Mutaxassis', 'Moderator'];
+
+function profileRoleValue(role) {
+  return PROFILE_ROLES.includes(role) ? role : 'Mutaxassis';
+}
 
 function scoreTier(score, t) {
   if (score >= 15000) return { label: t('profile.tiers.diamond'), color: '#36584d' };
@@ -380,7 +385,7 @@ function EditProfileModal({ authHeaders, onClose, onSaved, profile }) {
   const [form, setForm] = useState({
     username: profile.username || '',
     name: profile.name || '',
-    role: profile.role || '',
+    role: profileRoleValue(profile.role),
     headline: profile.headline || '',
     bio: profile.bio || '',
     location: profile.location || '',
@@ -549,7 +554,9 @@ function EditProfileModal({ authHeaders, onClose, onSaved, profile }) {
           </label>
           <label>
             {t('profile.role')}
-            <input value={form.role} onChange={event => update('role', event.target.value)} />
+            <select value={form.role} onChange={event => update('role', event.target.value)}>
+              {PROFILE_ROLES.map(role => <option key={role}>{role}</option>)}
+            </select>
           </label>
           <label>
             {t('profile.headline')}

@@ -4574,6 +4574,7 @@ a { text-decoration: none; }
 }
 
 .profile-edit-grid input,
+.profile-edit-grid select,
 .profile-edit-grid textarea {
   background: var(--surface-soft);
   border: 1px solid var(--line);
@@ -4585,6 +4586,7 @@ a { text-decoration: none; }
 }
 
 .profile-edit-grid input:focus,
+.profile-edit-grid select:focus,
 .profile-edit-grid textarea:focus {
   background: var(--surface);
   border-color: var(--primary);
