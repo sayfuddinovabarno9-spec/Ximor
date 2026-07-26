@@ -54,7 +54,7 @@ function PermissionBadge({ allowed }) {
 }
 
 export default function AdminPage({ theme, onThemeToggle }) {
-  const { user, authHeaders } = useAuth();
+  const { user, authHeaders, updateLocalUser } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
   const isAdmin = Boolean(user?.is_admin);
@@ -69,6 +69,8 @@ export default function AdminPage({ theme, onThemeToggle }) {
   const [loading, setLoading] = useState(false);
   const [userSearch, setUserSearch] = useState('');
   const [toast, setToast] = useState('');
+  const [setupStatus, setSetupStatus] = useState('');
+  const [setupBusy, setSetupBusy] = useState(false);
 
   const api = useCallback(async (path, opts = {}) => {
     const r = await fetch(`${BACKEND}/api/admin${path}`, {
@@ -80,6 +82,32 @@ export default function AdminPage({ theme, onThemeToggle }) {
   }, [authHeaders]);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 2500); };
+
+  const claimFirstAdmin = async () => {
+    if (setupBusy) return;
+    setSetupBusy(true);
+    setSetupStatus(t('admin.firstAdminWorking'));
+    try {
+      const response = await fetch(`${BACKEND}/api/auth/bootstrap-admin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: '{}',
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setSetupStatus(data.error || t('admin.firstAdminError'));
+        setSetupBusy(false);
+        return;
+      }
+      if (data.token) localStorage.setItem('ximor_token', data.token);
+      if (data.user) updateLocalUser(data.user);
+      setSetupStatus(t('admin.firstAdminDone'));
+      window.setTimeout(() => window.location.reload(), 500);
+    } catch {
+      setSetupStatus(t('admin.firstAdminError'));
+      setSetupBusy(false);
+    }
+  };
 
   useEffect(() => {
     if (!canModerate) return;
@@ -113,7 +141,15 @@ export default function AdminPage({ theme, onThemeToggle }) {
           <span style={{ fontSize: '2rem' }}>🚫</span>
           <strong>{t('admin.noPermission')}</strong>
           <p>{t('admin.deniedText')}</p>
-          <button className="primary-button" onClick={() => navigate('/')}>{t('admin.home')}</button>
+          <div className="adm-bootstrap-card">
+            <strong>{t('admin.firstAdminTitle')}</strong>
+            <p>{t('admin.firstAdminText')}</p>
+            <button className="primary-button" disabled={setupBusy} onClick={claimFirstAdmin} type="button">
+              {setupBusy ? t('admin.firstAdminWorking') : t('admin.firstAdminAction')}
+            </button>
+            {setupStatus && <span className="adm-setup-status">{setupStatus}</span>}
+          </div>
+          <button className="soft-button" onClick={() => navigate('/')}>{t('admin.home')}</button>
         </div>
       </Layout>
     );

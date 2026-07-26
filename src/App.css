@@ -5471,6 +5471,36 @@ a { text-decoration: none; }
 .adm-gate--denied strong { font-size: 1.1rem; color: var(--text); }
 .adm-gate p { color: var(--muted); text-align: center; }
 
+.adm-bootstrap-card {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  max-width: 460px;
+  padding: 18px;
+  text-align: center;
+}
+
+.adm-bootstrap-card strong {
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.adm-bootstrap-card p {
+  line-height: 1.55;
+  margin: 0;
+}
+
+.adm-setup-status {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
 .adm-header {
   display: flex;
   align-items: center;
