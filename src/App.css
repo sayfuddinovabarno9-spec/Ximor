@@ -4339,6 +4339,433 @@ a { text-decoration: none; }
   transition: color .15s;
 }
 
+/* ─── Direct messages ─────────────────────────────────────────────────── */
+.messages-shell {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 360px minmax(0, 1fr);
+  margin: 0 auto;
+  max-width: 1320px;
+  min-height: calc(100vh - 68px);
+  padding: 20px 24px 42px;
+}
+
+.messages-login {
+  align-self: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+  margin: 8vh auto 0;
+  max-width: 460px;
+  padding: 34px;
+  text-align: center;
+}
+
+.messages-login-icon {
+  align-items: center;
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--line));
+  border-radius: 50%;
+  color: var(--primary);
+  display: flex;
+  height: 62px;
+  justify-content: center;
+  width: 62px;
+}
+
+.messages-login h1 {
+  color: var(--text);
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.messages-login p {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+  max-width: 360px;
+}
+
+.messages-sidebar {
+  align-self: start;
+  display: grid;
+  gap: 12px;
+  position: sticky;
+  top: 88px;
+}
+
+.messages-sidebar-head {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  display: flex;
+  justify-content: space-between;
+  padding: 16px;
+}
+
+.messages-sidebar-head h1 {
+  color: var(--text);
+  font-size: 21px;
+  line-height: 1.15;
+}
+
+.messages-live {
+  background: color-mix(in srgb, var(--green) 12%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--green) 26%, var(--line));
+  border-radius: 999px;
+  color: var(--green);
+  font-size: 11px;
+  font-weight: 900;
+  padding: 5px 9px;
+  text-transform: uppercase;
+}
+
+.messages-search {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  color: var(--muted);
+  display: flex;
+  gap: 9px;
+  min-height: 44px;
+  padding: 0 13px;
+}
+
+.messages-search:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus);
+}
+
+.messages-search input {
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  min-width: 0;
+  outline: none;
+  width: 100%;
+}
+
+.messages-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.messages-panel-title {
+  align-items: center;
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--text);
+  display: flex;
+  font-size: 13px;
+  justify-content: space-between;
+  padding: 12px 14px;
+}
+
+.messages-panel-title span {
+  color: var(--subtle);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.messages-list {
+  display: grid;
+  max-height: 294px;
+  overflow: auto;
+  padding: 6px;
+}
+
+.message-person {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--text);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 36px minmax(0, 1fr) max-content;
+  min-height: 58px;
+  padding: 9px;
+  text-align: left;
+  transition: background 150ms, border-color 150ms;
+  width: 100%;
+}
+
+.message-person:hover,
+.message-person.is-active {
+  background: var(--surface-soft);
+  border-color: var(--line-soft);
+}
+
+.message-person:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
+.message-person-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.message-person-main strong {
+  color: var(--text);
+  font-size: 13.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.message-person-main span {
+  color: var(--muted);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.message-person em {
+  color: var(--primary);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.message-person-meta {
+  align-items: end;
+  display: grid;
+  gap: 5px;
+  justify-items: end;
+}
+
+.message-person-meta time {
+  color: var(--subtle);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
+.message-person-meta b {
+  align-items: center;
+  background: var(--primary);
+  border-radius: 999px;
+  color: #fff;
+  display: inline-flex;
+  font-size: 10px;
+  height: 18px;
+  justify-content: center;
+  min-width: 18px;
+  padding: 0 5px;
+}
+
+.messages-small-empty {
+  color: var(--muted);
+  font-size: 13px;
+  padding: 18px 14px;
+}
+
+.messages-thread {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  min-height: min(760px, calc(100vh - 130px));
+  overflow: hidden;
+}
+
+.messages-thread-head {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  gap: 12px;
+  min-height: 72px;
+  padding: 14px 18px;
+}
+
+.messages-thread-head h2 {
+  color: var(--text);
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.messages-thread-head span {
+  color: var(--muted);
+  display: block;
+  font-size: 12.5px;
+  margin-top: 2px;
+}
+
+.messages-error {
+  background: color-mix(in srgb, var(--rose) 10%, var(--surface));
+  border-bottom: 1px solid color-mix(in srgb, var(--rose) 24%, var(--line));
+  color: var(--rose);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 9px 18px;
+}
+
+.messages-body {
+  align-content: end;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-soft) 45%, transparent), transparent 160px),
+    var(--surface-raised);
+  display: grid;
+  gap: 8px;
+  overflow: auto;
+  padding: 18px;
+}
+
+.chat-bubble {
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  display: grid;
+  gap: 5px;
+  max-width: min(620px, 78%);
+  padding: 10px 12px;
+}
+
+.chat-bubble p {
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.chat-bubble time {
+  color: var(--subtle);
+  font-size: 10.5px;
+  justify-self: end;
+}
+
+.chat-bubble.is-mine {
+  background: color-mix(in srgb, var(--primary) 14%, var(--surface));
+  border-color: color-mix(in srgb, var(--primary) 24%, var(--line));
+  justify-self: end;
+}
+
+.chat-bubble.is-theirs {
+  background: var(--surface);
+  justify-self: start;
+}
+
+.messages-empty {
+  align-self: center;
+  color: var(--muted);
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  padding: 34px;
+  text-align: center;
+}
+
+.messages-empty strong {
+  color: var(--text);
+  font-size: 16px;
+}
+
+.messages-empty span {
+  font-size: 13px;
+  max-width: 330px;
+}
+
+.messages-empty--full {
+  align-self: stretch;
+  place-content: center;
+}
+
+.messages-composer {
+  align-items: end;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  padding: 14px;
+}
+
+.messages-composer textarea {
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--text);
+  max-height: 160px;
+  min-height: 46px;
+  outline: none;
+  padding: 11px 12px;
+  resize: vertical;
+  width: 100%;
+}
+
+.messages-composer textarea:focus {
+  background: var(--surface);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus);
+}
+
+@media (max-width: 980px) {
+  .messages-shell {
+    grid-template-columns: 1fr;
+    padding: 14px 14px 92px;
+  }
+
+  .messages-sidebar {
+    position: static;
+  }
+
+  .messages-thread {
+    min-height: 62vh;
+  }
+}
+
+@media (max-width: 640px) {
+  .messages-shell {
+    gap: 12px;
+    padding: 12px 12px 96px;
+  }
+
+  .messages-login {
+    margin-top: 4vh;
+    padding: 24px 18px;
+  }
+
+  .messages-sidebar-head {
+    padding: 14px;
+  }
+
+  .messages-list {
+    max-height: 242px;
+  }
+
+  .messages-thread {
+    border-radius: var(--radius);
+    min-height: 66vh;
+  }
+
+  .messages-body {
+    padding: 12px;
+  }
+
+  .chat-bubble {
+    max-width: 88%;
+  }
+
+  .messages-composer {
+    grid-template-columns: 1fr;
+  }
+
+  .messages-composer .primary-button {
+    justify-self: end;
+  }
+}
+
 /* ─── Yangiliklar (News) ───────────────────────────────────────────────── */
 .news-shell {
   max-width: 1200px;
