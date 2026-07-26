@@ -999,6 +999,7 @@ export default function App() {
         <Route path="/chat" element={<Forum theme={theme} onThemeToggle={toggleTheme} />} />
         <Route path="/messages" element={<MessagesPage theme={theme} onThemeToggle={toggleTheme} />} />
         <Route path="/forum" element={<Navigate to="/chat" replace />} />
+        <Route path="/chat/admin" element={<Navigate to="/admin" replace />} />
         <Route path="/olimpiadalar" element={<OlimpiadalarPage theme={theme} onThemeToggle={toggleTheme} />} />
         <Route path="/reyting" element={<ReytingPage theme={theme} onThemeToggle={toggleTheme} />} />
         <Route path="/asboblar" element={<ToolsPage theme={theme} onThemeToggle={toggleTheme} />} />
