@@ -1,0 +1,440 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import AuthModal from '../components/AuthModal';
+import Layout from '../components/Layout';
+import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
+import { avatarBg } from '../utils/avatarColor';
+
+const BACKEND = import.meta.env.VITE_API_URL || 'http://localhost:3002';
+
+function Icon({ name, size = 18 }) {
+  const paths = {
+    message: "M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8Z",
+    search: "m21 21-4.3-4.3M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4Z",
+    send: "M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z",
+    users: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
+  };
+
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height={size}
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+      width={size}
+    >
+      <path d={paths[name]} />
+    </svg>
+  );
+}
+
+function Avatar({ initials, name, online = false }) {
+  return (
+    <span
+      className="avatar"
+      title={name}
+      style={{ background: avatarBg(initials), color: '#fff', border: 'none' }}
+    >
+      {initials}
+      {online && <span className="avatar__status" />}
+    </span>
+  );
+}
+
+function upsertConversation(list, conversation) {
+  if (!conversation?.id) return list;
+  const next = [conversation, ...list.filter((item) => item.id !== conversation.id)];
+  return next.sort((first, second) => {
+    const firstTime = first.lastMessage?.created_at || first.updated_at;
+    const secondTime = second.lastMessage?.created_at || second.updated_at;
+    return new Date(secondTime) - new Date(firstTime);
+  });
+}
+
+function formatTime(iso) {
+  if (!iso) return '';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  const now = new Date();
+  const sameDay = date.toDateString() === now.toDateString();
+  return new Intl.DateTimeFormat(undefined, sameDay
+    ? { hour: '2-digit', minute: '2-digit' }
+    : { month: 'short', day: 'numeric' }
+  ).format(date);
+}
+
+export default function MessagesPage({ theme, onThemeToggle }) {
+  const navigate = useNavigate();
+  const { user, token, authHeaders } = useAuth();
+  const { t } = useLanguage();
+  const [showAuth, setShowAuth] = useState(false);
+  const [query, setQuery] = useState('');
+  const [contacts, setContacts] = useState([]);
+  const [conversations, setConversations] = useState([]);
+  const [activeConversationId, setActiveConversationId] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [startingId, setStartingId] = useState(null);
+  const [draft, setDraft] = useState('');
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState('');
+  const messagesEndRef = useRef(null);
+
+  const activeConversation = useMemo(
+    () => conversations.find((item) => item.id === activeConversationId) || null,
+    [activeConversationId, conversations]
+  );
+
+  const loadContacts = useCallback(async (term = '') => {
+    if (!token) return;
+    try {
+      const search = term.trim();
+      const suffix = search ? `?q=${encodeURIComponent(search)}` : '';
+      const response = await fetch(`${BACKEND}/api/messages/users${suffix}`, {
+        headers: authHeaders(),
+      });
+      if (!response.ok) throw new Error('contacts failed');
+      const data = await response.json();
+      setContacts(Array.isArray(data.users) ? data.users : []);
+    } catch {
+      setContacts([]);
+    }
+  }, [authHeaders, token]);
+
+  const loadConversations = useCallback(async () => {
+    if (!token) return [];
+    const response = await fetch(`${BACKEND}/api/messages/conversations`, {
+      headers: authHeaders(),
+    });
+    if (!response.ok) throw new Error('conversations failed');
+    const data = await response.json();
+    const next = Array.isArray(data.conversations) ? data.conversations : [];
+    setConversations(next);
+    setActiveConversationId((current) => (
+      next.some((item) => item.id === current) ? current : next[0]?.id ?? null
+    ));
+    return next;
+  }, [authHeaders, token]);
+
+  const loadMessages = useCallback(async (conversationId, options = {}) => {
+    if (!token || !conversationId) return;
+    if (!options.silent) setMessagesLoading(true);
+    try {
+      const response = await fetch(`${BACKEND}/api/messages/conversations/${conversationId}/messages`, {
+        headers: authHeaders(),
+      });
+      if (!response.ok) throw new Error('messages failed');
+      const data = await response.json();
+      setMessages(Array.isArray(data.messages) ? data.messages : []);
+      if (data.conversation) {
+        setConversations((current) => upsertConversation(current, data.conversation));
+      }
+      setError('');
+    } catch {
+      if (!options.silent) setError(t('messages.loadError'));
+    } finally {
+      if (!options.silent) setMessagesLoading(false);
+    }
+  }, [authHeaders, t, token]);
+
+  useEffect(() => {
+    if (!token) {
+      setContacts([]);
+      setConversations([]);
+      setMessages([]);
+      setActiveConversationId(null);
+      setLoading(false);
+      return undefined;
+    }
+
+    let active = true;
+    setLoading(true);
+    loadConversations()
+      .catch(() => { if (active) setError(t('messages.loadError')); })
+      .finally(() => { if (active) setLoading(false); });
+
+    return () => { active = false; };
+  }, [loadConversations, t, token]);
+
+  useEffect(() => {
+    if (!token) return undefined;
+    const timer = window.setTimeout(() => loadContacts(query), 250);
+    return () => window.clearTimeout(timer);
+  }, [loadContacts, query, token]);
+
+  useEffect(() => {
+    if (!activeConversationId) {
+      setMessages([]);
+      return;
+    }
+    loadMessages(activeConversationId);
+  }, [activeConversationId, loadMessages]);
+
+  useEffect(() => {
+    if (!token) return undefined;
+    const timer = window.setInterval(() => {
+      loadConversations().catch(() => {});
+      if (activeConversationId) {
+        loadMessages(activeConversationId, { silent: true });
+      }
+    }, 4500);
+    return () => window.clearInterval(timer);
+  }, [activeConversationId, loadConversations, loadMessages, token]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ block: 'end' });
+  }, [activeConversationId, messages.length]);
+
+  const startConversation = async (contact) => {
+    if (!user) {
+      setShowAuth(true);
+      return;
+    }
+    setStartingId(contact.id);
+    try {
+      const response = await fetch(`${BACKEND}/api/messages/conversations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ userId: contact.id }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'conversation failed');
+      setConversations((current) => upsertConversation(current, data.conversation));
+      setActiveConversationId(data.conversation.id);
+      setQuery('');
+      setError('');
+    } catch {
+      setError(t('messages.startError'));
+    } finally {
+      setStartingId(null);
+    }
+  };
+
+  const sendMessage = async () => {
+    const body = draft.trim();
+    if (!body || !activeConversationId || sending) return;
+
+    setSending(true);
+    try {
+      const response = await fetch(`${BACKEND}/api/messages/conversations/${activeConversationId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ body }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'message failed');
+      setMessages((current) => (
+        current.some((item) => item.id === data.message.id) ? current : [...current, data.message]
+      ));
+      if (data.conversation) {
+        setConversations((current) => upsertConversation(current, data.conversation));
+      }
+      setDraft('');
+      setError('');
+    } catch {
+      setError(t('messages.sendError'));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const submitMessage = (event) => {
+    event.preventDefault();
+    sendMessage();
+  };
+
+  const handleDraftKeyDown = (event) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      sendMessage();
+    }
+  };
+
+  return (
+    <Layout
+      theme={theme}
+      onThemeToggle={onThemeToggle}
+      onCompose={() => navigate('/chat')}
+      query={query}
+      onQuery={setQuery}
+      searchPlaceholder={t('messages.searchUsers')}
+    >
+      <main className="messages-shell">
+        {!user ? (
+          <section className="messages-login">
+            <div className="messages-login-icon">
+              <Icon name="message" size={30} />
+            </div>
+            <h1>{t('messages.loginTitle')}</h1>
+            <p>{t('messages.loginText')}</p>
+            <button className="primary-button" type="button" onClick={() => setShowAuth(true)}>
+              {t('messages.loginAction')}
+            </button>
+          </section>
+        ) : (
+          <>
+            <aside className="messages-sidebar">
+              <div className="messages-sidebar-head">
+                <div>
+                  <span className="eyebrow">{t('messages.eyebrow')}</span>
+                  <h1>{t('messages.title')}</h1>
+                </div>
+                <span className="messages-live">{t('common.live')}</span>
+              </div>
+
+              <label className="messages-search">
+                <Icon name="search" size={16} />
+                <input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder={t('messages.searchUsers')}
+                />
+              </label>
+
+              <section className="messages-panel">
+                <div className="messages-panel-title">
+                  <strong>{t('messages.conversations')}</strong>
+                  <span>{conversations.length}</span>
+                </div>
+                {loading ? (
+                  <div className="messages-small-empty">{t('common.loading')}</div>
+                ) : conversations.length === 0 ? (
+                  <div className="messages-small-empty">{t('messages.noConversations')}</div>
+                ) : (
+                  <div className="messages-list">
+                    {conversations.map((conversation) => (
+                      <button
+                        className={`message-person ${conversation.id === activeConversationId ? 'is-active' : ''}`}
+                        key={conversation.id}
+                        onClick={() => setActiveConversationId(conversation.id)}
+                        type="button"
+                      >
+                        <Avatar
+                          initials={conversation.otherUser.initials}
+                          name={conversation.otherUser.name}
+                          online={conversation.unread_count > 0}
+                        />
+                        <span className="message-person-main">
+                          <strong>{conversation.otherUser.name}</strong>
+                          <span>
+                            {conversation.lastMessage
+                              ? `${conversation.lastMessage.is_mine ? t('messages.youPrefix') : ''}${conversation.lastMessage.body}`
+                              : t('messages.noMessages')}
+                          </span>
+                        </span>
+                        <span className="message-person-meta">
+                          <time>{formatTime(conversation.lastMessage?.created_at || conversation.updated_at)}</time>
+                          {conversation.unread_count > 0 && <b>{conversation.unread_count}</b>}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <section className="messages-panel">
+                <div className="messages-panel-title">
+                  <strong>{t('messages.people')}</strong>
+                  <span>{contacts.length}</span>
+                </div>
+                {contacts.length === 0 ? (
+                  <div className="messages-small-empty">{t('messages.noUsers')}</div>
+                ) : (
+                  <div className="messages-list">
+                    {contacts.map((contact) => (
+                      <button
+                        className="message-person"
+                        disabled={startingId === contact.id}
+                        key={contact.id}
+                        onClick={() => startConversation(contact)}
+                        type="button"
+                      >
+                        <Avatar initials={contact.initials} name={contact.name} />
+                        <span className="message-person-main">
+                          <strong>{contact.name}</strong>
+                          <span>@{contact.username} · {contact.role}</span>
+                        </span>
+                        <em>{t('messages.startChat')}</em>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </section>
+            </aside>
+
+            <section className="messages-thread">
+              {activeConversation ? (
+                <>
+                  <header className="messages-thread-head">
+                    <Avatar
+                      initials={activeConversation.otherUser.initials}
+                      name={activeConversation.otherUser.name}
+                      online
+                    />
+                    <div>
+                      <h2>{activeConversation.otherUser.name}</h2>
+                      <span>@{activeConversation.otherUser.username} · {activeConversation.otherUser.role}</span>
+                    </div>
+                  </header>
+
+                  {error && <div className="messages-error">{error}</div>}
+
+                  <div className="messages-body">
+                    {messagesLoading && messages.length === 0 ? (
+                      <div className="messages-empty">{t('common.loading')}</div>
+                    ) : messages.length === 0 ? (
+                      <div className="messages-empty">
+                        <Icon name="message" size={28} />
+                        <strong>{t('messages.emptyThread')}</strong>
+                        <span>{t('messages.emptyThreadText')}</span>
+                      </div>
+                    ) : (
+                      messages.map((message) => (
+                        <article
+                          className={`chat-bubble ${message.is_mine ? 'is-mine' : 'is-theirs'}`}
+                          key={message.id}
+                        >
+                          <p>{message.body}</p>
+                          <time>{formatTime(message.created_at)}</time>
+                        </article>
+                      ))
+                    )}
+                    <div ref={messagesEndRef} />
+                  </div>
+
+                  <form className="messages-composer" onSubmit={submitMessage}>
+                    <textarea
+                      value={draft}
+                      onChange={(event) => setDraft(event.target.value)}
+                      onKeyDown={handleDraftKeyDown}
+                      placeholder={t('messages.messagePlaceholder')}
+                      rows={2}
+                    />
+                    <button className="primary-button" disabled={!draft.trim() || sending} type="submit">
+                      <Icon name="send" size={17} />
+                      {sending ? t('messages.sending') : t('messages.sendMessage')}
+                    </button>
+                  </form>
+                </>
+              ) : (
+                <div className="messages-empty messages-empty--full">
+                  <Icon name="users" size={30} />
+                  <strong>{t('messages.selectConversation')}</strong>
+                  <span>{t('messages.selectConversationText')}</span>
+                </div>
+              )}
+            </section>
+          </>
+        )}
+      </main>
+
+      {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
+    </Layout>
+  );
+}

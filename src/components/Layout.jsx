@@ -54,13 +54,14 @@ function timeAgo(iso, t) {
 
 const NAV_ITEMS = [
   { to: '/chat',         labelKey: 'nav.chat',      icon: 'home', exact: true },
+  { to: '/messages',     labelKey: 'nav.messages',  icon: 'message' },
   { to: '/olimpiadalar', labelKey: 'nav.community', icon: 'person' },
   { to: '/reyting',      labelKey: 'nav.ranking',   icon: 'trophy' },
   { to: '/asboblar',     labelKey: 'nav.tools',     icon: 'beaker' },
   { to: '/yangiliklar',  labelKey: 'nav.news',      icon: 'newspaper' },
 ];
 
-export default function Layout({ children, theme, onThemeToggle, onCompose, query, onQuery }) {
+export default function Layout({ children, theme, onThemeToggle, onCompose, query, onQuery, searchPlaceholder }) {
   const { user, token, logout, authHeaders } = useAuth();
   const { t } = useLanguage();
   const location = useLocation();
@@ -158,7 +159,7 @@ export default function Layout({ children, theme, onThemeToggle, onCompose, quer
           <input
             value={query ?? ''}
             onChange={e => onQuery?.(e.target.value)}
-            placeholder={t('header.search')}
+            placeholder={searchPlaceholder || t('header.search')}
           />
           <span className="search-kbd">⌘K</span>
         </label>
@@ -197,7 +198,11 @@ export default function Layout({ children, theme, onThemeToggle, onCompose, quer
                     {notifications.map(n => (
                       <li key={n.id}
                           className={`notif-item ${!n.read ? 'is-unread' : ''}`}
-                          onClick={() => { setBellOpen(false); if (n.topic_id) navigate(`/q/${n.topic_id}`); }}>
+                          onClick={() => {
+                            setBellOpen(false);
+                            if (n.type === 'message') navigate('/messages');
+                            else if (n.topic_id) navigate(`/q/${n.topic_id}`);
+                          }}>
                         <span className="notif-icon">
                           {n.type === 'accept' ? <Icon name="check" size={14} /> : <Icon name="message" size={14} />}
                         </span>
@@ -257,6 +262,10 @@ export default function Layout({ children, theme, onThemeToggle, onCompose, quer
         <Link to="/chat" className={location.pathname === '/chat' ? 'is-active' : ''}>
           <Icon name="home" size={18} />
           <span>{t('nav.chat')}</span>
+        </Link>
+        <Link to="/messages" className={location.pathname.startsWith('/messages') ? 'is-active' : ''}>
+          <Icon name="message" size={18} />
+          <span>{t('nav.messages')}</span>
         </Link>
         <Link to="/olimpiadalar" className={location.pathname.startsWith('/olimpiadalar') ? 'is-active' : ''}>
           <Icon name="person" size={18} />

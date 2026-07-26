@@ -18,6 +18,7 @@ import YangiliklarPage from "./pages/YangiliklarPage";
 import AdminPage from "./pages/AdminPage";
 import ToolsPage from "./pages/ToolsPage";
 import HomePage from "./pages/HomePage";
+import MessagesPage from "./pages/MessagesPage";
 import { avatarBg } from "./utils/avatarColor";
 import copyToClipboard from "./utils/copyToClipboard";
 
@@ -989,6 +990,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/chat" element={<Forum theme={theme} onThemeToggle={toggleTheme} />} />
+        <Route path="/messages" element={<MessagesPage theme={theme} onThemeToggle={toggleTheme} />} />
         <Route path="/forum" element={<Navigate to="/chat" replace />} />
         <Route path="/olimpiadalar" element={<OlimpiadalarPage theme={theme} onThemeToggle={toggleTheme} />} />
         <Route path="/reyting" element={<ReytingPage theme={theme} onThemeToggle={toggleTheme} />} />
