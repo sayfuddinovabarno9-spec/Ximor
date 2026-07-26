@@ -906,6 +906,14 @@ a { text-decoration: none; }
   gap: 7px;
 }
 
+.topic-created-time,
+.qp-meta-stats time {
+  align-items: center;
+  color: var(--muted);
+  display: inline-flex;
+  gap: 5px;
+}
+
 .topic-card h2 {
   font-size: 17px;
   font-weight: 800;

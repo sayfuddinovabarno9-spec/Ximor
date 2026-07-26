@@ -10,6 +10,7 @@ import Layout from '../components/Layout';
 import RichText from '../components/RichText';
 import { avatarBg } from '../utils/avatarColor';
 import copyToClipboard from '../utils/copyToClipboard';
+import { formatQuestionCreatedAt } from '../utils/dateTime';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:3002';
 
@@ -37,6 +38,7 @@ function Icon({ name, size=18 }) {
     bookmark:  "M6 4h12v17l-6-4-6 4V4Z",
     link:      "M9 17H7A5 5 0 0 1 7 7h3M15 7h2a5 5 0 1 1 0 10h-3M8 12h8",
     pin:       "M12 17v5M5 17h14M6 3h12l-2 8 3 3H5l3-3-2-8Z",
+    clock:     "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM12 6v6l4 2",
     eye:       "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12ZM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
     thumbsUp:  "M7 10v11M15 5.9 14 10h5.7a2 2 0 0 1 2 2.4l-1.4 7a2 2 0 0 1-2 1.6H7M7 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3M15 5.9V3a2 2 0 0 0-2-2l-3 9",
     thumbsDown:"M17 14V3M9 18.1 10 14H4.3a2 2 0 0 1-2-2.4l1.4-7A2 2 0 0 1 5.7 3H17M17 14h3a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-3M9 18.1V21a2 2 0 0 0 2 2l3-9",
@@ -68,7 +70,7 @@ export default function QuestionPage() {
   const location            = useLocation();
   const navigate            = useNavigate();
   const { user, authHeaders } = useAuth();
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
 
   // Theme must be first — before any early returns
   const [theme, setTheme]   = useState(() => localStorage.getItem('ximor_theme') || 'light');
@@ -522,6 +524,7 @@ export default function QuestionPage() {
   const isAuthor = user && (topic.user_id === user.id || topic.author === user.name);
   const canModerate = Boolean(user?.is_admin || user?.is_moderator);
   const answerCount = getAnswerCount(topic);
+  const createdAt = formatQuestionCreatedAt(topic.created_at, language);
 
   return (
     <Layout theme={theme} onThemeToggle={toggleTheme}>
@@ -582,6 +585,16 @@ export default function QuestionPage() {
                 {topic.hot    && <span className="pill pill--hot">{t('forum.hot')} 🔥</span>}
                 {topic.solved && <span className="pill pill--ok">{t('common.solved')} ✓</span>}
                 <span>{topic.activity}</span>
+                {createdAt && (
+                  <time
+                    className="topic-created-time"
+                    dateTime={topic.created_at}
+                    title={`${t('question.createdAt')}: ${createdAt}`}
+                  >
+                    <Icon name="clock" size={13} />
+                    {createdAt}
+                  </time>
+                )}
               </div>
 
               <h1 className="qp-title">{topic.title}</h1>
@@ -617,6 +630,12 @@ export default function QuestionPage() {
                 <div className="qp-meta-stats">
                   <span><Icon name="message" size={14} /> {answerCount} {t('forum.answers').toLowerCase()}</span>
                   <span><Icon name="eye" size={14} /> {topic.views} {t('forum.views').toLowerCase()}</span>
+                  {createdAt && (
+                    <time dateTime={topic.created_at} title={`${t('question.createdAt')}: ${createdAt}`}>
+                      <Icon name="clock" size={14} />
+                      {createdAt}
+                    </time>
+                  )}
                   <button
                     aria-label={t('forum.copyLink')}
                     className={`permalink-button ${copiedPermalink === 'question' ? 'is-copied' : ''}`}
@@ -826,6 +845,7 @@ export default function QuestionPage() {
             </div>
             <div className="qp-sidebar-stats">
               <div><span>{t('question.asked')}</span><strong>{topic.author}</strong></div>
+              {createdAt && <div><span>{t('question.createdAt')}</span><strong>{createdAt}</strong></div>}
               <div><span>{t('question.activity')}</span><strong>{topic.activity}</strong></div>
               <div><span>{t('forum.views')}</span><strong>{topic.views}</strong></div>
               <div><span>{t('forum.answers')}</span><strong>{answerCount}</strong></div>

@@ -1198,7 +1198,7 @@ async function searchTopics(q_text) {
     SELECT
       t.id, t.category, t.title, t.summary, t.tags, t.author, t.score,
       COALESCE(a.answers, 0)::INTEGER AS answers,
-      t.views, t.activity, t.difficulty, t.solved, t.hot, t.pinned
+      t.views, t.activity, t.difficulty, t.solved, t.hot, t.pinned, t.created_at
     FROM topics t
     LEFT JOIN (
       SELECT topic_id, COUNT(*)::INTEGER AS answers

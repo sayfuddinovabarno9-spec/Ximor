@@ -21,6 +21,7 @@ import HomePage from "./pages/HomePage";
 import MessagesPage from "./pages/MessagesPage";
 import { avatarBg } from "./utils/avatarColor";
 import copyToClipboard from "./utils/copyToClipboard";
+import { formatQuestionCreatedAt } from "./utils/dateTime";
 
 const BACKEND = import.meta.env.VITE_API_URL || 'http://localhost:3002';
 
@@ -233,6 +234,23 @@ const INITIAL_TOPICS = [
   },
 ];
 
+const DEMO_TOPIC_AGES = [
+  18 * 60 * 1000,
+  2 * 60 * 60 * 1000,
+  4 * 60 * 60 * 1000,
+  26 * 60 * 60 * 1000,
+  3 * 24 * 60 * 60 * 1000,
+  7 * 60 * 60 * 1000,
+];
+
+function withTopicCreatedAt(topic, index = 0) {
+  const createdAt = topic.created_at || topic.createdAt;
+  if (createdAt) return { ...topic, created_at: createdAt };
+
+  const age = DEMO_TOPIC_AGES[index % DEMO_TOPIC_AGES.length] || 0;
+  return { ...topic, created_at: new Date(Date.now() - age).toISOString() };
+}
+
 function Icon({ name, size = 18 }) {
   const paths = {
     menu: "M4 6h16M4 12h16M4 18h16",
@@ -309,9 +327,10 @@ function CategoryMark({ categoryId }) {
 }
 
 function TopicCard({ density, onOpen, onSave, onVote, onTagClick, topic, votePending }) {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const category = CATEGORIES.find((item) => item.id === topic.category) || CATEGORIES[0];
   const [copied, setCopied] = useState(false);
+  const createdAt = formatQuestionCreatedAt(topic.created_at, language);
 
   const handleCopyLink = async () => {
     try {
@@ -354,6 +373,16 @@ function TopicCard({ density, onOpen, onSave, onVote, onTagClick, topic, votePen
           <CategoryMark categoryId={topic.category} />
           <span style={{ color: category.color }}>{t(category.labelKey)}</span>
           <span>{topic.activity}</span>
+          {createdAt && (
+            <time
+              className="topic-created-time"
+              dateTime={topic.created_at}
+              title={`${t('question.createdAt')}: ${createdAt}`}
+            >
+              <Icon name="clock" size={13} />
+              {createdAt}
+            </time>
+          )}
           {topic.pinned && (
             <span
               aria-label={t('forum.pinned')}
@@ -430,9 +459,10 @@ function ThreadDrawer({
   pendingAnswerVoteIds = new Set(),
   topic,
 }) {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const [answer, setAnswer] = useState("");
   const answerRef = useRef(null);
+  const createdAt = formatQuestionCreatedAt(topic?.created_at, language);
 
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -488,6 +518,16 @@ function ThreadDrawer({
               <span>{topic.author}</span>
               <span>{topic.role}</span>
               <span>{topic.activity}</span>
+              {createdAt && (
+                <time
+                  className="topic-created-time"
+                  dateTime={topic.created_at}
+                  title={`${t('question.createdAt')}: ${createdAt}`}
+                >
+                  <Icon name="clock" size={13} />
+                  {createdAt}
+                </time>
+              )}
             </div>
             <div className="question-content">
               <RichText className="topic-summary" text={topic.summary} />
@@ -1075,10 +1115,11 @@ function Forum({ theme, onThemeToggle }) {
     setTopics((currentTopics) => {
       const currentById = new Map(currentTopics.map((topic) => [Number(topic.id), topic]));
       const incoming = serverTopics.length ? serverTopics : INITIAL_TOPICS;
-      return incoming.map((topic) => {
+      return incoming.map((topic, index) => {
+        const normalizedTopic = withTopicCreatedAt(topic, index);
         const current = currentById.get(Number(topic.id));
         return {
-          ...topic,
+          ...normalizedTopic,
           saved: current?.saved ?? false,
           voted: voteStateRef.current[topic.id] ?? current?.voted ?? 0,
         };
@@ -1092,7 +1133,7 @@ function Forum({ theme, onThemeToggle }) {
   const handleIncomingTopic = useCallback((incoming) => {
     setTopics(prev => {
       if (prev.some(t => t.id === incoming.id)) return prev;
-      return [incoming, ...prev];
+      return [withTopicCreatedAt(incoming), ...prev];
     });
   }, []);
 
@@ -1139,7 +1180,7 @@ function Forum({ theme, onThemeToggle }) {
   useEffect(() => {
     if (topicsLoaded) return;
     const timer = window.setTimeout(() => {
-      setTopics(INITIAL_TOPICS);
+      setTopics(INITIAL_TOPICS.map(withTopicCreatedAt));
       setUsingDemoTopics(true);
       setTopicsLoaded(true);
     }, 2200);
@@ -1443,6 +1484,7 @@ function Forum({ theme, onThemeToggle }) {
       answers:      0,
       views:        '1',
       activity:     t('common.now'),
+      created_at:   new Date().toISOString(),
       participants: [user.initials],
       saved:        false,
       voted:        0,

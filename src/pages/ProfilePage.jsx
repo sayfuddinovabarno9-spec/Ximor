@@ -4,6 +4,7 @@ import Layout from '../components/Layout';
 import { useAuth } from '../context/AuthContext';
 import { avatarBg } from '../utils/avatarColor';
 import { useLanguage } from '../context/LanguageContext';
+import { formatQuestionCreatedAt } from '../utils/dateTime';
 
 const BACKEND = import.meta.env.VITE_API_URL || 'http://localhost:3002';
 
@@ -417,36 +418,47 @@ export default function ProfilePage({ theme, onThemeToggle }) {
               <div className="profile-topics">
                 {profile.recentTopics.length === 0 ? (
                   <div className="profile-empty">{t('profile.noQuestions')}</div>
-                ) : profile.recentTopics.map(topic => (
-                  <div key={topic.id} className="profile-topic-card panel-card"
-                       role="button" tabIndex={0}
-                       onClick={() => navigate(`/q/${topic.id}`)}
-                       onKeyDown={e => e.key === 'Enter' && navigate(`/q/${topic.id}`)}>
-                    <div className="ptc-title">{topic.title}</div>
-                    <div className="ptc-meta">
-                      <span className="ptc-badge"
-                            style={{
-                              background: topic.solved
-                                ? 'color-mix(in srgb, var(--green) 14%, var(--surface))'
-                                : 'color-mix(in srgb, var(--amber) 14%, var(--surface))',
-                              color: topic.solved ? 'var(--green)' : 'var(--amber)',
-                            }}>
-                        {topic.solved ? t('common.solved') : t('common.open')}
-                      </span>
-                      <span>{t('profile.answerCount', { count: topic.answers })}</span>
-                      <span>{t('profile.pointCount', { count: topic.score })}</span>
-                      <span>{t('profile.viewCount', { count: topic.views })}</span>
-                      <span className="ptc-dot">{topic.activity}</span>
-                    </div>
-                    {topic.tags.length > 0 && (
-                      <div className="ptc-tags">
-                        {topic.tags.slice(0, 4).map(tag => (
-                          <span key={tag} className="tag-chip">#{tag}</span>
-                        ))}
+                ) : profile.recentTopics.map(topic => {
+                  const createdAt = formatQuestionCreatedAt(topic.created_at, language);
+                  return (
+                    <div key={topic.id} className="profile-topic-card panel-card"
+                         role="button" tabIndex={0}
+                         onClick={() => navigate(`/q/${topic.id}`)}
+                         onKeyDown={e => e.key === 'Enter' && navigate(`/q/${topic.id}`)}>
+                      <div className="ptc-title">{topic.title}</div>
+                      <div className="ptc-meta">
+                        <span className="ptc-badge"
+                              style={{
+                                background: topic.solved
+                                  ? 'color-mix(in srgb, var(--green) 14%, var(--surface))'
+                                  : 'color-mix(in srgb, var(--amber) 14%, var(--surface))',
+                                color: topic.solved ? 'var(--green)' : 'var(--amber)',
+                              }}>
+                          {topic.solved ? t('common.solved') : t('common.open')}
+                        </span>
+                        <span>{t('profile.answerCount', { count: topic.answers })}</span>
+                        <span>{t('profile.pointCount', { count: topic.score })}</span>
+                        <span>{t('profile.viewCount', { count: topic.views })}</span>
+                        {createdAt && (
+                          <time
+                            className="ptc-dot"
+                            dateTime={topic.created_at}
+                            title={`${t('question.createdAt')}: ${createdAt}`}
+                          >
+                            {createdAt}
+                          </time>
+                        )}
                       </div>
-                    )}
-                  </div>
-                ))}
+                      {topic.tags.length > 0 && (
+                        <div className="ptc-tags">
+                          {topic.tags.slice(0, 4).map(tag => (
+                            <span key={tag} className="tag-chip">#{tag}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
 
