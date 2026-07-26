@@ -1142,24 +1142,41 @@ async function seedDemo() {
   if (!existing) {
     const hash = await bcrypt.hash('demo123456', 10);
     const demoUsers = [
-      { username: 'aziza_kimyo',  name: 'Aziza Karimova',      role: 'Organik kimyo',   score: 18400 },
-      { username: 'sardor_yu',    name: 'Sardor Yusupov',       role: 'Anorganik kimyo', score: 12100 },
-      { username: 'nilufar_r',    name: 'Nilufar Rashidova',    role: 'Analitik kimyo',  score: 9300  },
-      { username: 'farrux_t',     name: "Farrux Toshpo'latov",  role: 'Fizikaviy kimyo', score: 7800  },
-      { username: 'nodira_s',     name: 'Nodira Saidova',       role: 'Olimpiadalar',    score: 6400  },
-      { username: 'jasur_i',      name: 'Jasur Ibragimov',      role: 'Anorganik kimyo', score: 4200  },
-      { username: 'mukhtor_n',    name: 'Mukhtor Nazarov',      role: 'Organik kimyo',   score: 2100  },
-      { username: 'sevara_t',     name: 'Sevara Toshmatova',    role: 'Analitik kimyo',  score: 1350  },
+      { username: 'aziza_kimyo',  email: 'aziza@example.com',   name: 'Aziza Karimova',      role: 'Organik kimyo',   score: 18400 },
+      { username: 'sardor_yu',    email: 'sardor@example.com',  name: 'Sardor Yusupov',      role: 'Anorganik kimyo', score: 12100 },
+      { username: 'nilufar_r',    email: 'nilufar@example.com', name: 'Nilufar Rashidova',   role: 'Analitik kimyo',  score: 9300  },
+      { username: 'farrux_t',     email: 'farrux@example.com',  name: "Farrux Toshpo'latov", role: 'Fizikaviy kimyo', score: 7800  },
+      { username: 'nodira_s',     email: 'nodira@example.com',  name: 'Nodira Saidova',      role: 'Olimpiadalar',    score: 6400  },
+      { username: 'jasur_i',      email: 'jasur@example.com',   name: 'Jasur Ibragimov',     role: 'Anorganik kimyo', score: 4200  },
+      { username: 'mukhtor_n',    email: 'mukhtor@example.com', name: 'Mukhtor Nazarov',     role: 'Organik kimyo',   score: 2100  },
+      { username: 'sevara_t',     email: 'sevara@example.com',  name: 'Sevara Toshmatova',   role: 'Analitik kimyo',  score: 1350  },
     ];
     for (const u of demoUsers) {
       const initials = u.name.replace(/'/g, '').split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
       await pool.query(`
-        INSERT INTO users (username, name, initials, role, password, score)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO users (username, email, name, initials, role, password, score)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         ON CONFLICT (username) DO NOTHING
-      `, [u.username, u.name, initials, u.role, hash, u.score]);
+      `, [u.username, u.email, u.name, initials, u.role, hash, u.score]);
     }
   }
+
+  await pool.query(`
+    UPDATE users
+    SET email = CASE username
+      WHEN 'aziza_kimyo' THEN 'aziza@example.com'
+      WHEN 'sardor_yu' THEN 'sardor@example.com'
+      WHEN 'nilufar_r' THEN 'nilufar@example.com'
+      WHEN 'farrux_t' THEN 'farrux@example.com'
+      WHEN 'nodira_s' THEN 'nodira@example.com'
+      WHEN 'jasur_i' THEN 'jasur@example.com'
+      WHEN 'mukhtor_n' THEN 'mukhtor@example.com'
+      WHEN 'sevara_t' THEN 'sevara@example.com'
+      ELSE email
+    END
+    WHERE email IS NULL
+      AND username IN ('aziza_kimyo','sardor_yu','nilufar_r','farrux_t','nodira_s','jasur_i','mukhtor_n','sevara_t')
+  `);
 
   // Welcome topic
   const topicCount = await q1('SELECT COUNT(*)::INTEGER AS n FROM topics');

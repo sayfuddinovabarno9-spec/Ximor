@@ -104,7 +104,7 @@ a { text-decoration: none; }
   background: var(--primary);
   border: 1px solid color-mix(in srgb, var(--primary-strong) 45%, transparent);
   border-radius: 10px;
-  color: #07131f;
+  color: #ffffff;
   display: flex;
   flex: 0 0 auto;
   height: 38px;
@@ -6007,7 +6007,7 @@ a { text-decoration: none; }
   align-items: center;
   background: var(--landing-primary);
   border-radius: var(--radius);
-  color: #111412;
+  color: #ffffff;
   display: inline-flex;
   height: 30px;
   justify-content: center;

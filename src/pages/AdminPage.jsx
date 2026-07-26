@@ -166,7 +166,14 @@ export default function AdminPage({ theme, onThemeToggle }) {
   };
 
   const filteredUsers = userSearch.trim()
-    ? users.filter(u => u.name.toLowerCase().includes(userSearch.toLowerCase()) || u.username.toLowerCase().includes(userSearch.toLowerCase()))
+    ? users.filter(u => {
+        const q = userSearch.toLowerCase();
+        return (
+          u.name.toLowerCase().includes(q) ||
+          u.username.toLowerCase().includes(q) ||
+          (u.email || '').toLowerCase().includes(q)
+        );
+      })
     : users;
 
   return (
@@ -287,6 +294,7 @@ export default function AdminPage({ theme, onThemeToggle }) {
                             <div>
                               <button className="adm-link" onClick={() => navigate(`/u/${u.username}`)}>{u.name}</button>
                               <span className="adm-muted">@{u.username}</span>
+                              {u.email && <span className="adm-muted">{u.email}</span>}
                             </div>
                             {u.is_admin && <span className="adm-badge adm-badge--admin">Admin</span>}
                             {!u.is_admin && u.is_moderator && <span className="adm-badge adm-badge--mod">Moderator</span>}
