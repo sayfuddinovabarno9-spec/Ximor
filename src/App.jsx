@@ -22,6 +22,7 @@ import MessagesPage from "./pages/MessagesPage";
 import { avatarBg } from "./utils/avatarColor";
 import copyToClipboard from "./utils/copyToClipboard";
 import { formatQuestionCreatedAt } from "./utils/dateTime";
+import { prepareForumImage } from "./utils/forumImage";
 
 const BACKEND = import.meta.env.VITE_API_URL || 'http://localhost:3002';
 
@@ -640,40 +641,6 @@ function ThreadDrawer({
   );
 }
 
-function prepareComposerImage(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("Rasmni o'qib bo'lmadi"));
-    reader.onload = () => {
-      const image = new Image();
-      image.onerror = () => reject(new Error("Rasm formati qo'llab-quvvatlanmaydi"));
-      image.onload = () => {
-        const maxDimension = 1600;
-        const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
-        const width = Math.max(1, Math.round(image.naturalWidth * scale));
-        const height = Math.max(1, Math.round(image.naturalHeight * scale));
-        const canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
-        const context = canvas.getContext("2d");
-        context.fillStyle = "#fff";
-        context.fillRect(0, 0, width, height);
-        context.drawImage(image, 0, 0, width, height);
-        const src = canvas.toDataURL("image/jpeg", 0.82);
-
-        resolve({
-          id: `${file.name}-${file.lastModified}-${file.size}`,
-          name: file.name,
-          size: Math.round(src.length * 0.75),
-          src,
-        });
-      };
-      image.src = reader.result;
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
 function ComposerModal({ onClose, onSubmit }) {
   const { t } = useLanguage();
   const summaryRef = useRef(null);
@@ -725,7 +692,7 @@ function ComposerModal({ onClose, onSubmit }) {
 
     if (!files.length) return;
 
-    const results = await Promise.allSettled(files.map(prepareComposerImage));
+    const results = await Promise.allSettled(files.map(prepareForumImage));
     const images = results
       .filter((result) => result.status === "fulfilled")
       .map((result) => result.value);
@@ -1137,6 +1104,21 @@ function Forum({ theme, onThemeToggle }) {
     });
   }, []);
 
+  const handleIncomingTopicUpdate = useCallback((incoming) => {
+    setTopics(prev => prev.map((topic) => {
+      if (String(topic.id) !== String(incoming.id)) return topic;
+      const updated = withTopicCreatedAt(incoming);
+      return {
+        ...topic,
+        ...updated,
+        saved: topic.saved,
+        voted: voteStateRef.current[topic.id] ?? topic.voted ?? 0,
+        answersList: topic.answersList,
+        answers: incoming.answers ?? topic.answers,
+      };
+    }));
+  }, []);
+
   // Real-time: an answer came in from any connected client (including ourselves on retry)
   const handleIncomingAnswer = useCallback(({ topicId, answer, answers }) => {
     setTopics(prev => prev.map(t => {
@@ -1170,7 +1152,8 @@ function Forum({ theme, onThemeToggle }) {
     handleIncomingAnswerVote,
     handleIncomingTopicModeration,
     null,
-    handleIncomingAnswerDeleted
+    handleIncomingAnswerDeleted,
+    handleIncomingTopicUpdate
   );
 
   useEffect(() => {

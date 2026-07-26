@@ -71,11 +71,16 @@ export default function Layout({ children, theme, onThemeToggle, onCompose, quer
   const [bellOpen, setBellOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unread, setUnread] = useState(0);
+  const [messageUnreadCount, setMessageUnreadCount] = useState(0);
   const menuRef = useRef(null);
   const bellRef = useRef(null);
 
   const fetchNotifications = useCallback(async () => {
-    if (!token) return;
+    if (!token) {
+      setNotifications([]);
+      setUnread(0);
+      return;
+    }
     try {
       const r = await fetch(`${BACKEND}/api/notifications`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -87,17 +92,55 @@ export default function Layout({ children, theme, onThemeToggle, onCompose, quer
     } catch {}
   }, [token]);
 
+  const fetchMessageUnread = useCallback(async () => {
+    if (!token) {
+      setMessageUnreadCount(0);
+      return;
+    }
+    try {
+      const r = await fetch(`${BACKEND}/api/messages/conversations`, {
+        headers: authHeaders(),
+      });
+      if (!r.ok) return;
+      const data = await r.json();
+      const total = (data.conversations || []).reduce(
+        (sum, conversation) => sum + Number(conversation.unread_count || 0),
+        0
+      );
+      setMessageUnreadCount(total);
+    } catch {}
+  }, [authHeaders, token]);
+
   useEffect(() => {
     fetchNotifications();
-  }, [fetchNotifications]);
+    fetchMessageUnread();
+  }, [fetchNotifications, fetchMessageUnread]);
 
   // Re-fetch notifications on SSE notification event
   useEffect(() => {
     if (!token) return;
     const es = new EventSource(`${BACKEND}/api/forum/stream`);
-    es.addEventListener('notification', () => fetchNotifications());
+    es.addEventListener('notification', () => {
+      fetchNotifications();
+      fetchMessageUnread();
+    });
     return () => es.close();
-  }, [token, fetchNotifications]);
+  }, [token, fetchNotifications, fetchMessageUnread]);
+
+  useEffect(() => {
+    if (!token) return undefined;
+    const timer = window.setInterval(fetchMessageUnread, 5000);
+    const handleUnreadEvent = event => {
+      const count = Number(event.detail?.count);
+      if (Number.isFinite(count)) setMessageUnreadCount(count);
+      else fetchMessageUnread();
+    };
+    window.addEventListener('ximor:messages-unread', handleUnreadEvent);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('ximor:messages-unread', handleUnreadEvent);
+    };
+  }, [fetchMessageUnread, token]);
 
   useEffect(() => {
     if (!menuOpen && !bellOpen) return;
@@ -126,6 +169,13 @@ export default function Layout({ children, theme, onThemeToggle, onCompose, quer
     if (!user) { setShowAuth(true); return; }
     onCompose?.();
   };
+
+  const navBadgeFor = item => {
+    if (item.to === '/messages' && messageUnreadCount > 0) {
+      return messageUnreadCount > 99 ? '99+' : messageUnreadCount;
+    }
+    return item.badge;
+  };
   const staffRole = user?.is_admin
     ? { type: 'admin', label: t('nav.adminRole') }
     : user?.is_moderator
@@ -148,11 +198,16 @@ export default function Layout({ children, theme, onThemeToggle, onCompose, quer
             const active = item.exact
               ? location.pathname === item.to
               : location.pathname.startsWith(item.to);
+            const badge = navBadgeFor(item);
             return (
-              <Link key={item.to} to={item.to} className={active ? 'is-active' : ''}>
+              <Link
+                key={item.to}
+                to={item.to}
+                className={`${active ? 'is-active' : ''} ${badge ? 'has-unread' : ''}`}
+              >
                 {t(item.labelKey)}
-                {item.badge != null && (
-                  <span className="nav-badge">{item.badge}</span>
+                {badge != null && (
+                  <span className="nav-badge">{badge}</span>
                 )}
               </Link>
             );
@@ -296,6 +351,9 @@ export default function Layout({ children, theme, onThemeToggle, onCompose, quer
         <Link to="/messages" className={location.pathname.startsWith('/messages') ? 'is-active' : ''}>
           <Icon name="message" size={18} />
           <span>{t('nav.messages')}</span>
+          {messageUnreadCount > 0 && (
+            <b className="mobile-nav-badge">{messageUnreadCount > 99 ? '99+' : messageUnreadCount}</b>
+          )}
         </Link>
         <Link to="/olimpiadalar" className={location.pathname.startsWith('/olimpiadalar') ? 'is-active' : ''}>
           <Icon name="person" size={18} />

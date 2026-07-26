@@ -33,14 +33,14 @@ function Icon({ name, size = 18 }) {
   );
 }
 
-function Avatar({ initials, name, online = false }) {
+function Avatar({ image, initials, name, online = false }) {
   return (
     <span
       className="avatar"
       title={name}
       style={{ background: avatarBg(initials), color: '#fff', border: 'none' }}
     >
-      {initials}
+      {image ? <img alt="" src={image} /> : initials}
       {online && <span className="avatar__status" />}
     </span>
   );
@@ -68,6 +68,16 @@ function formatTime(iso) {
   ).format(date);
 }
 
+function totalUnread(conversations) {
+  return conversations.reduce((sum, item) => sum + Number(item.unread_count || 0), 0);
+}
+
+function emitUnreadCount(conversations) {
+  window.dispatchEvent(new CustomEvent('ximor:messages-unread', {
+    detail: { count: totalUnread(conversations) },
+  }));
+}
+
 export default function MessagesPage({ theme, onThemeToggle }) {
   const navigate = useNavigate();
   const { user, token, authHeaders } = useAuth();
@@ -90,6 +100,19 @@ export default function MessagesPage({ theme, onThemeToggle }) {
     () => conversations.find((item) => item.id === activeConversationId) || null,
     [activeConversationId, conversations]
   );
+
+  const lastMessagePreview = (conversation) => {
+    if (!conversation.lastMessage) return t('messages.noMessages');
+    const sender = conversation.lastMessage.is_mine
+      ? t('messages.youPrefix')
+      : `${conversation.otherUser.name}: `;
+    return (
+      <span className="message-preview">
+        <b>{sender}</b>
+        {conversation.lastMessage.body}
+      </span>
+    );
+  };
 
   const loadContacts = useCallback(async (term = '') => {
     if (!token) return;
@@ -116,6 +139,7 @@ export default function MessagesPage({ theme, onThemeToggle }) {
     const data = await response.json();
     const next = Array.isArray(data.conversations) ? data.conversations : [];
     setConversations(next);
+    emitUnreadCount(next);
     setActiveConversationId((current) => (
       next.some((item) => item.id === current) ? current : next[0]?.id ?? null
     ));
@@ -133,7 +157,11 @@ export default function MessagesPage({ theme, onThemeToggle }) {
       const data = await response.json();
       setMessages(Array.isArray(data.messages) ? data.messages : []);
       if (data.conversation) {
-        setConversations((current) => upsertConversation(current, data.conversation));
+        setConversations((current) => {
+          const updated = upsertConversation(current, data.conversation);
+          emitUnreadCount(updated);
+          return updated;
+        });
       }
       setError('');
     } catch {
@@ -150,6 +178,7 @@ export default function MessagesPage({ theme, onThemeToggle }) {
       setMessages([]);
       setActiveConversationId(null);
       setLoading(false);
+      emitUnreadCount([]);
       return undefined;
     }
 
@@ -205,7 +234,11 @@ export default function MessagesPage({ theme, onThemeToggle }) {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || 'conversation failed');
-      setConversations((current) => upsertConversation(current, data.conversation));
+      setConversations((current) => {
+        const updated = upsertConversation(current, data.conversation);
+        emitUnreadCount(updated);
+        return updated;
+      });
       setActiveConversationId(data.conversation.id);
       setQuery('');
       setError('');
@@ -233,7 +266,11 @@ export default function MessagesPage({ theme, onThemeToggle }) {
         current.some((item) => item.id === data.message.id) ? current : [...current, data.message]
       ));
       if (data.conversation) {
-        setConversations((current) => upsertConversation(current, data.conversation));
+        setConversations((current) => {
+          const updated = upsertConversation(current, data.conversation);
+          emitUnreadCount(updated);
+          return updated;
+        });
       }
       setDraft('');
       setError('');
@@ -310,23 +347,25 @@ export default function MessagesPage({ theme, onThemeToggle }) {
                   <div className="messages-list">
                     {conversations.map((conversation) => (
                       <button
-                        className={`message-person ${conversation.id === activeConversationId ? 'is-active' : ''}`}
+                        className={`message-person ${conversation.id === activeConversationId ? 'is-active' : ''} ${conversation.unread_count > 0 ? 'is-unread' : ''}`}
                         key={conversation.id}
                         onClick={() => setActiveConversationId(conversation.id)}
                         type="button"
                       >
                         <Avatar
+                          image={conversation.otherUser.avatar_url}
                           initials={conversation.otherUser.initials}
                           name={conversation.otherUser.name}
                           online={conversation.unread_count > 0}
                         />
                         <span className="message-person-main">
-                          <strong>{conversation.otherUser.name}</strong>
-                          <span>
-                            {conversation.lastMessage
-                              ? `${conversation.lastMessage.is_mine ? t('messages.youPrefix') : ''}${conversation.lastMessage.body}`
-                              : t('messages.noMessages')}
-                          </span>
+                          <strong>
+                            <span className="message-person-name">{conversation.otherUser.name}</span>
+                            {conversation.unread_count > 0 && (
+                              <small className="messages-new-pill">{t('messages.newMessage')}</small>
+                            )}
+                          </strong>
+                          {lastMessagePreview(conversation)}
                         </span>
                         <span className="message-person-meta">
                           <time>{formatTime(conversation.lastMessage?.created_at || conversation.updated_at)}</time>
@@ -355,7 +394,7 @@ export default function MessagesPage({ theme, onThemeToggle }) {
                         onClick={() => startConversation(contact)}
                         type="button"
                       >
-                        <Avatar initials={contact.initials} name={contact.name} />
+                        <Avatar image={contact.avatar_url} initials={contact.initials} name={contact.name} />
                         <span className="message-person-main">
                           <strong>{contact.name}</strong>
                           <span>@{contact.username} · {contact.role}</span>
@@ -373,6 +412,7 @@ export default function MessagesPage({ theme, onThemeToggle }) {
                 <>
                   <header className="messages-thread-head">
                     <Avatar
+                      image={activeConversation.otherUser.avatar_url}
                       initials={activeConversation.otherUser.initials}
                       name={activeConversation.otherUser.name}
                       online

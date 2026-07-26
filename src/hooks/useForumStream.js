@@ -11,7 +11,8 @@ export function useForumStream(
   onAnswerVote,
   onTopicModeration,
   onAnswerModeration,
-  onAnswerDeleted
+  onAnswerDeleted,
+  onTopicUpdate
 ) {
   useEffect(() => {
     let es;
@@ -30,7 +31,13 @@ export function useForumStream(
 
       // New topic — { ...topicFields, answersList: [] }
       es.addEventListener('topic', (e) => {
-        try { onNewTopic(JSON.parse(e.data)); }
+        try { if (onNewTopic) onNewTopic(JSON.parse(e.data)); }
+        catch { /* ignore */ }
+      });
+
+      // Edited topic — { ...topicFields }
+      es.addEventListener('topicUpdate', (e) => {
+        try { if (onTopicUpdate) onTopicUpdate(JSON.parse(e.data)); }
         catch { /* ignore */ }
       });
 

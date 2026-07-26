@@ -273,6 +273,31 @@ async function saveTopic(topic) {
   return hydrateTopic(row);
 }
 
+async function updateTopic(topicId, topic) {
+  const row = await q1(`
+    UPDATE topics
+    SET category = $2,
+        title = $3,
+        summary = $4,
+        formula = COALESCE($5, formula),
+        tags = $6,
+        images = $7,
+        difficulty = COALESCE($8, difficulty)
+    WHERE id = $1
+    RETURNING *
+  `, [
+    topicId,
+    topic.category ?? 'all',
+    topic.title ?? '',
+    topic.summary ?? '',
+    topic.formula ?? null,
+    JSON.stringify(topic.tags ?? []),
+    JSON.stringify(topic.images ?? []),
+    topic.difficulty ?? null,
+  ]);
+  return hydrateTopic(row);
+}
+
 async function updateScore(topicId, delta) {
   const row = await q1(
     'UPDATE topics SET score = score + $1 WHERE id = $2 RETURNING score',
@@ -632,6 +657,7 @@ function hydrateConversation(row) {
       username: row.other_username,
       name: row.other_name,
       initials: row.other_initials,
+      avatar_url: row.other_avatar_url || '',
       role: row.other_role,
       score: row.other_score,
     },
@@ -661,6 +687,7 @@ function hydrateChatMessage(row, viewerId) {
       username: row.sender_username,
       name: row.sender_name,
       initials: row.sender_initials,
+      avatar_url: row.sender_avatar_url || '',
       role: row.sender_role,
     },
   };
@@ -670,7 +697,7 @@ async function getChatUsers(currentUserId, search = '') {
   const term = String(search || '').trim().toLowerCase();
   const like = `%${term}%`;
   const rows = await q(`
-    SELECT id, username, name, initials, role, score
+    SELECT id, username, name, initials, avatar_url, role, score
     FROM users
     WHERE id <> $1
       AND banned_at IS NULL
@@ -695,6 +722,7 @@ async function getConversationForUser(conversationId, userId) {
       u.username AS other_username,
       u.name AS other_name,
       u.initials AS other_initials,
+      u.avatar_url AS other_avatar_url,
       u.role AS other_role,
       u.score AS other_score,
       m.id AS last_message_id,
@@ -751,6 +779,7 @@ async function getConversationsForUser(userId) {
       u.username AS other_username,
       u.name AS other_name,
       u.initials AS other_initials,
+      u.avatar_url AS other_avatar_url,
       u.role AS other_role,
       u.score AS other_score,
       m.id AS last_message_id,
@@ -795,6 +824,7 @@ async function getConversationMessages(conversationId, userId, options = {}) {
       u.username AS sender_username,
       u.name AS sender_name,
       u.initials AS sender_initials,
+      u.avatar_url AS sender_avatar_url,
       u.role AS sender_role
     FROM chat_messages m
     LEFT JOIN users u ON u.id = m.sender_id
@@ -820,12 +850,13 @@ async function sendConversationMessage(conversationId, userId, body) {
   `, [conversationId, userId, body]);
   await pool.query('UPDATE conversations SET updated_at = NOW() WHERE id = $1', [conversationId]);
 
-  const sender = await q1('SELECT username, name, initials, role FROM users WHERE id = $1', [userId]);
+  const sender = await q1('SELECT username, name, initials, avatar_url, role FROM users WHERE id = $1', [userId]);
   return hydrateChatMessage({
     ...row,
     sender_username: sender?.username,
     sender_name: sender?.name,
     sender_initials: sender?.initials,
+    sender_avatar_url: sender?.avatar_url,
     sender_role: sender?.role,
   }, userId);
 }
@@ -1304,7 +1335,7 @@ async function seedDemo() {
 module.exports = {
   pool,
   initSchema, seedDemo,
-  getAllTopics, getTopicWithAnswers, saveTopic, updateScore, acceptAnswer,
+  getAllTopics, getTopicWithAnswers, saveTopic, updateTopic, updateScore, acceptAnswer,
   saveAnswer,
   createUser, getUserByUsername, getUserByEmail, getUserById, addUserScore, getUserProfile,
   getUserAnswers, updateUserProfile, updateUserBio,

@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const { requireAuth } = require('../middleware/auth');
+const { broadcast } = require('./forum');
 
 const router = express.Router();
 
@@ -82,6 +83,7 @@ router.post('/conversations/:id/messages', async (req, res, next) => {
         null,
         `${req.user.name} sizga yangi xabar yubordi`
       );
+      broadcast('notification', { type: 'message', conversationId });
     }
 
     res.json({ ok: true, message, conversation });

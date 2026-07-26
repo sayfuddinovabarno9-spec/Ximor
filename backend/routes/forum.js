@@ -40,8 +40,11 @@ function sanitizeTopic(body) {
 
   return {
     ...body,
+    category: sanitize(String(body.category || 'all').slice(0, 50)),
     title:   sanitize(String(body.title  || '').slice(0, 300)),
     summary: body.summary ? sanitize(String(body.summary).slice(0, 20_000)) : '',
+    formula: body.formula ? sanitize(String(body.formula).slice(0, 1000)) : '',
+    difficulty: body.difficulty ? sanitize(String(body.difficulty).slice(0, 80)) : undefined,
     images,
     tags:    Array.isArray(body.tags)
                ? body.tags.slice(0, 10).map(t => sanitize(String(t).slice(0, 50)))
@@ -98,9 +101,8 @@ router.get('/topics/:id', async (req, res) => {
 
 // ── POST /api/forum/topics ────────────────────────────────────────────────────
 router.post('/topics', requireAuth, async (req, res) => {
-  if (!req.body?.title) return res.status(400).json({ error: 'title required' });
-
   const clean = sanitizeTopic(req.body);
+  if (!clean.title) return res.status(400).json({ error: 'title required' });
   const saved = await db.saveTopic({
     ...clean,
     user_id:  req.user.id,
@@ -111,6 +113,39 @@ router.post('/topics', requireAuth, async (req, res) => {
 
   broadcast('topic', { ...saved, answersList: [] });
   res.json({ ok: true, id: saved.id, listeners: clients.size });
+});
+
+// ── PATCH /api/forum/topics/:id ──────────────────────────────────────────────
+router.patch('/topics/:id', requireAuth, async (req, res) => {
+  const topicId = Number(req.params.id);
+  if (!Number.isFinite(topicId)) return res.status(400).json({ error: 'invalid topic id' });
+
+  const existing = await db.getTopicWithAnswers(topicId);
+  if (!existing) return res.status(404).json({ error: 'topic not found' });
+
+  const isAuthor = existing.user_id === req.user.id || existing.author === req.user.name;
+  if (!isAuthor && !hasModeratorAccess(req.user)) {
+    return res.status(403).json({ error: 'Faqat savol egasi yoki moderator tahrirlashi mumkin' });
+  }
+
+  const clean = sanitizeTopic(req.body);
+  if (!clean.title) return res.status(400).json({ error: 'title required' });
+  if (!clean.summary) return res.status(400).json({ error: 'summary required' });
+
+  await db.updateTopic(topicId, {
+    category: clean.category,
+    title: clean.title,
+    summary: clean.summary,
+    formula: clean.formula,
+    tags: clean.tags,
+    images: clean.images,
+    difficulty: clean.difficulty,
+  });
+
+  const updated = await db.getTopicWithAnswers(topicId);
+  const { answersList, ...topicUpdate } = updated;
+  broadcast('topicUpdate', topicUpdate);
+  res.json({ ok: true, topic: updated, listeners: clients.size });
 });
 
 // ── POST /api/forum/topics/:id/answers ───────────────────────────────────────
