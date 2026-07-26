@@ -262,7 +262,7 @@ export default function OlimpiadalarPage({ theme, onThemeToggle }) {
             <span className="eyebrow">{t('communityPage.source')}</span>
             <h3>{t('communityPage.officialPage')}</h3>
             <p>{t('communityPage.sourceText')}</p>
-            <ExternalLink href={primarySite.url}>UAC website</ExternalLink>
+            <ExternalLink href={primarySite.url}>UAC {t('communityPage.website')}</ExternalLink>
           </div>
         </aside>
       </main>

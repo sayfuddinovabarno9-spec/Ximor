@@ -30,6 +30,14 @@ const TIER_COLORS = {
   shogird: '#5f6873',
 };
 
+const TIER_LABEL_KEYS = {
+  olmos: 'profile.tiers.diamond',
+  platina: 'profile.tiers.platinum',
+  oltin: 'profile.tiers.gold',
+  kumush: 'profile.tiers.silver',
+  shogird: 'profile.tiers.learner',
+};
+
 function scoreTier(score) {
   if (score >= 15000) return 'olmos';
   if (score >= 7000)  return 'platina';
@@ -79,6 +87,7 @@ export default function ReytingPage({ theme, onThemeToggle }) {
   const [period, setPeriod] = useState('hafta');
   const [leaderboard, setLeaderboard] = useState([]);
   const [loading, setLoading] = useState(true);
+  const rankingRules = t('ranking.ruleRows');
 
   useEffect(() => {
     setLoading(true);
@@ -143,16 +152,22 @@ export default function ReytingPage({ theme, onThemeToggle }) {
             </div>
           </div>
 
-          <div className="panel-card">
+          <div className="panel-card ranking-rules-card">
             <div className="section-heading">
               <h3>{t('ranking.rules')}</h3>
             </div>
-            <ul className="prep-list">
-              <li>{t('ranking.acceptedRule')} → <strong>50 {t('profile.points').toLowerCase()}</strong></li>
-              <li>{t('ranking.upvoteRule')} → <strong>5 {t('profile.points').toLowerCase()}</strong></li>
-              <li>{t('ranking.olympiadRule')} → <strong>500 {t('profile.points').toLowerCase()}</strong></li>
-              <li>{t('ranking.mentorRule')} → <strong>2× {t('ranking.coefficient')}</strong></li>
-            </ul>
+            <div className="ranking-rule-list">
+              {(Array.isArray(rankingRules) ? rankingRules : []).map((rule) => (
+                <div className="ranking-rule-item" key={rule.label}>
+                  <div>
+                    <span>{rule.label}</span>
+                    <strong>{rule.value}</strong>
+                  </div>
+                  <p>{rule.detail}</p>
+                </div>
+              ))}
+            </div>
+            <p className="ranking-rules-note">{t('ranking.rulesNote')}</p>
           </div>
         </aside>
 
@@ -217,7 +232,7 @@ export default function ReytingPage({ theme, onThemeToggle }) {
                           <strong>{u.name}</strong>
                           <span>
                             <span className="tier-pill" style={{ '--tier-color': TIER_COLORS[u.tier] }}>
-                              {u.tier.toUpperCase()}
+                              {t(TIER_LABEL_KEYS[u.tier] || 'profile.tiers.learner')}
                             </span>
                             {u.specialty}
                           </span>

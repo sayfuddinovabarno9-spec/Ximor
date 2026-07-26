@@ -1646,17 +1646,22 @@ a { text-decoration: none; }
 }
 
 .best-user-row .avatar {
+  align-items: center;
+  display: inline-flex;
   font-size: 12px;
   height: 34px;
+  justify-content: center;
+  line-height: 1;
+  margin: 0;
   width: 34px;
 }
 
-.best-user-row strong,
-.best-user-row span {
+.best-user-row > div strong,
+.best-user-row > div span {
   display: block;
 }
 
-.best-user-row strong {
+.best-user-row > div strong {
   color: var(--text);
   font-size: 13px;
   font-weight: 800;
@@ -1666,7 +1671,7 @@ a { text-decoration: none; }
   white-space: nowrap;
 }
 
-.best-user-row span {
+.best-user-row > div span {
   color: var(--muted);
   font-size: 11.5px;
   line-height: 1.25;
@@ -1700,19 +1705,22 @@ a { text-decoration: none; }
 }
 
 .rank-badge--1 {
-  background: var(--primary);
-  color: #fff;
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--line));
+  color: var(--primary);
   box-shadow: none;
 }
 
 .rank-badge--2 {
-  background: var(--blue);
-  color: #fff;
+  background: color-mix(in srgb, var(--blue) 8%, var(--surface));
+  border-color: color-mix(in srgb, var(--blue) 24%, var(--line));
+  color: var(--blue);
 }
 
 .rank-badge--3 {
-  background: var(--amber);
-  color: #fff;
+  background: color-mix(in srgb, var(--amber) 9%, var(--surface));
+  border-color: color-mix(in srgb, var(--amber) 28%, var(--line));
+  color: var(--amber);
 }
 
 /* ─── Live card ───────────────────────────────────────────────────────── */
@@ -3735,6 +3743,58 @@ a { text-decoration: none; }
   color: var(--muted);
   font-size: 11px;
   font-weight: 700;
+}
+
+.ranking-rules-card .section-heading {
+  margin-bottom: 12px;
+}
+
+.ranking-rule-list {
+  display: grid;
+  gap: 8px;
+}
+
+.ranking-rule-item {
+  background: color-mix(in srgb, var(--surface-soft) 65%, var(--surface));
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  display: grid;
+  gap: 6px;
+  padding: 10px 11px;
+}
+
+.ranking-rule-item div {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.ranking-rule-item span {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.ranking-rule-item strong {
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 900;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.ranking-rule-item p,
+.ranking-rules-note {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.ranking-rules-note {
+  border-top: 1px solid var(--line);
+  margin-top: 12px;
+  padding-top: 12px;
 }
 
 /* ─── Leaderboard table ───────────────────────────────────────────────── */

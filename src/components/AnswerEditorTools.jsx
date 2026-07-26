@@ -72,7 +72,7 @@ export default function AnswerEditorTools({ className = "", onChange, textareaRe
       <div className="chem-toolbar latex-toolbar" aria-label="LaTeX formulalari">
         <span>LaTeX</span>
         {LATEX_SNIPPETS.map((item) => (
-          <button key={item.label} onClick={() => insertSnippet(item.value)} type="button">
+          <button key={item.labelKey || item.label} onClick={() => insertSnippet(item.value)} type="button">
             {item.labelKey ? t(item.labelKey) : item.label}
           </button>
         ))}

@@ -133,7 +133,7 @@ export default function Layout({ children, theme, onThemeToggle, onCompose, quer
           <div className="brand-icon"><BrandMark /></div>
           <div className="brand-text">
             <strong>Ximor</strong>
-            <small>Kimyo chat</small>
+            <small>{t('home.chemistryChat')}</small>
           </div>
         </Link>
 

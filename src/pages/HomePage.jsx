@@ -151,7 +151,7 @@ export default function HomePage() {
                 <span>{t('home.chemistrySections')}</span>
               </div>
               <div>
-                <strong>soon</strong>
+                <strong>{t('common.soon')}</strong>
                 <span>{t('home.lessonsMode')}</span>
               </div>
             </div>
@@ -178,7 +178,7 @@ export default function HomePage() {
               </div>
               <div className="preview-search">{t('home.reactionSearch')}</div>
               <div className="preview-thread preview-thread--hot">
-                <span className="preview-badge">Hot</span>
+                <span className="preview-badge">{t('forum.hot')}</span>
                 <strong>{t('home.grignardQuestion')}</strong>
                 <p>CH3CH2MgBr + HCHO {"->"} ?</p>
               </div>
@@ -191,7 +191,7 @@ export default function HomePage() {
                 <p>{t('home.learnerMessage')}</p>
               </div>
               <div className="preview-thread">
-                <span className="preview-badge preview-badge--green">Solved</span>
+                <span className="preview-badge preview-badge--green">{t('common.solved')}</span>
                 <strong>{t('home.pressureQuestion')}</strong>
                 <p>N2 + 3H2 ⇌ 2NH3</p>
               </div>
@@ -277,7 +277,7 @@ export default function HomePage() {
               <div key={item} style={{ "--feed-index": index }}>
                 <span>0{index + 1}</span>
                 <strong>{item}</strong>
-                <em>live</em>
+                <em>{t('common.live')}</em>
               </div>
             ))}
           </div>

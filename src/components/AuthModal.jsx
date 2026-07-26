@@ -53,7 +53,7 @@ export default function AuthModal({ onClose, onSuccess }) {
           </div>
           <div>
             <strong>Ximor</strong>
-            <span>Kimyo chat</span>
+            <span>{t('home.chemistryChat')}</span>
           </div>
         </div>
 

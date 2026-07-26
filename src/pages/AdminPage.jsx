@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { useAuth } from '../context/AuthContext';
 import { avatarBg } from '../utils/avatarColor';
+import { useLanguage } from '../context/LanguageContext';
 
 const BACKEND = import.meta.env.VITE_API_URL || 'http://localhost:3002';
 
@@ -25,33 +26,36 @@ const PERMISSIONS = [
 ];
 
 function StatCard({ label, value, sub, color }) {
+  const { t } = useLanguage();
   return (
     <div className="adm-stat" style={{ '--adm-color': color }}>
       <strong>{value?.toLocaleString() ?? '—'}</strong>
       <span>{label}</span>
-      {sub != null && <small>+{sub} bugun</small>}
+      {sub != null && <small>{t('admin.today', { count: sub })}</small>}
     </div>
   );
 }
 
-function timeAgo(iso) {
+function timeAgo(iso, t) {
   const d = (Date.now() - new Date(iso)) / 1000;
-  if (d < 60)    return 'Hozir';
-  if (d < 3600)  return `${Math.floor(d/60)} daq`;
-  if (d < 86400) return `${Math.floor(d/3600)} soat`;
-  return `${Math.floor(d/86400)} kun`;
+  if (d < 60) return t('time.now');
+  if (d < 3600) return t('time.minutesAgo', { count: Math.floor(d / 60) });
+  if (d < 86400) return t('time.hoursAgo', { count: Math.floor(d / 3600) });
+  return t('time.daysAgo', { count: Math.floor(d / 86400) });
 }
 
 function PermissionBadge({ allowed }) {
+  const { t } = useLanguage();
   return (
     <span className={`adm-badge ${allowed ? 'adm-badge--ok' : 'adm-badge--banned'}`}>
-      {allowed ? 'Bor' : "Yo'q"}
+      {allowed ? t('admin.allowed') : t('admin.denied')}
     </span>
   );
 }
 
 export default function AdminPage({ theme, onThemeToggle }) {
   const { user, authHeaders } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const isAdmin = Boolean(user?.is_admin);
   const canModerate = Boolean(user?.is_admin || user?.is_moderator);
@@ -97,7 +101,7 @@ export default function AdminPage({ theme, onThemeToggle }) {
   if (!user) {
     return (
       <Layout theme={theme} onThemeToggle={onThemeToggle}>
-        <div className="adm-gate">Kirish kerak</div>
+        <div className="adm-gate">{t('admin.loginRequired')}</div>
       </Layout>
     );
   }
@@ -107,9 +111,9 @@ export default function AdminPage({ theme, onThemeToggle }) {
       <Layout theme={theme} onThemeToggle={onThemeToggle}>
         <div className="adm-gate adm-gate--denied">
           <span style={{ fontSize: '2rem' }}>🚫</span>
-          <strong>Moderator huquqi yo'q</strong>
-          <p>Bu sahifaga faqat admin yoki moderatorlar kira oladi.</p>
-          <button className="primary-button" onClick={() => navigate('/')}>Bosh sahifaga</button>
+          <strong>{t('admin.noPermission')}</strong>
+          <p>{t('admin.deniedText')}</p>
+          <button className="primary-button" onClick={() => navigate('/')}>{t('admin.home')}</button>
         </div>
       </Layout>
     );
@@ -174,36 +178,36 @@ export default function AdminPage({ theme, onThemeToggle }) {
         <div className="adm-header">
           <div>
             <h1>Admin Panel</h1>
-            <p>{isAdmin ? 'Ximor boshqaruv markazi' : 'Moderator boshqaruv markazi'}</p>
+            <p>{isAdmin ? t('admin.adminCenter') : t('admin.moderatorCenter')}</p>
           </div>
-          <button className="soft-button" onClick={() => navigate('/chat')}>← Forum</button>
+          <button className="soft-button" onClick={() => navigate('/chat')}>← {t('question.forum')}</button>
         </div>
 
         {/* Stats */}
         {stats && (
           <div className="adm-stats-row">
-            <StatCard label="Foydalanuvchilar" value={stats.users}   sub={stats.today?.users}   color="#36584d" />
-            <StatCard label="Mavzular"          value={stats.topics}  sub={stats.today?.topics}  color="#59616d" />
-            <StatCard label="Javoblar"          value={stats.answers} sub={stats.today?.answers} color="#4d5b55" />
-            <StatCard label="Moderatorlar"      value={stats.moderators} color="#6c6258" />
-            <StatCard label="Bloklangan"        value={stats.banned}  color="#8f4242" />
+            <StatCard label={t('admin.users')} value={stats.users} sub={stats.today?.users} color="#36584d" />
+            <StatCard label={t('admin.topics')} value={stats.topics} sub={stats.today?.topics} color="#59616d" />
+            <StatCard label={t('admin.answers')} value={stats.answers} sub={stats.today?.answers} color="#4d5b55" />
+            <StatCard label={t('admin.moderators')} value={stats.moderators} color="#6c6258" />
+            <StatCard label={t('admin.banned')} value={stats.banned} color="#8f4242" />
           </div>
         )}
 
         {/* Tabs */}
         <div className="adm-tabs">
           {[
-            { id: 'overview', label: 'Ko\'rinish' },
-            { id: 'users',    label: 'Foydalanuvchilar' },
-            { id: 'content',  label: 'Kontent' },
-            { id: 'permissions', label: 'Huquqlar' },
-            isAdmin ? { id: 'announce', label: 'E\'lon' } : null,
-          ].filter(Boolean).map(t => (
+            { id: 'overview', labelKey: 'admin.overview' },
+            { id: 'users', labelKey: 'admin.users' },
+            { id: 'content', labelKey: 'admin.content' },
+            { id: 'permissions', labelKey: 'admin.permissions' },
+            isAdmin ? { id: 'announce', labelKey: 'admin.announcement' } : null,
+          ].filter(Boolean).map(item => (
             <button
-              key={t.id}
-              className={tab === t.id ? 'is-active' : ''}
-              onClick={() => setTab(t.id)}
-            >{t.label}</button>
+              key={item.id}
+              className={tab === item.id ? 'is-active' : ''}
+              onClick={() => setTab(item.id)}
+            >{t(item.labelKey)}</button>
           ))}
         </div>
 
@@ -211,28 +215,28 @@ export default function AdminPage({ theme, onThemeToggle }) {
         {tab === 'overview' && activity && (
           <div className="adm-overview">
             <div className="adm-panel">
-              <h3>So'nggi mavzular</h3>
+              <h3>{t('admin.recentTopics')}</h3>
               <ul className="adm-activity-list">
-                {activity.topics.map(t => (
-                  <li key={t.id}>
+                {activity.topics.map(topicItem => (
+                  <li key={topicItem.id}>
                     <span className="adm-act-icon">📝</span>
                     <div className="adm-act-body">
-                      <button className="adm-link" onClick={() => navigate(`/q/${t.id}`)}>{t.title}</button>
-                      <span>{t.author} · {timeAgo(t.created_at)}</span>
+                      <button className="adm-link" onClick={() => navigate(`/q/${topicItem.id}`)}>{topicItem.title}</button>
+                      <span>{topicItem.author} · {timeAgo(topicItem.created_at, t)}</span>
                     </div>
                   </li>
                 ))}
               </ul>
             </div>
             <div className="adm-panel">
-              <h3>So'nggi javoblar</h3>
+              <h3>{t('admin.recentAnswers')}</h3>
               <ul className="adm-activity-list">
                 {activity.answers.map(a => (
                   <li key={a.id}>
                     <span className="adm-act-icon">💬</span>
                     <div className="adm-act-body">
                       <button className="adm-link" onClick={() => navigate(`/q/${a.topic_id}`)}>{a.topic_title}</button>
-                      <span>{a.author} · {timeAgo(a.created_at)}</span>
+                      <span>{a.author} · {timeAgo(a.created_at, t)}</span>
                     </div>
                   </li>
                 ))}
@@ -245,27 +249,27 @@ export default function AdminPage({ theme, onThemeToggle }) {
         {tab === 'users' && (
           <div className="adm-panel">
             <div className="adm-panel-toolbar">
-              <h3>Barcha foydalanuvchilar ({users.length})</h3>
+              <h3>{t('admin.allUsers', { count: users.length })}</h3>
               <input
                 className="adm-search"
-                placeholder="Ism yoki username bo'yicha qidirish..."
+                placeholder={t('admin.searchUsers')}
                 value={userSearch}
                 onChange={e => setUserSearch(e.target.value)}
               />
             </div>
             {loading ? (
-              <div className="adm-loading">Yuklanmoqda…</div>
+              <div className="adm-loading">{t('common.loading')}</div>
             ) : (
               <div className="adm-table-wrap">
                 <table className="adm-table">
                   <thead>
                     <tr>
-                      <th>Foydalanuvchi</th>
-                      <th>Ball</th>
-                      <th>Mavzular</th>
-                      <th>Javoblar</th>
-                      <th>Holat</th>
-                      <th>Amallar</th>
+                      <th>{t('admin.user')}</th>
+                      <th>{t('admin.points')}</th>
+                      <th>{t('admin.topics')}</th>
+                      <th>{t('admin.answers')}</th>
+                      <th>{t('admin.status')}</th>
+                      <th>{t('admin.actions')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -286,7 +290,7 @@ export default function AdminPage({ theme, onThemeToggle }) {
                             </div>
                             {u.is_admin && <span className="adm-badge adm-badge--admin">Admin</span>}
                             {!u.is_admin && u.is_moderator && <span className="adm-badge adm-badge--mod">Moderator</span>}
-                            {u.banned_at && <span className="adm-badge adm-badge--banned">Bloklangan</span>}
+                            {u.banned_at && <span className="adm-badge adm-badge--banned">{t('admin.banned')}</span>}
                           </div>
                         </td>
                         <td><strong>{u.score?.toLocaleString()}</strong></td>
@@ -359,41 +363,41 @@ export default function AdminPage({ theme, onThemeToggle }) {
         {tab === 'content' && (
           <div className="adm-panel">
             <div className="adm-panel-toolbar">
-              <h3>Mavzular ({topics.length})</h3>
-              <span className="adm-muted">So'nggi 50 ta</span>
+              <h3>{t('admin.topics')} ({topics.length})</h3>
+              <span className="adm-muted">{t('admin.recent50')}</span>
             </div>
             {loading ? (
-              <div className="adm-loading">Yuklanmoqda…</div>
+              <div className="adm-loading">{t('common.loading')}</div>
             ) : (
               <div className="adm-table-wrap">
                 <table className="adm-table">
                   <thead>
                     <tr>
-                      <th>Sarlavha</th>
-                      <th>Muallif</th>
-                      <th>Ball</th>
-                      <th>Javob</th>
-                      <th>Holat</th>
-                      <th>Amallar</th>
+                      <th>{t('admin.title')}</th>
+                      <th>{t('admin.author')}</th>
+                      <th>{t('admin.points')}</th>
+                      <th>{t('admin.answer')}</th>
+                      <th>{t('admin.status')}</th>
+                      <th>{t('admin.actions')}</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {topics.map(t => (
-                      <tr key={t.id}>
+                    {topics.map(topicItem => (
+                      <tr key={topicItem.id}>
                         <td>
-                          <button className="adm-link" onClick={() => navigate(`/q/${t.id}`)} style={{ maxWidth: 300, textAlign: 'left', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
-                            {t.title}
+                          <button className="adm-link" onClick={() => navigate(`/q/${topicItem.id}`)} style={{ maxWidth: 300, textAlign: 'left', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
+                            {topicItem.title}
                           </button>
-                          <span className="adm-muted">{timeAgo(t.created_at)}</span>
+                          <span className="adm-muted">{timeAgo(topicItem.created_at, t)}</span>
                         </td>
-                        <td>{t.author}</td>
-                        <td>{t.score}</td>
-                        <td>{t.answers}</td>
+                        <td>{topicItem.author}</td>
+                        <td>{topicItem.score}</td>
+                        <td>{topicItem.answers}</td>
                         <td>
                           <div className="adm-flags">
-                            {t.pinned && <span className="adm-badge adm-badge--pin">📌</span>}
-                            {t.hot    && <span className="adm-badge adm-badge--hot">🔥</span>}
-                            {t.solved && <span className="adm-badge adm-badge--ok">✓</span>}
+                            {topicItem.pinned && <span className="adm-badge adm-badge--pin">📌</span>}
+                            {topicItem.hot && <span className="adm-badge adm-badge--hot">🔥</span>}
+                            {topicItem.solved && <span className="adm-badge adm-badge--ok">✓</span>}
                           </div>
                         </td>
                         <td>
@@ -401,29 +405,29 @@ export default function AdminPage({ theme, onThemeToggle }) {
                             {isAdmin && (
                               <>
                                 <button
-                                  className={`adm-btn ${t.pinned ? 'adm-btn--active' : ''}`}
-                                  onClick={() => topicAction(t.id, { pinned: !t.pinned }, t.pinned ? 'Mahkamlanmadi' : 'Mahkamlandi')}
-                                  title="Mahkamlash"
+                                  className={`adm-btn ${topicItem.pinned ? 'adm-btn--active' : ''}`}
+                                  onClick={() => topicAction(topicItem.id, { pinned: !topicItem.pinned }, topicItem.pinned ? 'Mahkamlanmadi' : 'Mahkamlandi')}
+                                  title={t('forum.pinned')}
                                 >📌</button>
                                 <button
-                                  className={`adm-btn ${t.hot ? 'adm-btn--active' : ''}`}
-                                  onClick={() => topicAction(t.id, { hot: !t.hot }, t.hot ? 'Qaynoq bekor' : 'Qaynoq qilindi')}
-                                  title="Qaynoq"
+                                  className={`adm-btn ${topicItem.hot ? 'adm-btn--active' : ''}`}
+                                  onClick={() => topicAction(topicItem.id, { hot: !topicItem.hot }, topicItem.hot ? 'Qaynoq bekor' : 'Qaynoq qilindi')}
+                                  title={t('forum.hot')}
                                 >🔥</button>
                               </>
                             )}
                             <button
-                              className={`adm-btn ${t.solved ? 'adm-btn--solved' : ''}`}
-                              onClick={() => topicAction(t.id, { solved: !t.solved }, t.solved ? 'Savol ochiq qilindi' : 'Savol yechildi')}
-                              title={t.solved ? 'Ochiq qilish' : 'Yechilgan qilish'}
+                              className={`adm-btn ${topicItem.solved ? 'adm-btn--solved' : ''}`}
+                              onClick={() => topicAction(topicItem.id, { solved: !topicItem.solved }, topicItem.solved ? 'Savol ochiq qilindi' : 'Savol yechildi')}
+                              title={topicItem.solved ? t('question.markOpen') : t('question.markSolved')}
                             >
-                              {t.solved ? 'Ochiq' : 'Yechildi'}
+                              {topicItem.solved ? t('common.open') : t('common.solved')}
                             </button>
                             {isAdmin && (
                             <button
                               className="adm-btn adm-btn--danger"
-                              onClick={() => deleteTopic(t.id)}
-                              title="O'chirish"
+                              onClick={() => deleteTopic(topicItem.id)}
+                              title={t('question.delete')}
                             >🗑</button>
                             )}
                           </div>
@@ -441,15 +445,15 @@ export default function AdminPage({ theme, onThemeToggle }) {
         {tab === 'permissions' && (
           <div className="adm-panel">
             <div className="adm-panel-toolbar">
-              <h3>Rol huquqlari</h3>
-              <span className="adm-muted">Admin moderatorlarni tayinlaydi</span>
+              <h3>{t('admin.roleRights')}</h3>
+              <span className="adm-muted">{t('admin.adminAssigns')}</span>
             </div>
             <div className="adm-table-wrap">
               <table className="adm-table">
                 <thead>
                   <tr>
-                    <th>Bo'lim</th>
-                    <th>Huquq</th>
+                    <th>{t('admin.section')}</th>
+                    <th>{t('admin.right')}</th>
                     <th>Admin</th>
                     <th>Moderator</th>
                   </tr>
@@ -472,11 +476,11 @@ export default function AdminPage({ theme, onThemeToggle }) {
         {/* ── Announce ── */}
         {tab === 'announce' && isAdmin && (
           <div className="adm-panel adm-announce">
-            <h3>Barcha foydalanuvchilarga e'lon yuborish</h3>
-            <p className="adm-muted">E'lon barcha ro'yxatdan o'tgan foydalanuvchilarning bildirishnomalariga yuboriladi.</p>
+            <h3>{t('admin.sendAnnouncement')}</h3>
+            <p className="adm-muted">{t('admin.announcementHelp')}</p>
             <textarea
               className="adm-announce-area"
-              placeholder="E'lon matnini kiriting... (max 500 belgi)"
+              placeholder={t('admin.announcementPlaceholder')}
               value={announce}
               maxLength={500}
               onChange={e => setAnnounce(e.target.value)}
@@ -488,7 +492,7 @@ export default function AdminPage({ theme, onThemeToggle }) {
                 disabled={!announce.trim() || announceStatus === 'sending'}
                 onClick={sendAnnounce}
               >
-                {announceStatus === 'sending' ? 'Yuborilmoqda…' : '📢 Yuborish'}
+                {announceStatus === 'sending' ? t('admin.sending') : `📢 ${t('admin.send')}`}
               </button>
             </div>
             {announceStatus && announceStatus !== 'sending' && (

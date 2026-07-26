@@ -926,8 +926,10 @@ async function seedDemo() {
     ]);
   }
 
-  // Make first demo user admin
-  await pool.query("UPDATE users SET is_admin = TRUE WHERE username = 'aziza_kimyo'");
+  // Keep demo admin opt-in so production installs do not get a known default admin.
+  if (String(process.env.SEED_DEMO_ADMIN || '').toLowerCase() === 'true') {
+    await pool.query("UPDATE users SET is_admin = TRUE WHERE username = 'aziza_kimyo'");
+  }
 
   // Tournaments
   const tourCount = await q1('SELECT COUNT(*)::INTEGER AS n FROM tournaments');
