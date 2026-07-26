@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import BrandMark from "../components/BrandMark";
 import LanguageSwitcher from "../components/LanguageSwitcher";
@@ -52,6 +52,7 @@ export default function HomePage() {
   const navigate = useNavigate();
   const { t } = useLanguage();
   const pageRef = useRef(null);
+  const scrollAnimationRef = useRef(0);
   const communityItems = t('home.communityItems');
 
   useEffect(() => {
@@ -67,6 +68,96 @@ export default function HomePage() {
     node.addEventListener("pointermove", handlePointerMove);
     return () => node.removeEventListener("pointermove", handlePointerMove);
   }, []);
+
+  useEffect(() => {
+    const node = pageRef.current;
+    if (!node) return undefined;
+
+    const revealItems = Array.from(node.querySelectorAll("[data-landing-reveal]"));
+    if (!revealItems.length) return undefined;
+
+    if (!("IntersectionObserver" in window)) {
+      revealItems.forEach((item) => item.classList.add("is-visible"));
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          entry.target.classList.add("is-visible");
+          observer.unobserve(entry.target);
+        });
+      },
+      {
+        rootMargin: "0px 0px -12% 0px",
+        threshold: 0.16,
+      }
+    );
+
+    revealItems.forEach((item) => observer.observe(item));
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (scrollAnimationRef.current) {
+        window.cancelAnimationFrame(scrollAnimationRef.current);
+      }
+    };
+  }, []);
+
+  const animateToSection = useCallback((target) => {
+    if (!target) return;
+
+    if (scrollAnimationRef.current) {
+      window.cancelAnimationFrame(scrollAnimationRef.current);
+    }
+
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const headerHeight = pageRef.current?.querySelector(".landing-header")?.getBoundingClientRect().height || 0;
+    const start = window.scrollY;
+    const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+    const targetTop = target.getBoundingClientRect().top + start - headerHeight - 18;
+    const end = Math.max(0, Math.min(targetTop, maxScroll));
+    const distance = end - start;
+
+    if (prefersReducedMotion || Math.abs(distance) < 2) {
+      window.scrollTo(0, end);
+      window.history.replaceState(null, "", `#${target.id}`);
+      scrollAnimationRef.current = 0;
+      return;
+    }
+
+    const duration = Math.min(1350, Math.max(760, Math.abs(distance) * 0.58));
+    const startedAt = window.performance.now();
+    const easeInOutCubic = (progress) =>
+      progress < 0.5
+        ? 4 * progress * progress * progress
+        : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+
+    const step = (now) => {
+      const progress = Math.min((now - startedAt) / duration, 1);
+      window.scrollTo(0, start + distance * easeInOutCubic(progress));
+
+      if (progress < 1) {
+        scrollAnimationRef.current = window.requestAnimationFrame(step);
+        return;
+      }
+
+      window.history.replaceState(null, "", `#${target.id}`);
+      scrollAnimationRef.current = 0;
+    };
+
+    scrollAnimationRef.current = window.requestAnimationFrame(step);
+  }, []);
+
+  const handleSectionLink = useCallback((event, sectionId) => {
+    const target = document.getElementById(sectionId);
+    if (!target) return;
+    event.preventDefault();
+    animateToSection(target);
+  }, [animateToSection]);
 
   const openChat = () => navigate("/chat");
 
@@ -102,10 +193,10 @@ export default function HomePage() {
         </button>
 
         <nav className="landing-nav" aria-label={t('nav.main')}>
-          <a href="#home">{t('home.home')}</a>
-          <a href="#features">{t('home.features')}</a>
-          <a href="#about">{t('home.about')}</a>
-          <a href="#community">{t('home.community')}</a>
+          <a href="#home" onClick={(event) => handleSectionLink(event, "home")}>{t('home.home')}</a>
+          <a href="#features" onClick={(event) => handleSectionLink(event, "features")}>{t('home.features')}</a>
+          <a href="#about" onClick={(event) => handleSectionLink(event, "about")}>{t('home.about')}</a>
+          <a href="#community" onClick={(event) => handleSectionLink(event, "community")}>{t('home.community')}</a>
         </nav>
 
         <LanguageSwitcher className="landing-language-switcher" />
@@ -116,7 +207,7 @@ export default function HomePage() {
       </header>
 
       <main>
-        <section className="landing-hero" id="home">
+        <section className="landing-hero is-visible" id="home" data-landing-reveal>
           <div className="landing-hero-copy">
             <div className="landing-eyebrow">
               <span />
@@ -136,7 +227,7 @@ export default function HomePage() {
                 {t('home.openChat')}
                 <HomeIcon name="arrow" />
               </button>
-              <a className="landing-secondary" href="#features">
+              <a className="landing-secondary" href="#features" onClick={(event) => handleSectionLink(event, "features")}>
                 {t('home.features')}
               </a>
             </div>
@@ -203,7 +294,7 @@ export default function HomePage() {
           </button>
         </section>
 
-        <div className="landing-marquee" aria-hidden="true">
+        <div className="landing-marquee" aria-hidden="true" data-landing-reveal>
           <div>
             {communityItems.concat(communityItems).map((item, index) => (
               <span key={`${item}-${index}`}>{item}</span>
@@ -211,7 +302,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        <section className="landing-section" id="features">
+        <section className="landing-section" id="features" data-landing-reveal>
           <div className="landing-section-head">
             <span className="landing-eyebrow">
               <span />
@@ -231,7 +322,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="landing-about" id="about">
+        <section className="landing-about" id="about" data-landing-reveal>
           <div className="landing-about-copy">
             <span className="landing-eyebrow">
               <span />
@@ -257,7 +348,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="landing-community" id="community">
+        <section className="landing-community" id="community" data-landing-reveal>
           <div className="landing-community-panel">
             <div>
               <span className="landing-eyebrow">

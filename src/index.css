@@ -1,5 +1,7 @@
 html {
   background: #f4f5f7;
+  scroll-behavior: smooth;
+  scroll-padding-top: 104px;
 }
 
 body {
@@ -19,4 +21,10 @@ body,
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }

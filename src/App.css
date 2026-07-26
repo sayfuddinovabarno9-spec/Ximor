@@ -7394,6 +7394,31 @@ a { text-decoration: none; }
   letter-spacing: 0;
 }
 
+.landing-hero,
+.landing-marquee,
+.landing-section,
+.landing-about,
+.landing-community {
+  scroll-margin-top: 104px;
+}
+
+[data-landing-reveal] {
+  opacity: 0;
+  transform: translate3d(0, 48px, 0) scale(0.985);
+  filter: blur(12px);
+  transition:
+    opacity 900ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 1050ms cubic-bezier(0.16, 1, 0.3, 1),
+    filter 900ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform, filter;
+}
+
+[data-landing-reveal].is-visible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+  filter: blur(0);
+}
+
 .landing-grid {
   background-size: 74px 74px;
   opacity: 0.2;
