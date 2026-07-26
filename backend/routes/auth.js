@@ -74,8 +74,10 @@ router.post('/register', registerLimiter, async (req, res) => {
 
   if (!user) return res.status(409).json({ error: "Bu username yoki email band, boshqasini tanlang" });
 
-  const token = signUser(user);
-  res.json({ token, user: publicUser(user) });
+  await db.bootstrapConfiguredStaff();
+  const sessionUser = await db.getUserById(user.id) || user;
+  const token = signUser(sessionUser);
+  res.json({ token, user: publicUser(sessionUser) });
 });
 
 // ── POST /api/auth/login ──────────────────────────────────────────────────────
