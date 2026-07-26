@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { useLanguage } from './LanguageContext';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:3002';
 const STORAGE_KEY = 'ximor_token';
@@ -6,6 +7,7 @@ const STORAGE_KEY = 'ximor_token';
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
+  const { t } = useLanguage();
   const [token, setToken] = useState(() => localStorage.getItem(STORAGE_KEY));
   const [user,  setUser]  = useState(() => {
     try {
@@ -72,10 +74,10 @@ export function AuthProvider({ children }) {
       body: JSON.stringify({ username, name, password, email: email || undefined }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Ro\'yxatdan o\'tishda xato');
+    if (!res.ok) throw new Error(data.error || t('auth.registerError'));
     saveSession(data.token, data.user);
     return data.user;
-  }, [saveSession]);
+  }, [saveSession, t]);
 
   const login = useCallback(async (username, password) => {
     const res  = await fetch(`${API}/api/auth/login`, {
@@ -84,10 +86,10 @@ export function AuthProvider({ children }) {
       body: JSON.stringify({ username, password }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Kirish xatosi');
+    if (!res.ok) throw new Error(data.error || t('auth.loginError'));
     saveSession(data.token, data.user);
     return data.user;
-  }, [saveSession]);
+  }, [saveSession, t]);
 
   /** Attach auth header to fetch options */
   const authHeaders = useCallback(() =>

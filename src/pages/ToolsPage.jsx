@@ -7,6 +7,7 @@ import {
   convertSubstanceAmount,
   formatScientific,
 } from '../utils/chemistryCalculators';
+import { useLanguage } from '../context/LanguageContext';
 
 const EQUATION_EXAMPLES = [
   'H2 + O2 -> H2O',
@@ -19,9 +20,9 @@ const EQUATION_EXAMPLES = [
 const FORMULA_EXAMPLES = ['H2SO4', 'Ca(OH)2', 'C6H12O6', 'KMnO4', 'CuSO4'];
 
 const TOOL_TABS = [
-  { id: 'balance', label: 'Tenglashtirish', caption: 'Atomlar balansi', icon: 'balance' },
-  { id: 'mass', label: 'Molyar massa', caption: 'Tarkib va konversiya', icon: 'molecule' },
-  { id: 'stoich', label: 'Stoxiometriya', caption: 'Reagentdan mahsulotga', icon: 'flask' },
+  { id: 'balance', labelKey: 'tools.balance', captionKey: 'tools.balanceCaption', icon: 'balance' },
+  { id: 'mass', labelKey: 'tools.molarMass', captionKey: 'tools.massCaption', icon: 'molecule' },
+  { id: 'stoich', labelKey: 'tools.stoichiometry', captionKey: 'tools.stoichCaption', icon: 'flask' },
 ];
 
 function ToolIcon({ name, size = 18 }) {
@@ -67,17 +68,19 @@ function ResultEquation({ result }) {
 }
 
 function ErrorPanel({ message }) {
+  const { t } = useLanguage();
   return (
     <div className="tool-error" role="alert">
-      <strong>Hisoblab bo‘lmadi</strong>
+      <strong>{t('tools.calculationFailed')}</strong>
       <span>{message}</span>
     </div>
   );
 }
 
 function UnitSwitch({ value, onChange }) {
+  const { t } = useLanguage();
   return (
-    <div className="tool-unit-switch" aria-label="Miqdor birligi">
+    <div className="tool-unit-switch" aria-label={t('tools.amountUnit')}>
       {['g', 'mol'].map(unit => (
         <button
           className={value === unit ? 'is-active' : ''}
@@ -93,6 +96,7 @@ function UnitSwitch({ value, onChange }) {
 }
 
 function BalanceTool({ equation, setEquation, resultState }) {
+  const { t } = useLanguage();
   const [copied, setCopied] = useState(false);
   const questionDraft = resultState.result
     ? [
@@ -118,7 +122,7 @@ function BalanceTool({ equation, setEquation, resultState }) {
     <div className="tool-workspace">
       <div className="tool-card tool-card--input">
         <label className="tool-input-label" htmlFor="equation-input">
-          Reaksiya tenglamasi
+          {t('tools.reactionEquation')}
         </label>
         <div className="tool-input-row">
           <input
@@ -144,20 +148,20 @@ function BalanceTool({ equation, setEquation, resultState }) {
           <div className="tool-card tool-balanced-card">
             <div className="tool-card-title">
               <ToolIcon name="balance" />
-              <span>Tenglashtirilgan tenglama</span>
+              <span>{t('tools.balancedEquation')}</span>
             </div>
             <ResultEquation result={resultState.result} />
             <div className="tool-meta-grid">
               <div>
-                <span>Reagentlar</span>
+                <span>{t('tools.reactants')}</span>
                 <strong>{resultState.result.reactants.length}</strong>
               </div>
               <div>
-                <span>Mahsulotlar</span>
+                <span>{t('tools.products')}</span>
                 <strong>{resultState.result.products.length}</strong>
               </div>
               <div>
-                <span>Reaksiya turi</span>
+                <span>{t('tools.reactionType')}</span>
                 <strong>{resultState.result.type}</strong>
               </div>
             </div>
@@ -166,14 +170,14 @@ function BalanceTool({ equation, setEquation, resultState }) {
           <div className="tool-card">
             <div className="tool-card-title">
               <ToolIcon name="table" />
-              <span>Atomlar balansi</span>
+              <span>{t('tools.balanceCaption')}</span>
             </div>
             <div className="tool-table">
               <div className="tool-table-row tool-table-head">
-                <span>Element</span>
-                <span>Chap</span>
-                <span>O‘ng</span>
-                <span>Holat</span>
+                <span>{t('tools.element')}</span>
+                <span>{t('tools.left')}</span>
+                <span>{t('tools.right')}</span>
+                <span>{t('tools.status')}</span>
               </div>
               {resultState.result.table.map(row => (
                 <div className="tool-table-row" key={row.element}>
@@ -181,7 +185,7 @@ function BalanceTool({ equation, setEquation, resultState }) {
                   <span>{row.left}</span>
                   <span>{row.right}</span>
                   <span className={row.balanced ? 'tool-ok' : 'tool-bad'}>
-                    {row.balanced ? 'Teng' : 'Xato'}
+                    {row.balanced ? t('tools.balanced') : t('tools.errorStatus')}
                   </span>
                 </div>
               ))}
@@ -191,12 +195,12 @@ function BalanceTool({ equation, setEquation, resultState }) {
           <div className="tool-card tool-explain-card">
             <div className="tool-card-title">
               <ToolIcon name="spark" />
-              <span>Nima sodir bo‘ldi?</span>
+              <span>{t('tools.whatHappened')}</span>
             </div>
             <p>{resultState.result.explanation}</p>
             <button className="soft-button" type="button" onClick={copyDraft}>
               <ToolIcon name="copy" />
-              {copied ? 'Nusxalandi' : 'Forum savoli sifatida nusxalash'}
+              {copied ? t('common.copied') : t('tools.copyAsQuestion')}
             </button>
           </div>
         </div>
@@ -206,6 +210,7 @@ function BalanceTool({ equation, setEquation, resultState }) {
 }
 
 function MolarMassTool() {
+  const { t } = useLanguage();
   const [formula, setFormula] = useState(FORMULA_EXAMPLES[2]);
   const [amount, setAmount] = useState('18');
   const [unit, setUnit] = useState('g');
@@ -231,7 +236,7 @@ function MolarMassTool() {
     <div className="tool-workspace">
       <div className="tool-card tool-card--input">
         <label className="tool-input-label" htmlFor="formula-input">
-          Modda formulasi
+          {t('tools.substanceFormula')}
         </label>
         <div className="tool-input-row">
           <input
@@ -257,7 +262,7 @@ function MolarMassTool() {
           <div className="tool-card tool-mass-hero">
             <div className="tool-card-title">
               <ToolIcon name="molecule" />
-              <span>Molyar massa</span>
+              <span>{t('tools.molarMass')}</span>
             </div>
             <div className="tool-mass-value">
               <strong>{massState.result.molarMass.toFixed(3)}</strong>
@@ -265,18 +270,18 @@ function MolarMassTool() {
             </div>
             <div className="tool-formula-preview">{massState.result.formatted}</div>
             <p>
-              Bir molekulada jami <strong>{massState.result.totalAtoms}</strong> ta atom.
+              {t('tools.atomTotal', { count: massState.result.totalAtoms })}
             </p>
           </div>
 
           <div className="tool-card tool-converter-card">
             <div className="tool-card-title">
               <ToolIcon name="arrow" />
-              <span>Miqdorni aylantirish</span>
+              <span>{t('tools.conversion')}</span>
             </div>
             <div className="tool-amount-control">
               <input
-                aria-label="Miqdor"
+                aria-label={t('tools.amount')}
                 min="0"
                 step="any"
                 type="number"
@@ -290,15 +295,15 @@ function MolarMassTool() {
             ) : conversionState?.result ? (
               <div className="tool-conversion-grid">
                 <div>
-                  <span>Massa</span>
+                  <span>{t('tools.mass')}</span>
                   <strong>{formatScientific(conversionState.result.grams)} g</strong>
                 </div>
                 <div>
-                  <span>Modda miqdori</span>
+                  <span>{t('tools.substanceAmount')}</span>
                   <strong>{formatScientific(conversionState.result.moles)} mol</strong>
                 </div>
                 <div>
-                  <span>Zarrachalar</span>
+                  <span>{t('tools.particles')}</span>
                   <strong>{formatScientific(conversionState.result.particles)}</strong>
                 </div>
               </div>
@@ -308,14 +313,14 @@ function MolarMassTool() {
           <div className="tool-card tool-composition-card">
             <div className="tool-card-title">
               <ToolIcon name="table" />
-              <span>Massa tarkibi</span>
+              <span>{t('tools.massComposition')}</span>
             </div>
             <div className="tool-table tool-table--composition">
               <div className="tool-table-row tool-table-head">
-                <span>Element</span>
-                <span>Soni</span>
-                <span>Atom massasi</span>
-                <span>Ulushi</span>
+                <span>{t('tools.element')}</span>
+                <span>{t('tools.count')}</span>
+                <span>{t('tools.atomicMass')}</span>
+                <span>{t('tools.share')}</span>
               </div>
               {massState.result.composition.map(row => (
                 <div className="tool-table-row" key={row.element}>
@@ -334,6 +339,7 @@ function MolarMassTool() {
 }
 
 function StoichiometryTool({ equation, setEquation, resultState }) {
+  const { t } = useLanguage();
   const [sourceIndex, setSourceIndex] = useState(0);
   const [targetIndex, setTargetIndex] = useState(2);
   const [amount, setAmount] = useState('10');
@@ -371,7 +377,7 @@ function StoichiometryTool({ equation, setEquation, resultState }) {
     <div className="tool-workspace">
       <div className="tool-card tool-card--input">
         <label className="tool-input-label" htmlFor="stoich-equation-input">
-          Tenglashtiriladigan reaksiya
+          {t('tools.reactionToBalance')}
         </label>
         <div className="tool-input-row">
           <input
@@ -395,14 +401,14 @@ function StoichiometryTool({ equation, setEquation, resultState }) {
       ) : (
         <>
           <div className="tool-card tool-stoich-equation">
-            <span className="tool-input-label">Avtomatik balans</span>
+            <span className="tool-input-label">{t('tools.automaticBalance')}</span>
             <ResultEquation result={resultState.result} />
           </div>
 
           <div className="tool-stoich-controls">
             <div className="tool-card">
               <label className="tool-input-label" htmlFor="source-compound">
-                Berilgan modda
+                {t('tools.givenSubstance')}
               </label>
               <select
                 id="source-compound"
@@ -412,13 +418,13 @@ function StoichiometryTool({ equation, setEquation, resultState }) {
                 {compounds.map((compound, index) => (
                   <option key={`${compound}-${index}`} value={index}>
                     {formatChemicalFormula(compound)}
-                    {index < resultState.result.reactants.length ? ' — reagent' : ' — mahsulot'}
+                    {index < resultState.result.reactants.length ? ` — ${t('tools.reactant')}` : ` — ${t('tools.product')}`}
                   </option>
                 ))}
               </select>
               <div className="tool-amount-control">
                 <input
-                  aria-label="Boshlang‘ich miqdor"
+                  aria-label={t('tools.initialAmount')}
                   min="0"
                   step="any"
                   type="number"
@@ -435,7 +441,7 @@ function StoichiometryTool({ equation, setEquation, resultState }) {
 
             <div className="tool-card">
               <label className="tool-input-label" htmlFor="target-compound">
-                Topiladigan modda
+                {t('tools.targetSubstance')}
               </label>
               <select
                 id="target-compound"
@@ -445,11 +451,11 @@ function StoichiometryTool({ equation, setEquation, resultState }) {
                 {compounds.map((compound, index) => (
                   <option key={`${compound}-${index}`} value={index}>
                     {formatChemicalFormula(compound)}
-                    {index < resultState.result.reactants.length ? ' — reagent' : ' — mahsulot'}
+                    {index < resultState.result.reactants.length ? ` — ${t('tools.reactant')}` : ` — ${t('tools.product')}`}
                   </option>
                 ))}
               </select>
-              <p className="tool-control-note">100% reaksiya chiqishi qabul qilinadi.</p>
+              <p className="tool-control-note">{t('tools.yieldNote')}</p>
             </div>
           </div>
 
@@ -458,22 +464,22 @@ function StoichiometryTool({ equation, setEquation, resultState }) {
           ) : stoichState.result ? (
             <div className="tool-results tool-results--stoich">
               <div className="tool-card tool-stoich-answer">
-                <span className="eyebrow">Nazariy natija</span>
+                <span className="eyebrow">{t('tools.theoreticalResult')}</span>
                 <div className="tool-answer-value">
                   <strong>{formatScientific(stoichState.result.targetGrams)}</strong>
                   <span>g {stoichState.result.target.formatted}</span>
                 </div>
                 <div className="tool-conversion-grid">
                   <div>
-                    <span>Mahsulot miqdori</span>
+                    <span>{t('tools.productAmount')}</span>
                     <strong>{formatScientific(stoichState.result.targetMoles)} mol</strong>
                   </div>
                   <div>
-                    <span>Zarrachalar</span>
+                    <span>{t('tools.particles')}</span>
                     <strong>{formatScientific(stoichState.result.targetParticles)}</strong>
                   </div>
                   <div>
-                    <span>Koeffitsiyent nisbati</span>
+                    <span>{t('tools.coefficientRatio')}</span>
                     <strong>
                       {stoichState.result.sourceCoefficient}:{stoichState.result.targetCoefficient}
                     </strong>
@@ -484,7 +490,7 @@ function StoichiometryTool({ equation, setEquation, resultState }) {
               <div className="tool-card tool-steps-card">
                 <div className="tool-card-title">
                   <ToolIcon name="spark" />
-                  <span>Yechim bosqichlari</span>
+                  <span>{t('tools.solutionSteps')}</span>
                 </div>
                 <ol className="tool-steps">
                   <li>
@@ -497,13 +503,13 @@ function StoichiometryTool({ equation, setEquation, resultState }) {
                   <li>
                     <span>2</span>
                     <p>
-                      Tenglama nisbati bo‘yicha × <strong>{formatScientific(stoichState.result.ratio)}</strong>
+                      {t('tools.ratioStep', { ratio: formatScientific(stoichState.result.ratio) })}
                     </p>
                   </li>
                   <li>
                     <span>3</span>
                     <p>
-                      {stoichState.result.target.formatted} molyar massasi:{' '}
+                      {t('tools.molarMassStep', { formula: stoichState.result.target.formatted })}{' '}
                       <strong>{stoichState.result.target.molarMass.toFixed(3)} g/mol</strong>
                     </p>
                   </li>
@@ -518,6 +524,7 @@ function StoichiometryTool({ equation, setEquation, resultState }) {
 }
 
 export default function ToolsPage({ theme, onThemeToggle }) {
+  const { t } = useLanguage();
   const [activeTool, setActiveTool] = useState('balance');
   const [equation, setEquation] = useState(EQUATION_EXAMPLES[1]);
 
@@ -534,15 +541,12 @@ export default function ToolsPage({ theme, onThemeToggle }) {
       <main className="tools-shell">
         <section className="tools-main">
           <div className="tools-head">
-            <span className="eyebrow">Kimyo asboblari</span>
-            <h1>Hisoblash markazi</h1>
-            <p>
-              Tenglamani balanslang, moddaning tarkibini hisoblang va reagentdan qancha
-              mahsulot chiqishini bosqichma-bosqich toping.
-            </p>
+            <span className="eyebrow">{t('tools.eyebrow')}</span>
+            <h1>{t('tools.title')}</h1>
+            <p>{t('tools.intro')}</p>
           </div>
 
-          <div className="tool-tabs" role="tablist" aria-label="Kimyo hisoblash asboblari">
+          <div className="tool-tabs" role="tablist" aria-label={t('tools.tabsLabel')}>
             {TOOL_TABS.map(tool => (
               <button
                 aria-selected={activeTool === tool.id}
@@ -554,8 +558,8 @@ export default function ToolsPage({ theme, onThemeToggle }) {
               >
                 <ToolIcon name={tool.icon} size={20} />
                 <span>
-                  <strong>{tool.label}</strong>
-                  <small>{tool.caption}</small>
+                  <strong>{t(tool.labelKey)}</strong>
+                  <small>{t(tool.captionKey)}</small>
                 </span>
               </button>
             ))}
@@ -580,27 +584,18 @@ export default function ToolsPage({ theme, onThemeToggle }) {
 
         <aside className="tools-side">
           <div className="tool-card tools-status-card">
-            <span className="eyebrow">3 ta asbob</span>
-            <h3>Bitta kimyo ish maydoni</h3>
-            <p>
-              Tenglama koeffitsiyentlari stoxiometriya hisobiga to‘g‘ridan-to‘g‘ri
-              uzatiladi. Natijalar brauzerning o‘zida hisoblanadi.
-            </p>
+            <span className="eyebrow">{t('tools.toolCount')}</span>
+            <h3>{t('tools.workspace')}</h3>
+            <p>{t('tools.workspaceText')}</p>
             <ul className="tool-check-list">
-              <li>Oddiy formula va qavslar</li>
-              <li>94 ta element atom massasi</li>
-              <li>Gram, mol va zarrachalar</li>
-              <li>Yechim bosqichlari bilan javob</li>
+              {t('tools.checks').map(item => <li key={item}>{item}</li>)}
             </ul>
           </div>
 
           <div className="tool-card tool-next-card">
-            <span className="eyebrow">Hisoblash qoidasi</span>
-            <h3>Natija nazariy qiymat</h3>
-            <p>
-              Stoxiometriya asbobi reagent tozaligi va reaksiya chiqishini 100% deb
-              oladi. Laboratoriya natijasi bundan farq qilishi mumkin.
-            </p>
+            <span className="eyebrow">{t('tools.rule')}</span>
+            <h3>{t('tools.theoretical')}</h3>
+            <p>{t('tools.theoreticalText')}</p>
           </div>
         </aside>
       </main>
