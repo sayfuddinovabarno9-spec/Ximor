@@ -1,15 +1,6 @@
 import { useCallback } from "react";
 import { useLanguage } from "../context/LanguageContext";
 
-const CHEMISTRY_SNIPPETS = [
-  { labelKey: "composer.formula", value: "H2SO4" },
-  { labelKey: "composer.reaction", value: "H2SO4 + CuO -> CuSO4 + H2O" },
-  { labelKey: "composer.reversible", value: "N2 + 3H2 <-> 2NH3" },
-  { labelKey: "composer.charge", value: "SO4^2-" },
-  { labelKey: "composer.state", value: "(aq)" },
-  { labelKey: "composer.precipitate", value: "Ag+ + Cl- -> AgCl(s)" },
-];
-
 const LATEX_SNIPPETS = [
   { labelKey: "composer.fraction", value: "$\\frac{[A]}{[B]}$" },
   { label: "Delta H", value: "$$\\Delta H^\\circ = \\sum H_f(\\text{mahsulot}) - \\sum H_f(\\text{reagent})$$" },
@@ -60,15 +51,6 @@ export default function AnswerEditorTools({ className = "", onChange, textareaRe
 
   return (
     <div className={`answer-editor-tools ${className}`.trim()}>
-      <div className="chem-toolbar" aria-label={t('composer.chemistry')}>
-        <span>{t('composer.chemistry')}</span>
-        {CHEMISTRY_SNIPPETS.map((item) => (
-          <button key={item.labelKey} onClick={() => insertSnippet(item.value)} type="button">
-            {t(item.labelKey)}
-          </button>
-        ))}
-      </div>
-
       <div className="chem-toolbar latex-toolbar" aria-label="LaTeX formulalari">
         <span>LaTeX</span>
         {LATEX_SNIPPETS.map((item) => (

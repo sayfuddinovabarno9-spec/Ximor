@@ -12,6 +12,38 @@ function cleanMessage(value) {
     .slice(0, 4000);
 }
 
+function sanitize(str) {
+  if (typeof str !== 'string') return str;
+  return str
+    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
+    .replace(/<\/?(iframe|object|embed|frame|frameset|base|form)[^>]*>/gi, '')
+    .replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '')
+    .replace(/(href|src|action)\s*=\s*"javascript:[^"]*"/gi, '$1="#"')
+    .replace(/(href|src|action)\s*=\s*'javascript:[^']*'/gi, "$1='#'")
+    .trim();
+}
+
+function sanitizeImages(imagesInput, defaultName = 'Xabar rasmi') {
+  let imageBytes = 0;
+  return Array.isArray(imagesInput)
+    ? imagesInput
+        .slice(0, 4)
+        .map((image) => {
+          const src = typeof image?.src === 'string' ? image.src : '';
+          const valid = /^data:image\/(?:jpeg|jpg|png|webp);base64,/i.test(src);
+          if (!valid || src.length > 2_000_000 || imageBytes + src.length > 6_000_000) return null;
+          imageBytes += src.length;
+          return {
+            id: sanitize(String(image.id || '').slice(0, 180)),
+            name: sanitize(String(image.name || defaultName).slice(0, 180)),
+            size: Math.max(0, Number(image.size) || 0),
+            src,
+          };
+        })
+        .filter(Boolean)
+    : [];
+}
+
 router.use(requireAuth);
 
 // GET /api/messages/users?q= — users available for a new conversation
@@ -69,10 +101,11 @@ router.get('/conversations/:id/messages', async (req, res, next) => {
 router.post('/conversations/:id/messages', async (req, res, next) => {
   try {
     const body = cleanMessage(req.body?.body);
-    if (!body) return res.status(400).json({ error: 'Xabar matni kerak' });
+    const images = sanitizeImages(req.body?.images);
+    if (!body && images.length === 0) return res.status(400).json({ error: 'Xabar matni yoki rasm kerak' });
 
     const conversationId = Number(req.params.id);
-    const message = await db.sendConversationMessage(conversationId, req.user.id, body);
+    const message = await db.sendConversationMessage(conversationId, req.user.id, body, images);
     if (!message) return res.status(404).json({ error: 'Suhbat topilmadi' });
 
     const conversation = await db.getConversationForUser(conversationId, req.user.id);

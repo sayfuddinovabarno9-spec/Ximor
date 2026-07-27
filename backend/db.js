@@ -204,9 +204,11 @@ async function initSchema() {
       conversation_id INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
       sender_id       INTEGER REFERENCES users(id) ON DELETE SET NULL,
       body            TEXT NOT NULL,
+      images          TEXT DEFAULT '[]',
       read_at         TIMESTAMPTZ,
       created_at      TIMESTAMPTZ DEFAULT NOW()
     );
+    ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS images TEXT DEFAULT '[]';
 
     CREATE INDEX IF NOT EXISTS idx_conversations_low  ON conversations(user_low_id, updated_at DESC);
     CREATE INDEX IF NOT EXISTS idx_conversations_high ON conversations(user_high_id, updated_at DESC);
@@ -696,6 +698,7 @@ function hydrateConversation(row) {
     lastMessage: row.last_message_id ? {
       id: row.last_message_id,
       body: row.last_message_body,
+      images: safeJson(row.last_message_images, []),
       sender_id: row.last_message_sender_id,
       created_at: row.last_message_at,
       is_mine: row.last_message_sender_id === row.viewer_id,
@@ -711,6 +714,7 @@ function hydrateChatMessage(row, viewerId) {
     conversation_id: row.conversation_id,
     sender_id: row.sender_id,
     body: row.body,
+    images: safeJson(row.images, []),
     read_at: row.read_at,
     created_at: row.created_at,
     is_mine: row.sender_id === viewerId,
@@ -759,13 +763,14 @@ async function getConversationForUser(conversationId, userId) {
       u.score AS other_score,
       m.id AS last_message_id,
       m.body AS last_message_body,
+      m.images AS last_message_images,
       m.sender_id AS last_message_sender_id,
       m.created_at AS last_message_at,
       COALESCE(unread.unread_count, 0)::INTEGER AS unread_count
     FROM conversations c
     JOIN users u ON u.id = CASE WHEN c.user_low_id = $2 THEN c.user_high_id ELSE c.user_low_id END
     LEFT JOIN LATERAL (
-      SELECT id, body, sender_id, created_at
+      SELECT id, body, images, sender_id, created_at
       FROM chat_messages
       WHERE conversation_id = c.id
       ORDER BY id DESC
@@ -816,13 +821,14 @@ async function getConversationsForUser(userId) {
       u.score AS other_score,
       m.id AS last_message_id,
       m.body AS last_message_body,
+      m.images AS last_message_images,
       m.sender_id AS last_message_sender_id,
       m.created_at AS last_message_at,
       COALESCE(unread.unread_count, 0)::INTEGER AS unread_count
     FROM conversations c
     JOIN users u ON u.id = CASE WHEN c.user_low_id = $1 THEN c.user_high_id ELSE c.user_low_id END
     LEFT JOIN LATERAL (
-      SELECT id, body, sender_id, created_at
+      SELECT id, body, images, sender_id, created_at
       FROM chat_messages
       WHERE conversation_id = c.id
       ORDER BY id DESC
@@ -852,7 +858,7 @@ async function getConversationMessages(conversationId, userId, options = {}) {
   const limit = Math.min(Math.max(Number(options.limit) || 80, 1), 120);
   const rows = await q(`
     SELECT
-      m.id, m.conversation_id, m.sender_id, m.body, m.read_at, m.created_at,
+      m.id, m.conversation_id, m.sender_id, m.body, m.images, m.read_at, m.created_at,
       u.username AS sender_username,
       u.name AS sender_name,
       u.initials AS sender_initials,
@@ -868,7 +874,7 @@ async function getConversationMessages(conversationId, userId, options = {}) {
   return rows.reverse().map((row) => hydrateChatMessage(row, userId));
 }
 
-async function sendConversationMessage(conversationId, userId, body) {
+async function sendConversationMessage(conversationId, userId, body, images = []) {
   const conversation = await q1(
     'SELECT id FROM conversations WHERE id = $1 AND (user_low_id = $2 OR user_high_id = $2)',
     [conversationId, userId]
@@ -876,10 +882,10 @@ async function sendConversationMessage(conversationId, userId, body) {
   if (!conversation) return null;
 
   const row = await q1(`
-    INSERT INTO chat_messages (conversation_id, sender_id, body)
-    VALUES ($1, $2, $3)
+    INSERT INTO chat_messages (conversation_id, sender_id, body, images)
+    VALUES ($1, $2, $3, $4)
     RETURNING *
-  `, [conversationId, userId, body]);
+  `, [conversationId, userId, body, JSON.stringify(images)]);
   await pool.query('UPDATE conversations SET updated_at = NOW() WHERE id = $1', [conversationId]);
 
   const sender = await q1('SELECT username, name, initials, avatar_url, role FROM users WHERE id = $1', [userId]);

@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import AnswerEditorTools from '../components/AnswerEditorTools';
 import AuthModal from '../components/AuthModal';
+import AttachmentGallery from '../components/AttachmentGallery';
 import Layout from '../components/Layout';
+import RichText from '../components/RichText';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { avatarBg } from '../utils/avatarColor';
+import { prepareForumImage } from '../utils/forumImage';
 
 const BACKEND = import.meta.env.VITE_API_URL || 'http://localhost:3002';
 
@@ -14,6 +18,8 @@ function Icon({ name, size = 18 }) {
     search: "m21 21-4.3-4.3M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4Z",
     send: "M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z",
     users: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
+    image: "M21 15V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4ZM3 16l5-5 4 4 3-3 6 6M8.5 8.5h.01",
+    x: "M18 6 6 18M6 6l12 12",
   };
 
   return (
@@ -92,8 +98,11 @@ export default function MessagesPage({ theme, onThemeToggle }) {
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [startingId, setStartingId] = useState(null);
   const [draft, setDraft] = useState('');
+  const [draftImages, setDraftImages] = useState([]);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
+  const draftRef = useRef(null);
+  const draftImageInputRef = useRef(null);
   const messagesEndRef = useRef(null);
 
   const activeConversation = useMemo(
@@ -106,10 +115,13 @@ export default function MessagesPage({ theme, onThemeToggle }) {
     const sender = conversation.lastMessage.is_mine
       ? t('messages.youPrefix')
       : `${conversation.otherUser.name}: `;
+    const text = conversation.lastMessage.body || (
+      conversation.lastMessage.images?.length ? t('composer.image') : ''
+    );
     return (
       <span className="message-preview">
         <b>{sender}</b>
-        {conversation.lastMessage.body}
+        {text}
       </span>
     );
   };
@@ -249,16 +261,36 @@ export default function MessagesPage({ theme, onThemeToggle }) {
     }
   };
 
+  const handleDraftImages = async (event) => {
+    const files = Array.from(event.target.files || [])
+      .filter((file) => file.type.startsWith('image/'))
+      .slice(0, Math.max(0, 4 - draftImages.length));
+
+    if (!files.length) return;
+
+    const results = await Promise.allSettled(files.map(prepareForumImage));
+    const images = results
+      .filter((result) => result.status === 'fulfilled')
+      .map((result) => result.value);
+
+    setDraftImages((current) => [...current, ...images].slice(0, 4));
+    event.target.value = '';
+  };
+
+  const removeDraftImage = (imageId) => {
+    setDraftImages((current) => current.filter((image) => image.id !== imageId));
+  };
+
   const sendMessage = async () => {
     const body = draft.trim();
-    if (!body || !activeConversationId || sending) return;
+    if ((!body && draftImages.length === 0) || !activeConversationId || sending) return;
 
     setSending(true);
     try {
       const response = await fetch(`${BACKEND}/api/messages/conversations/${activeConversationId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ body }),
+        body: JSON.stringify({ body, images: draftImages }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || 'message failed');
@@ -273,6 +305,7 @@ export default function MessagesPage({ theme, onThemeToggle }) {
         });
       }
       setDraft('');
+      setDraftImages([]);
       setError('');
     } catch {
       setError(t('messages.sendError'));
@@ -440,7 +473,10 @@ export default function MessagesPage({ theme, onThemeToggle }) {
                           className={`chat-bubble ${message.is_mine ? 'is-mine' : 'is-theirs'}`}
                           key={message.id}
                         >
-                          <p>{message.body}</p>
+                          {message.body && (
+                            <RichText className="chat-bubble-text" text={message.body} />
+                          )}
+                          <AttachmentGallery images={message.images || []} />
                           <time>{formatTime(message.created_at)}</time>
                         </article>
                       ))
@@ -449,17 +485,61 @@ export default function MessagesPage({ theme, onThemeToggle }) {
                   </div>
 
                   <form className="messages-composer" onSubmit={submitMessage}>
-                    <textarea
+                    <AnswerEditorTools
+                      className="messages-editor-tools"
+                      onChange={setDraft}
+                      textareaRef={draftRef}
                       value={draft}
-                      onChange={(event) => setDraft(event.target.value)}
-                      onKeyDown={handleDraftKeyDown}
-                      placeholder={t('messages.messagePlaceholder')}
-                      rows={2}
                     />
-                    <button className="primary-button" disabled={!draft.trim() || sending} type="submit">
-                      <Icon name="send" size={17} />
-                      {sending ? t('messages.sending') : t('messages.sendMessage')}
-                    </button>
+                    {draftImages.length > 0 && (
+                      <div className="composer-editor-images messages-composer-images">
+                        {draftImages.map((image) => (
+                          <figure key={image.id}>
+                            <img alt={image.name} src={image.src} />
+                            <button
+                              aria-label={t('composer.removeImage', { name: image.name })}
+                              onClick={() => removeDraftImage(image.id)}
+                              type="button"
+                            >
+                              <Icon name="x" size={14} />
+                            </button>
+                          </figure>
+                        ))}
+                      </div>
+                    )}
+                    <div className="messages-composer-row">
+                      <textarea
+                        ref={draftRef}
+                        value={draft}
+                        onChange={(event) => setDraft(event.target.value)}
+                        onKeyDown={handleDraftKeyDown}
+                        placeholder={t('messages.messagePlaceholder')}
+                        rows={2}
+                      />
+                      <button className="primary-button" disabled={(!draft.trim() && draftImages.length === 0) || sending} type="submit">
+                        <Icon name="send" size={17} />
+                        {sending ? t('messages.sending') : t('messages.sendMessage')}
+                      </button>
+                    </div>
+                    <div className="composer-editor-footer messages-composer-footer">
+                      <input
+                        accept="image/*"
+                        multiple
+                        onChange={handleDraftImages}
+                        ref={draftImageInputRef}
+                        type="file"
+                      />
+                      <button
+                        className="composer-attach-button"
+                        disabled={draftImages.length >= 4}
+                        onClick={() => draftImageInputRef.current?.click()}
+                        type="button"
+                      >
+                        <Icon name="image" size={17} />
+                        {t('composer.image')}
+                      </button>
+                      <span>{draftImages.length}/4</span>
+                    </div>
                   </form>
                 </>
               ) : (
