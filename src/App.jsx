@@ -844,22 +844,6 @@ function ComposerModal({ onClose, onSubmit }) {
               />
             </label>
 
-            <div className="chem-toolbar" aria-label={t('composer.chemistry')}>
-              <span>{t('composer.chemistry')}</span>
-              {[
-                { labelKey: "composer.formula", value: "H2SO4" },
-                { labelKey: "composer.reaction", value: "H2SO4 + CuO -> CuSO4 + H2O" },
-                { labelKey: "composer.reversible", value: "N2 + 3H2 <-> 2NH3" },
-                { labelKey: "composer.charge", value: "SO4^2-" },
-                { labelKey: "composer.state", value: "(aq)" },
-                { labelKey: "composer.precipitate", value: "Ag+ + Cl- -> AgCl(s)" },
-              ].map((item) => (
-                <button key={item.labelKey} onClick={() => insertSnippet(item.value)} type="button">
-                  {t(item.labelKey)}
-                </button>
-              ))}
-            </div>
-
             <div className="chem-toolbar latex-toolbar" aria-label="LaTeX kimyo formulalari">
               <span>LaTeX</span>
               {[
