@@ -3668,6 +3668,7 @@ a { text-decoration: none; }
   align-items: center;
   border-top: 1px solid var(--line);
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   justify-content: space-between;
   margin-top: 16px;
@@ -3694,21 +3695,38 @@ a { text-decoration: none; }
   background: var(--surface-soft);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  display: flex;
+  display: grid;
   gap: 10px;
+  grid-template-columns: max-content 36px minmax(0, 1fr);
+  max-width: 100%;
+  min-width: 0;
   padding: 8px 12px;
+}
+
+.qp-author-card > div {
+  min-width: 0;
+}
+
+.qp-author-card .avatar {
+  display: inline-flex;
 }
 
 .qp-author-card strong {
   display: block;
   font-size: 13px;
   font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.qp-author-card span {
+.qp-author-card > div span {
   color: var(--muted);
   display: block;
   font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .qp-author-label {
