@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import 'katex/dist/katex.min.css';
+import 'katex/dist/contrib/mhchem.mjs';
 import './index.css';
 import App from './App';
 import { LanguageProvider } from './context/LanguageContext';

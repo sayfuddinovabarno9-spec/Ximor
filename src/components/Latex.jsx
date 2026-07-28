@@ -1,5 +1,14 @@
 import { useEffect, useRef } from 'react';
 import katex from 'katex';
+import 'katex/dist/contrib/mhchem.mjs';
+
+function isEscaped(value, index) {
+  let slashCount = 0;
+  for (let i = index - 1; i >= 0 && value[i] === '\\'; i -= 1) {
+    slashCount += 1;
+  }
+  return slashCount % 2 === 1;
+}
 
 // Renders a single LaTeX expression via KaTeX
 export function KatexSpan({ tex, display = false, className = '' }) {
@@ -13,10 +22,6 @@ export function KatexSpan({ tex, display = false, className = '' }) {
         throwOnError: false,
         strict: false,
         trust: false,
-        // chemistry support via mhchem macro emulation is handled via manual expansion
-        macros: {
-          '\\ce': '\\text{#1}', // basic fallback; real mhchem needs a KaTeX plugin
-        },
       });
     } catch {
       ref.current.textContent = tex;
@@ -35,20 +40,19 @@ export function KatexSpan({ tex, display = false, className = '' }) {
 // returning an array of segments: { type: 'text'|'inline'|'display', value: string }
 export function parseLatexSegments(text) {
   const segments = [];
-  // Match $$...$$ first (display), then $...$ (inline) — order matters
-  const re = /(\$\$[\s\S]+?\$\$|\$[^$\n]+?\$)/g;
+  // Match $$...$$, $...$, \[...\], and \(...\).
+  const re = /(\$\$[\s\S]+?\$\$|\$[^$\n]+?\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\))/g;
   let last = 0;
   let match;
   while ((match = re.exec(text)) !== null) {
+    if (isEscaped(text, match.index)) continue;
     if (match.index > last) {
       segments.push({ type: 'text', value: text.slice(last, match.index) });
     }
     const raw = match[0];
-    if (raw.startsWith('$$')) {
-      segments.push({ type: 'display', value: raw.slice(2, -2).trim() });
-    } else {
-      segments.push({ type: 'inline', value: raw.slice(1, -1).trim() });
-    }
+    const display = raw.startsWith('$$') || raw.startsWith('\\[');
+    const value = raw.startsWith('$') ? raw.slice(display ? 2 : 1, display ? -2 : -1) : raw.slice(2, -2);
+    segments.push({ type: display ? 'display' : 'inline', value: value.trim() });
     last = match.index + raw.length;
   }
   if (last < text.length) {
@@ -74,5 +78,5 @@ export function LatexLine({ text, renderText }) {
 
 // Quick utility: does this string contain any LaTeX markers?
 export function hasLatex(text) {
-  return /\$/.test(text);
+  return /\$|\\\(|\\\[/.test(text);
 }

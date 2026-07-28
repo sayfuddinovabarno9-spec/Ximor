@@ -5,6 +5,8 @@ import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 
+const MARKDOWN_CODE_RE = /(`{3,}[\s\S]*?`{3,}|~{3,}[\s\S]*?~{3,}|`[^`\n]*`)/g;
+
 const ELEMENT_SYMBOLS = new Set([
   "H", "He", "Li", "Be", "B", "C", "N", "O", "F", "Ne", "Na", "Mg", "Al", "Si", "P", "S", "Cl",
   "Ar", "K", "Ca", "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn", "Ga", "Ge", "As",
@@ -16,6 +18,66 @@ const ELEMENT_SYMBOLS = new Set([
 
 const SUBSCRIPT = { 0: "₀", 1: "₁", 2: "₂", 3: "₃", 4: "₄", 5: "₅", 6: "₆", 7: "₇", 8: "₈", 9: "₉" };
 const SUPERSCRIPT = { 0: "⁰", 1: "¹", 2: "²", 3: "³", 4: "⁴", 5: "⁵", 6: "⁶", 7: "⁷", 8: "⁸", 9: "⁹", "+": "⁺", "-": "⁻" };
+
+function isEscaped(value, index) {
+  let slashCount = 0;
+  for (let i = index - 1; i >= 0 && value[i] === "\\"; i -= 1) {
+    slashCount += 1;
+  }
+  return slashCount % 2 === 1;
+}
+
+function findLatexDelimiter(value, delimiter, start) {
+  for (let i = start; i < value.length - 1; i += 1) {
+    if (value.startsWith(delimiter, i) && !isEscaped(value, i)) return i;
+  }
+  return -1;
+}
+
+function normalizeLatexSegment(value) {
+  let normalized = "";
+  let index = 0;
+
+  while (index < value.length) {
+    const isDisplayOpen = value.startsWith("\\[", index) && !isEscaped(value, index);
+    const isInlineOpen = value.startsWith("\\(", index) && !isEscaped(value, index);
+
+    if (!isDisplayOpen && !isInlineOpen) {
+      normalized += value[index];
+      index += 1;
+      continue;
+    }
+
+    const closeDelimiter = isDisplayOpen ? "\\]" : "\\)";
+    const closeIndex = findLatexDelimiter(value, closeDelimiter, index + 2);
+
+    if (closeIndex === -1) {
+      normalized += value[index];
+      index += 1;
+      continue;
+    }
+
+    const tex = value.slice(index + 2, closeIndex).trim();
+    if (!tex) {
+      normalized += value.slice(index, closeIndex + 2);
+    } else if (isDisplayOpen) {
+      normalized += `\n\n$$\n${tex}\n$$\n\n`;
+    } else {
+      normalized += `$${tex}$`;
+    }
+
+    index = closeIndex + 2;
+  }
+
+  return normalized;
+}
+
+function normalizeLatexDelimiters(value) {
+  return value
+    .split(MARKDOWN_CODE_RE)
+    .map((part, index) => (index % 2 ? part : normalizeLatexSegment(part)))
+    .join("");
+}
 
 function toSubscript(value) {
   return value.replace(/[0-9]/g, (digit) => SUBSCRIPT[digit]);
@@ -213,6 +275,7 @@ const markdownComponents = {
 
 export default function RichText({ className = "", text }) {
   if (!text) return null;
+  const normalizedText = normalizeLatexDelimiters(String(text));
 
   return (
     <div className={`rich-text markdown-body ${className}`}>
@@ -224,9 +287,9 @@ export default function RichText({ className = "", text }) {
           throwOnError: false,
           trust: false,
         }]]}
-        remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]}
+        remarkPlugins={[remarkGfm, remarkBreaks, [remarkMath, { singleDollarTextMath: true }]]}
       >
-        {text}
+        {normalizedText}
       </ReactMarkdown>
     </div>
   );
