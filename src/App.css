@@ -6424,8 +6424,22 @@ a { text-decoration: none; }
   padding: 2px 6px;
   border-radius: 20px;
 }
-.adm-badge--admin  { background: color-mix(in srgb, var(--gold) 14%, var(--surface)); color: var(--gold); }
-.adm-badge--mod    { background: color-mix(in srgb, var(--primary) 12%, var(--surface)); color: var(--primary); }
+.adm-badge--admin  {
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--admin-hot) 82%, var(--surface)),
+      color-mix(in srgb, var(--admin-pop) 68%, var(--surface)));
+  box-shadow: 0 6px 14px color-mix(in srgb, var(--admin-pop) 17%, transparent);
+  color: #fff;
+}
+.adm-badge--mod    {
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--moderator-hot) 78%, var(--surface)),
+      color-mix(in srgb, var(--moderator-pop) 68%, var(--surface)));
+  box-shadow: 0 6px 14px color-mix(in srgb, var(--moderator-pop) 15%, transparent);
+  color: #fff;
+}
 .adm-badge--banned { background: color-mix(in srgb, var(--rose) 12%, var(--surface)); color: var(--rose); }
 .adm-badge--pin    { background: color-mix(in srgb, var(--blue) 12%, var(--surface)); color: var(--blue); }
 .adm-badge--hot    { background: color-mix(in srgb, var(--amber) 12%, var(--surface)); color: var(--amber); }
