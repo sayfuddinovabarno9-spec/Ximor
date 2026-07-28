@@ -1169,6 +1169,10 @@ function Forum({ theme, onThemeToggle }) {
     }));
   }, []);
 
+  const handleIncomingTopicDeleted = useCallback(({ topicId }) => {
+    setTopics(prev => prev.filter(topic => String(topic.id) !== String(topicId)));
+  }, []);
+
   // Real-time: an answer came in from any connected client (including ourselves on retry)
   const handleIncomingAnswer = useCallback(({ topicId, answer, answers }) => {
     setTopics(prev => prev.map(t => {
@@ -1202,7 +1206,8 @@ function Forum({ theme, onThemeToggle }) {
     handleIncomingTopicModeration,
     null,
     handleIncomingAnswerDeleted,
-    handleIncomingTopicUpdate
+    handleIncomingTopicUpdate,
+    handleIncomingTopicDeleted
   );
 
   useEffect(() => {

@@ -21,11 +21,12 @@ const PERMISSIONS = [
   { area: 'Users', label: 'Blokni olib tashlash', admin: true, moderator: true },
   { area: 'Questions', label: 'Savolni yechildi deb belgilash', admin: true, moderator: true },
   { area: 'Questions', label: 'Savolni ochiq qilish', admin: true, moderator: true },
+  { area: 'Questions', label: 'Savolni tahrirlash', admin: true, moderator: false },
+  { area: 'Questions', label: 'Savolni o\'chirish', admin: true, moderator: false },
   { area: 'Answers', label: 'Javobni foydali yoki foydasiz belgilash', admin: true, moderator: true },
   { area: 'Answers', label: 'Javobni to\'g\'ri yoki noto\'g\'ri belgilash', admin: true, moderator: true },
-  { area: 'Answers', label: 'Javobni o\'chirish', admin: true, moderator: true },
+  { area: 'Answers', label: 'Javobni o\'chirish', admin: true, moderator: false },
   { area: 'Topics', label: 'Mavzuni mahkamlash yoki qaynoq qilish', admin: true, moderator: false },
-  { area: 'Topics', label: 'Mavzuni o\'chirish', admin: true, moderator: false },
   { area: 'Notify', label: 'Umumiy e\'lon yuborish', admin: true, moderator: false },
 ];
 

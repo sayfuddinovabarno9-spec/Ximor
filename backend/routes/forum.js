@@ -139,9 +139,8 @@ router.patch('/topics/:id', requireAuth, async (req, res) => {
   const existing = await db.getTopicWithAnswers(topicId);
   if (!existing) return res.status(404).json({ error: 'topic not found' });
 
-  const isAuthor = existing.user_id ? existing.user_id === req.user.id : existing.author === req.user.name;
-  if (!isAuthor && !hasModeratorAccess(req.user)) {
-    return res.status(403).json({ error: 'Faqat savol egasi yoki moderator tahrirlashi mumkin' });
+  if (!req.user.is_admin) {
+    return res.status(403).json({ error: 'Faqat admin savolni tahrirlashi mumkin' });
   }
 
   const clean = sanitizeTopic(req.body);

@@ -111,11 +111,13 @@ router.delete('/topics/:id', async (req, res) => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: 'Invalid id' });
   await db.adminDeleteTopic(id);
+  broadcast('topicDeleted', { topicId: id });
   res.json({ ok: true });
 });
 
 // ── Answers ───────────────────────────────────────────────────────────────────
 router.delete('/answers/:id', async (req, res) => {
+  if (!requireAdminOnly(req, res)) return;
   const id = parseInt(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: 'Invalid id' });
   const deleted = await db.adminDeleteAnswer(id);

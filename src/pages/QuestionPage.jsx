@@ -518,6 +518,12 @@ export default function QuestionPage() {
     });
   }, [id]);
 
+  const onTopicDeleted = useCallback(({ topicId }) => {
+    if (String(topicId) !== String(id)) return;
+    setTopic(null);
+    setError(t('question.notFound'));
+  }, [id, t]);
+
   useForumStream(
     () => {},
     null,
@@ -528,7 +534,8 @@ export default function QuestionPage() {
     onTopicModeration,
     onAnswerModeration,
     onAnswerDeleted,
-    onTopicUpdate
+    onTopicUpdate,
+    onTopicDeleted
   );
 
   /* Vote on the topic */
@@ -711,6 +718,10 @@ export default function QuestionPage() {
 
   const handleUpdateQuestion = async (form) => {
     if (!user) { setShowAuth(true); throw new Error('auth required'); }
+    if (!user.is_admin) {
+      showToast(t('question.questionUpdateError'));
+      throw new Error('admin required');
+    }
 
     const tags = form.tags
       .split(',')
@@ -746,6 +757,21 @@ export default function QuestionPage() {
     } : prev);
     setShowEdit(false);
     showToast(t('question.questionUpdated'));
+  };
+
+  const handleDeleteQuestion = () => {
+    if (!user?.is_admin) return;
+    if (!confirm(t('question.confirmQuestionDelete'))) return;
+
+    fetch(`${API}/api/admin/topics/${id}`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    }).then(r => r.ok ? r.json() : Promise.reject())
+      .then(() => {
+        showToast(t('question.questionDeleted'));
+        navigate('/chat', { replace: true });
+      })
+      .catch(() => showToast(t('question.genericError')));
   };
 
   const handleAnswerModeration = (answerId, field, value) => {
@@ -796,7 +822,7 @@ export default function QuestionPage() {
   };
 
   const handleDeleteAnswer = (answerId) => {
-    if (!user?.is_admin && !user?.is_moderator) return;
+    if (!user?.is_admin) return;
     if (!confirm(t('question.confirmDelete'))) return;
 
     const snapshot = topic;
@@ -846,6 +872,7 @@ export default function QuestionPage() {
   );
 
   const isAuthor = Boolean(user && (topic.user_id ? topic.user_id === user.id : topic.author === user.name));
+  const isAdmin = Boolean(user?.is_admin);
   const canModerate = Boolean(user?.is_admin || user?.is_moderator);
   const answerCount = getAnswerCount(topic);
   const createdAt = formatQuestionCreatedAt(topic.created_at, language);
@@ -936,16 +963,18 @@ export default function QuestionPage() {
                 </div>
               )}
 
-              {(isAuthor || canModerate) && (
+              {canModerate && (
                 <div className="qp-modbar">
-                  <button
-                    className="soft-button"
-                    onClick={() => setShowEdit(true)}
-                    type="button"
-                  >
-                    <Icon name="edit" size={15} />
-                    {t('question.editQuestion')}
-                  </button>
+                  {isAdmin && (
+                    <button
+                      className="soft-button"
+                      onClick={() => setShowEdit(true)}
+                      type="button"
+                    >
+                      <Icon name="edit" size={15} />
+                      {t('question.editQuestion')}
+                    </button>
+                  )}
                   {canModerate && (
                     <button
                       className={`soft-button ${topic.solved ? 'soft-button--success' : ''}`}
@@ -954,6 +983,16 @@ export default function QuestionPage() {
                     >
                       <Icon name={topic.solved ? 'x' : 'check'} size={15} />
                       {topic.solved ? t('question.markOpen') : t('question.markSolved')}
+                    </button>
+                  )}
+                  {isAdmin && (
+                    <button
+                      className="soft-button soft-button--danger"
+                      onClick={handleDeleteQuestion}
+                      type="button"
+                    >
+                      <Icon name="trash" size={15} />
+                      {t('question.deleteQuestion')}
                     </button>
                   )}
                 </div>
@@ -1112,15 +1151,17 @@ export default function QuestionPage() {
                           >
                             <Icon name="x" size={14} />
                           </button>
-                          <button
-                            aria-label={t('question.delete')}
-                            className="qp-mod-chip is-danger"
-                            data-tooltip={t('question.delete')}
-                            onClick={() => handleDeleteAnswer(ans.id)}
-                            type="button"
-                          >
-                            <Icon name="trash" size={14} />
-                          </button>
+                          {isAdmin && (
+                            <button
+                              aria-label={t('question.delete')}
+                              className="qp-mod-chip is-danger"
+                              data-tooltip={t('question.delete')}
+                              onClick={() => handleDeleteAnswer(ans.id)}
+                              type="button"
+                            >
+                              <Icon name="trash" size={14} />
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>

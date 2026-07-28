@@ -12,7 +12,8 @@ export function useForumStream(
   onTopicModeration,
   onAnswerModeration,
   onAnswerDeleted,
-  onTopicUpdate
+  onTopicUpdate,
+  onTopicDeleted
 ) {
   useEffect(() => {
     let es;
@@ -38,6 +39,12 @@ export function useForumStream(
       // Edited topic — { ...topicFields }
       es.addEventListener('topicUpdate', (e) => {
         try { if (onTopicUpdate) onTopicUpdate(JSON.parse(e.data)); }
+        catch { /* ignore */ }
+      });
+
+      // Deleted topic — { topicId }
+      es.addEventListener('topicDeleted', (e) => {
+        try { if (onTopicDeleted) onTopicDeleted(JSON.parse(e.data)); }
         catch { /* ignore */ }
       });
 

@@ -348,6 +348,18 @@ a { text-decoration: none; }
   color: var(--green);
 }
 
+.soft-button--danger {
+  background: color-mix(in srgb, var(--rose) 9%, var(--surface));
+  border-color: color-mix(in srgb, var(--rose) 30%, var(--line));
+  color: var(--rose);
+}
+
+.soft-button--danger:hover {
+  background: color-mix(in srgb, var(--rose) 15%, var(--surface));
+  border-color: var(--rose);
+  color: var(--rose);
+}
+
 .primary-button {
   background: var(--primary);
   border: 1px solid var(--primary-strong);
