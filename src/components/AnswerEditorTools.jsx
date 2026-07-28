@@ -271,28 +271,6 @@ export default function AnswerEditorTools({
           </section>
         </div>
       )}
-
-      <div className="chem-toolbar markdown-toolbar" aria-label={t('composer.formatting')}>
-        <span>Markdown</span>
-        <button aria-label={t('composer.bold')} onClick={() => wrapSelection("**", "**", "qalin matn")} title={t('composer.bold')} type="button">
-          <strong>B</strong>
-        </button>
-        <button aria-label={t('composer.italic')} onClick={() => wrapSelection("*", "*", "kursiv matn")} title={t('composer.italic')} type="button">
-          <em>I</em>
-        </button>
-        <button aria-label={t('composer.list')} onClick={() => insertSnippet("- Birinchi band\n- Ikkinchi band")} title={t('composer.list')} type="button">
-          •
-        </button>
-        <button aria-label={t('composer.quote')} onClick={() => insertSnippet("> Iqtibos")} title={t('composer.quote')} type="button">
-          "
-        </button>
-        <button aria-label={t('composer.code')} onClick={() => wrapSelection("`", "`", "kod")} title={t('composer.code')} type="button">
-          &lt;/&gt;
-        </button>
-        <button aria-label={t('composer.link')} onClick={() => wrapSelection("[", "](https://)", "havola matni")} title={t('composer.link')} type="button">
-          Link
-        </button>
-      </div>
     </div>
   );
 }

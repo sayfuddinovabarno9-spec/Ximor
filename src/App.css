@@ -2690,14 +2690,6 @@ a { text-decoration: none; }
   color: var(--primary);
 }
 
-.markdown-toolbar button {
-  align-items: center;
-  display: inline-flex;
-  justify-content: center;
-  min-width: 32px;
-  padding: 0 8px;
-}
-
 .composer-question-field {
   display: grid;
   gap: 6px;
