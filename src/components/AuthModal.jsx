@@ -48,13 +48,7 @@ export default function AuthModal({ onClose, onSuccess }) {
       <form className="auth-modal" onClick={e => e.stopPropagation()} onSubmit={submit}>
         {/* Header */}
         <div className="auth-modal__head">
-          <div className="brand-icon" style={{ width: 36, height: 36 }}>
-            <BrandMark />
-          </div>
-          <div>
-            <strong>CHEMOLYMP.UZ</strong>
-            <span>{t('home.chemistryChat')}</span>
-          </div>
+          <BrandMark className="auth-brand-logo" alt="ChOUZ Team" />
         </div>
 
         {/* Tabs */}

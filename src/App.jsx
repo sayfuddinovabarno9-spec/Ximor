@@ -70,7 +70,7 @@ const INITIAL_TOPICS = [
       "Bu yerda organik, anorganik, analitik va fizikaviy kimyo bo'yicha savollarni muhokama qilamiz. Savolingizga urinish, kuzatuv va aniq formulani ilova qiling.",
     formula: "savol + urinish + formula = tez va foydali javob",
     tags: ["qoidalar", "boshlash", "kimyo"],
-    author: "CHEMOLYMP.UZ jamoasi",
+    author: "ChOUZ Team jamoasi",
     initials: "CO",
     role: "Moderator",
     score: 412,

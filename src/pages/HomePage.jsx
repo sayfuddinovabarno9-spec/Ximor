@@ -279,13 +279,7 @@ export default function HomePage() {
 
       <header className="landing-header">
         <button className="landing-brand" type="button" onClick={openChat} aria-label={t('home.openChat')}>
-          <span className="landing-brand-mark">
-            <BrandMark />
-          </span>
-          <span>
-            <strong>CHEMOLYMP.UZ</strong>
-            <small>{t('home.chemistryChat')}</small>
-          </span>
+          <BrandMark className="landing-brand-logo" alt="ChOUZ Team" />
         </button>
 
         <nav className="landing-nav" aria-label={t('nav.main')}>
@@ -328,7 +322,7 @@ export default function HomePage() {
               </a>
             </div>
 
-            <div className="landing-metrics" aria-label="CHEMOLYMP.UZ">
+            <div className="landing-metrics" aria-label="ChOUZ Team">
               <div>
                 <strong>24/7</strong>
                 <span>{t('home.questionFlow')}</span>
@@ -361,7 +355,7 @@ export default function HomePage() {
             <div className="preview-phone">
               <div className="preview-phone-top">
                 <span>9:41</span>
-                <span>CHEMOLYMP.UZ live</span>
+                <span>ChOUZ Team live</span>
               </div>
               <div className="preview-search">{t('home.reactionSearch')}</div>
               <div className="preview-thread preview-thread--hot">

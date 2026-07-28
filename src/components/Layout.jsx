@@ -186,12 +186,8 @@ export default function Layout({ children, theme, onThemeToggle, onCompose, quer
   return (
     <div className="app" data-theme={theme}>
       <header className="topbar">
-        <Link to="/" className="brand">
-          <div className="brand-icon"><BrandMark /></div>
-          <div className="brand-text">
-            <strong>CHEMOLYMP.UZ</strong>
-            <small>{t('home.chemistryChat')}</small>
-          </div>
+        <Link to="/" className="brand brand--wordmark" aria-label="ChOUZ Team">
+          <BrandMark className="brand-logo" alt="" />
         </Link>
 
         <nav className="topnav" aria-label={t('nav.main')}>
