@@ -218,7 +218,12 @@ export default function RichText({ className = "", text }) {
     <div className={`rich-text markdown-body ${className}`}>
       <ReactMarkdown
         components={markdownComponents}
-        rehypePlugins={[[rehypeKatex, { strict: false, trust: false }]]}
+        rehypePlugins={[[rehypeKatex, {
+          errorColor: "inherit",
+          strict: false,
+          throwOnError: false,
+          trust: false,
+        }]]}
         remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]}
       >
         {text}

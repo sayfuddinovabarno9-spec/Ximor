@@ -34,6 +34,7 @@ a { text-decoration: none; }
   --amber:          #7b6847;
   --rose:           #8f4242;
   --green:          #4d6b59;
+  --online:         #00a35c;
   --purple:         #626670;
   --focus:          rgba(54, 88, 77, 0.22);
   --gold:           #7b6847;
@@ -67,6 +68,7 @@ a { text-decoration: none; }
   --amber:          #b7a276;
   --rose:           #c07b78;
   --green:          #96ad9a;
+  --online:         #2ee982;
   --purple:         #a5a8ad;
   --focus:          rgba(156, 175, 159, 0.2);
   --gold:           #b7a276;
@@ -379,16 +381,35 @@ a { text-decoration: none; }
   letter-spacing: 0.3px;
 }
 
+.avatar.is-online {
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 4px color-mix(in srgb, var(--online) 56%, transparent),
+    0 8px 18px color-mix(in srgb, var(--online) 18%, transparent);
+}
+
 .avatar__status {
-  background: var(--green);
-  border: 2px solid var(--surface);
+  background: var(--online);
+  border: 3px solid var(--surface);
   border-radius: 50%;
-  bottom: -1px;
-  height: 10px;
+  bottom: -3px;
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--online) 52%, transparent),
+    0 0 12px color-mix(in srgb, var(--online) 55%, transparent);
+  height: 14px;
   position: absolute;
-  right: -1px;
-  width: 10px;
-  box-shadow: 0 0 4px var(--green);
+  right: -3px;
+  width: 14px;
+}
+
+.avatar__status::after {
+  animation: avatarStatusPulse 1.8s ease-out infinite;
+  border: 2px solid var(--online);
+  border-radius: inherit;
+  content: "";
+  inset: -7px;
+  opacity: 0;
+  position: absolute;
 }
 
 .avatar img {
@@ -396,6 +417,24 @@ a { text-decoration: none; }
   height: 100%;
   object-fit: cover;
   width: 100%;
+}
+
+@keyframes avatarStatusPulse {
+  0% {
+    opacity: 0.75;
+    transform: scale(0.45);
+  }
+  75%,
+  100% {
+    opacity: 0;
+    transform: scale(1.25);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .avatar__status::after {
+    animation: none;
+  }
 }
 
 /* ─── Layout ──────────────────────────────────────────────────────────── */
@@ -956,6 +995,7 @@ a { text-decoration: none; }
   display: grid;
   gap: 5px;
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .markdown-body h1,
@@ -1062,9 +1102,19 @@ a { text-decoration: none; }
 }
 
 .markdown-body .katex-display {
+  max-width: 100%;
   margin: 6px 0;
   overflow-x: auto;
   overflow-y: hidden;
+}
+
+.markdown-body .katex,
+.markdown-body .katex-error {
+  color: inherit !important;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .topic-summary { margin-top: 5px; }
@@ -1072,11 +1122,12 @@ a { text-decoration: none; }
 /* ─── Chemistry rendering ─────────────────────────────────────────────── */
 .chem-formula {
   color: inherit;
-  display: inline-flex;
+  display: inline;
   font-family: "SFMono-Regular", Consolas, monospace;
   font-size: 0.93em;
   font-weight: 600;
   max-width: 100%;
+  overflow-wrap: anywhere;
   white-space: normal;
   word-break: break-word;
 }
@@ -1091,6 +1142,7 @@ a { text-decoration: none; }
   display: inline-flex;
   font-family: "SFMono-Regular", Consolas, monospace;
   font-weight: 900;
+  vertical-align: baseline;
 }
 
 .chem-arrow { color: var(--muted); padding: 0 4px; }
@@ -5055,13 +5107,14 @@ a { text-decoration: none; }
 }
 
 .messages-live {
-  background: color-mix(in srgb, var(--green) 12%, var(--surface));
-  border: 1px solid color-mix(in srgb, var(--green) 26%, var(--line));
+  background: color-mix(in srgb, var(--online) 16%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--online) 42%, var(--line));
   border-radius: 999px;
-  color: var(--green);
+  color: color-mix(in srgb, var(--online) 72%, var(--text));
   font-size: 11px;
   font-weight: 900;
-  padding: 5px 9px;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--online) 12%, transparent);
+  padding: 5px 10px;
   text-transform: uppercase;
 }
 
@@ -5144,15 +5197,21 @@ a { text-decoration: none; }
 }
 
 .message-person.is-unread {
-  background: color-mix(in srgb, var(--primary) 10%, var(--surface));
-  border-color: color-mix(in srgb, var(--primary) 28%, var(--line));
-  box-shadow: inset 3px 0 0 var(--primary);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--online) 18%, transparent), transparent 46%),
+    color-mix(in srgb, var(--surface) 86%, var(--online));
+  border-color: color-mix(in srgb, var(--online) 46%, var(--line));
+  box-shadow:
+    inset 4px 0 0 var(--online),
+    0 0 0 1px color-mix(in srgb, var(--online) 14%, transparent);
 }
 
 .message-person.is-unread:hover,
 .message-person.is-unread.is-active {
-  background: color-mix(in srgb, var(--primary) 14%, var(--surface));
-  border-color: color-mix(in srgb, var(--primary) 36%, var(--line));
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--online) 24%, transparent), transparent 50%),
+    color-mix(in srgb, var(--surface) 82%, var(--online));
+  border-color: color-mix(in srgb, var(--online) 58%, var(--line));
 }
 
 .message-person:disabled {
@@ -5207,14 +5266,15 @@ a { text-decoration: none; }
 }
 
 .messages-new-pill {
-  background: var(--primary);
+  background: var(--online);
+  border: 1px solid color-mix(in srgb, #ffffff 44%, var(--online));
   border-radius: 999px;
-  color: #fff;
+  color: #04170d;
   flex: 0 0 auto;
   font-size: 9px;
   font-weight: 900;
   letter-spacing: .04em;
-  padding: 3px 6px;
+  padding: 3px 7px;
   text-transform: uppercase;
 }
 
@@ -5240,9 +5300,9 @@ a { text-decoration: none; }
 
 .message-person-meta b {
   align-items: center;
-  background: var(--primary);
+  background: var(--online);
   border-radius: 999px;
-  color: #fff;
+  color: #04170d;
   display: inline-flex;
   font-size: 10px;
   height: 18px;

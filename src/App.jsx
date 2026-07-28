@@ -311,7 +311,7 @@ function FlaskIcon() {
 
 function Avatar({ initials, name, online = false }) {
   return (
-    <span className="avatar" title={name}
+    <span className={`avatar ${online ? 'is-online' : ''}`} title={name}
       style={{ background: avatarBg(initials), color: '#fff', border: 'none' }}>
       {initials}
       {online && <span className="avatar__status" />}

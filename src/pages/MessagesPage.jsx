@@ -42,7 +42,7 @@ function Icon({ name, size = 18 }) {
 function Avatar({ image, initials, name, online = false }) {
   return (
     <span
-      className="avatar"
+      className={`avatar ${online ? 'is-online' : ''}`}
       title={name}
       style={{ background: avatarBg(initials), color: '#fff', border: 'none' }}
     >
