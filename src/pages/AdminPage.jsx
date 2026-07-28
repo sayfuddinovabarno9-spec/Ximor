@@ -7,7 +7,7 @@ import { useLanguage } from '../context/LanguageContext';
 
 const BACKEND = import.meta.env.VITE_API_URL || 'http://localhost:3002';
 
-const ROLES = ['Shogird', 'Ishtirokchi', 'O\'rta daraja', 'Mutaxassis', 'Moderator'];
+const ROLES = ['Shogird', 'Ishtirokchi', 'O\'rta daraja', 'Mutaxassis'];
 
 function roleSelectValue(role) {
   return ROLES.includes(role) ? role : 'Mutaxassis';
@@ -167,9 +167,10 @@ export default function AdminPage({ theme, onThemeToggle }) {
   // ── User actions ──────────────────────────────────────────────────────────
   const userAction = async (id, fields, label) => {
     try {
-      await api(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(fields) });
+      const result = await api(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(fields) });
       setUsers(prev => prev.map(u => {
         if (u.id !== id) return u;
+        if (result.user) return { ...u, ...result.user };
         const updated = { ...u };
         if ('is_admin' in fields) updated.is_admin = fields.is_admin;
         if ('is_moderator' in fields) updated.is_moderator = fields.is_moderator;
@@ -177,6 +178,10 @@ export default function AdminPage({ theme, onThemeToggle }) {
         if ('role'     in fields) updated.role = fields.role;
         return updated;
       }));
+      if (result.user?.id === user.id) updateLocalUser(result.user);
+      if ('is_admin' in fields || 'is_moderator' in fields || 'banned' in fields) {
+        api('/stats').then(setStats).catch(() => {});
+      }
       showToast(label);
     } catch { showToast('Xato yuz berdi'); }
   };
@@ -412,7 +417,7 @@ export default function AdminPage({ theme, onThemeToggle }) {
                                           const nextModerator = !u.is_moderator;
                                           userAction(
                                             u.id,
-                                            { is_moderator: nextModerator, ...(nextModerator ? { role: 'Moderator' } : {}) },
+                                            { is_moderator: nextModerator },
                                             u.is_moderator ? 'Moderator huquqi olindi' : 'Moderator qilindi'
                                           );
                                         }}

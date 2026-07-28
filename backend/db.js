@@ -11,7 +11,7 @@ const pool = new Pool({
   ssl: isLocal ? false : { rejectUnauthorized: false },
 });
 
-const USER_ROLES = ['Shogird', 'Ishtirokchi', "O'rta daraja", 'Mutaxassis', 'Moderator'];
+const USER_ROLES = ['Shogird', 'Ishtirokchi', "O'rta daraja", 'Mutaxassis'];
 const LEGACY_SUBJECT_ROLES = new Set([
   'Organik kimyo',
   'Anorganik kimyo',
@@ -46,6 +46,7 @@ const PERMISSION_KEYS = new Set(PERMISSION_DEFINITIONS.map(permission => permiss
 function normalizeUserRole(value, fallback = 'Shogird') {
   const role = String(value || '').trim();
   if (USER_ROLES.includes(role)) return role;
+  if (role === 'Moderator') return 'Mutaxassis';
   if (LEGACY_SUBJECT_ROLES.has(role)) return 'Mutaxassis';
   return fallback;
 }
@@ -176,6 +177,9 @@ async function initSchema() {
     ALTER TABLE users ADD COLUMN IF NOT EXISTS interests     TEXT        DEFAULT '[]';
     ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at  TIMESTAMPTZ;
     UPDATE users SET is_moderator = TRUE WHERE role = 'Moderator' AND is_moderator = FALSE;
+    UPDATE users
+       SET role = 'Mutaxassis'
+     WHERE role = 'Moderator';
     UPDATE users
        SET role = 'Mutaxassis'
      WHERE role IN ('Organik kimyo','Anorganik kimyo','Analitik kimyo','Fizikaviy kimyo','Olimpiadalar','DTM tayyorgarlik','10-sinf','11-sinf','Abituriyent');
@@ -1189,7 +1193,20 @@ async function updateUserAdmin(id, fields) {
   if ('score'      in fields) { sets.push(`score = $${i++}`);       vals.push(fields.score); }
   if (!sets.length) return;
   vals.push(id);
-  await pool.query(`UPDATE users SET ${sets.join(', ')} WHERE id = $${i}`, vals);
+  return q1(`
+    WITH updated AS (
+      UPDATE users
+      SET ${sets.join(', ')}
+      WHERE id = $${i}
+      RETURNING id, username, email, name, initials, role, score,
+                is_admin, is_moderator, banned_at, created_at
+    )
+    SELECT updated.*,
+           (SELECT COUNT(*)::INTEGER FROM topics  WHERE author = updated.name)  AS topics_count,
+           (SELECT COUNT(*)::INTEGER FROM answers WHERE author = updated.name)  AS answers_count,
+           (SELECT COUNT(*)::INTEGER FROM answers WHERE author = updated.name AND accepted = TRUE) AS accepted_count
+    FROM updated
+  `, vals);
 }
 
 async function hasAnyAdmin() {
@@ -1231,8 +1248,7 @@ async function bootstrapConfiguredStaff(env = process.env) {
   if (moderatorEmails.length) {
     const rows = await q(
       `UPDATE users
-       SET is_moderator = TRUE,
-           role = CASE WHEN role IN ('Shogird','Ishtirokchi') THEN 'Moderator' ELSE role END
+       SET is_moderator = TRUE
        WHERE LOWER(email) = ANY($1)
        RETURNING id`,
       [moderatorEmails]
@@ -1251,8 +1267,7 @@ async function bootstrapConfiguredStaff(env = process.env) {
     console.warn('MODERATOR_USERNAMES is legacy; prefer MODERATOR_EMAILS for staff bootstrap.');
     const rows = await q(
       `UPDATE users
-       SET is_moderator = TRUE,
-           role = CASE WHEN role IN ('Shogird','Ishtirokchi') THEN 'Moderator' ELSE role END
+       SET is_moderator = TRUE
        WHERE LOWER(username) = ANY($1)
        RETURNING id`,
       [moderatorUsernames]
@@ -1557,7 +1572,7 @@ async function seedDemo() {
       "Bu yerda organik, anorganik, analitik va fizikaviy kimyo bo'yicha savollarni muhokama qilamiz. Savolingizga urinish, kuzatuv va aniq formulani ilova qiling.",
       "savol + urinish + formula = tez va foydali javob",
       JSON.stringify(['qoidalar', 'boshlash', 'kimyo']),
-      'ChemOlymp jamoasi', 'CO', 'Moderator',
+      'CHEMOLYMP.UZ jamoasi', 'CO', 'Moderator',
       412, 1, '9.7k', "Boshlang'ich",
       true, true,
     ]);
@@ -1575,7 +1590,7 @@ async function seedDemo() {
       ["O'zbekiston Kimyo Olimpiadasi — Final", 'respublika', 'Toshkent',  '2026-06-28T09:00:00Z', '2026-06-25T23:59:59Z', "12 000 000 so'm", "10-11 sinflar uchun ochiq. 3 bosqich: test, yozma, amaliy. O'zRFA bilan hamkorlikda.", 200],
       ["Mendeleev Xalqaro Turniri — Saralash",  'xalqaro',   'Toshkent',  '2026-07-06T09:00:00Z', '2026-07-03T23:59:59Z', "$2 500",          "IChO oldidan eng muhim tayyorlov musobaqasi. 9-11 sinflar.",                            50 ],
       ["IChO 2026 Milliy Jamoa Tanlovi",         'xalqaro',   'Samarqand', '2026-07-12T09:00:00Z', '2026-07-09T23:59:59Z', "IChO sayohati",  "Xalqaro kimyo olimpiadasiga seleksiya. Faqat 11-sinf.",                                  30 ],
-      ["ChemOlymp Tezkor Turnir — Ekvivalent",   'tezkor',    'Online',    '2026-07-20T09:00:00Z', '2026-07-19T23:59:59Z', "200 000 so'm",   "1v1 tezkor reaksiya aniqlash. Top-32 format. Barcha sinflar.",                          64 ],
+      ["CHEMOLYMP.UZ Tezkor Turnir — Ekvivalent", 'tezkor',    'Online',    '2026-07-20T09:00:00Z', '2026-07-19T23:59:59Z', "200 000 so'm",   "1v1 tezkor reaksiya aniqlash. Top-32 format. Barcha sinflar.",                          64 ],
       ["Onlayn Kimyo Sprint",                    'onlayn',    'Online',    '2026-06-22T14:00:00Z', '2026-06-21T23:59:59Z', "Sertifikat + ball","24 soatlik tezkor masalalar. Onlayn format, barcha sinf.",                              310],
     ];
     for (const t of tours) {

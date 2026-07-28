@@ -189,7 +189,7 @@ export default function Layout({ children, theme, onThemeToggle, onCompose, quer
         <Link to="/" className="brand">
           <div className="brand-icon"><BrandMark /></div>
           <div className="brand-text">
-            <strong>ChemOlymp</strong>
+            <strong>CHEMOLYMP.UZ</strong>
             <small>{t('home.chemistryChat')}</small>
           </div>
         </Link>

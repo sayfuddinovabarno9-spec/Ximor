@@ -116,6 +116,10 @@ a { text-decoration: none; }
   min-width: 0;
 }
 
+.brand-text {
+  min-width: 0;
+}
+
 .brand-icon {
   align-items: center;
   background: var(--primary);
@@ -154,6 +158,9 @@ a { text-decoration: none; }
   font-weight: 800;
   line-height: 1;
   color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .brand-text small {
@@ -7910,10 +7917,17 @@ a { text-decoration: none; }
   text-align: left;
 }
 
+.landing-brand > span:last-child {
+  min-width: 0;
+}
+
 .landing-brand strong {
   font-size: 0.94rem;
   font-weight: 900;
   line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .landing-brand small {

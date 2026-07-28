@@ -107,7 +107,7 @@ router.patch('/users/:id', async (req, res) => {
       return res.status(403).json({ error: 'Admin foydalanuvchini faqat admin oʻzgartiradi' });
     }
     fields.is_moderator = Boolean(body.is_moderator);
-    if (fields.is_moderator && !('role' in body)) fields.role = 'Moderator';
+    if (target.role === 'Moderator' && !('role' in body)) fields.role = 'Mutaxassis';
   }
 
   if ('role' in body) {
@@ -126,8 +126,8 @@ router.patch('/users/:id', async (req, res) => {
   }
 
   if (!Object.keys(fields).length) return res.status(400).json({ error: 'Oʻzgartirish topilmadi' });
-  await db.updateUserAdmin(id, fields);
-  res.json({ ok: true });
+  const user = await db.updateUserAdmin(id, fields);
+  res.json({ ok: true, user });
 });
 
 // ── Topics ────────────────────────────────────────────────────────────────────

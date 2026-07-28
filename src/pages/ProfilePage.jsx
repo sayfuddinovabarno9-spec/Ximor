@@ -7,7 +7,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { formatQuestionCreatedAt } from '../utils/dateTime';
 
 const BACKEND = import.meta.env.VITE_API_URL || 'http://localhost:3002';
-const PROFILE_ROLES = ['Shogird', 'Ishtirokchi', 'O\'rta daraja', 'Mutaxassis', 'Moderator'];
+const PROFILE_ROLES = ['Shogird', 'Ishtirokchi', 'O\'rta daraja', 'Mutaxassis'];
 
 function profileRoleValue(role) {
   return PROFILE_ROLES.includes(role) ? role : 'Mutaxassis';

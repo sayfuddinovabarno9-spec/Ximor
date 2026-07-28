@@ -19,10 +19,15 @@ const HOST = '0.0.0.0';
 app.set('trust proxy', 1);
 
 const ALLOWED_ORIGIN = process.env.FRONTEND_ORIGIN || 'http://localhost:5173';
+const CUSTOM_FRONTEND_ORIGINS = new Set([
+  'https://chemolymp.uz',
+  'https://www.chemolymp.uz',
+]);
 
 function isAllowedOrigin(origin) {
   if (!origin) return true;
   return origin === ALLOWED_ORIGIN
+    || CUSTOM_FRONTEND_ORIGINS.has(origin)
     || origin.endsWith('.vercel.app')
     || origin.startsWith('http://localhost');
 }
@@ -66,8 +71,8 @@ async function start() {
   // Bind port first so Railway health checks pass immediately
   await new Promise((resolve, reject) => {
     const server = app.listen(PORT, HOST, () => {
-      console.log(`\n🧪 ChemOlymp API → http://${HOST}:${PORT}`);
-      console.log(`🔒 CORS: ${ALLOWED_ORIGIN} + *.vercel.app + localhost`);
+      console.log(`\n🧪 CHEMOLYMP.UZ API → http://${HOST}:${PORT}`);
+      console.log(`🔒 CORS: ${ALLOWED_ORIGIN} + chemolymp.uz + *.vercel.app + localhost`);
       resolve();
     });
     server.on('error', reject);
