@@ -125,6 +125,40 @@ const LATEX_GROUPS = [
   },
 ];
 
+function isEscaped(value, index) {
+  let slashCount = 0;
+  for (let i = index - 1; i >= 0 && value[i] === "\\"; i -= 1) {
+    slashCount += 1;
+  }
+  return slashCount % 2 === 1;
+}
+
+function getMathModeAt(value, position) {
+  let mode = null;
+
+  for (let i = 0; i < position; i += 1) {
+    if (value[i] !== "$" || isEscaped(value, i)) continue;
+
+    const delimiter = value[i + 1] === "$" && !isEscaped(value, i + 1) ? "$$" : "$";
+    if (delimiter === "$$") i += 1;
+
+    if (mode === delimiter) {
+      mode = null;
+    } else if (!mode) {
+      mode = delimiter;
+    }
+  }
+
+  return mode;
+}
+
+function stripOuterMathDelimiters(snippet) {
+  const value = String(snippet || "");
+  if (value.startsWith("$$") && value.endsWith("$$")) return value.slice(2, -2).trim();
+  if (value.startsWith("$") && value.endsWith("$")) return value.slice(1, -1);
+  return value;
+}
+
 export default function AnswerEditorTools({
   className = "",
   defaultKeyboardOpen = false,
@@ -152,28 +186,35 @@ export default function AnswerEditorTools({
   }, [onChange, textareaRef]);
 
   const insertSnippet = useCallback((snippet) => {
-    const currentValue = value || "";
     const cursorToken = "[[cursor]]";
-    const rawSnippet = String(snippet || "");
-    const cursorIndex = rawSnippet.indexOf(cursorToken);
-    const cleanSnippet = rawSnippet.replace(cursorToken, "");
+    let rawSnippet = String(snippet || "");
     const textarea = textareaRef.current;
+    const currentValue = textarea?.value ?? value ?? "";
     const start = textarea?.selectionStart ?? currentValue.length;
     const end = textarea?.selectionEnd ?? currentValue.length;
-    const needsLeadingSpace = start > 0 && !/\s/.test(currentValue[start - 1]);
-    const needsTrailingSpace = end < currentValue.length && !/\s/.test(currentValue[end]);
+    const insideMath = Boolean(getMathModeAt(currentValue, start) && getMathModeAt(currentValue, end));
+    if (insideMath) rawSnippet = stripOuterMathDelimiters(rawSnippet);
+
+    const selectedText = currentValue.slice(start, end);
+    const cursorIndex = rawSnippet.indexOf(cursorToken);
+    const cleanSnippet = rawSnippet.replace(cursorToken, selectedText);
+    const needsLeadingSpace = !insideMath && start > 0 && !/\s/.test(currentValue[start - 1]);
+    const needsTrailingSpace = !insideMath && end < currentValue.length && !/\s/.test(currentValue[end]);
     const insertion = `${needsLeadingSpace ? " " : ""}${cleanSnippet}${needsTrailingSpace ? " " : ""}`;
     const nextValue = `${currentValue.slice(0, start)}${insertion}${currentValue.slice(end)}`;
-    const cursor = cursorIndex >= 0
+    const selectionStart = cursorIndex >= 0
       ? start + (needsLeadingSpace ? 1 : 0) + cursorIndex
       : start + insertion.length;
+    const selectionEnd = cursorIndex >= 0
+      ? selectionStart + selectedText.length
+      : selectionStart;
 
-    replaceSelection(nextValue, cursor, cursor);
+    replaceSelection(nextValue, selectionStart, selectionEnd);
   }, [replaceSelection, textareaRef, value]);
 
   const wrapSelection = useCallback((before, after, fallback) => {
-    const currentValue = value || "";
     const textarea = textareaRef.current;
+    const currentValue = textarea?.value ?? value ?? "";
     const start = textarea?.selectionStart ?? currentValue.length;
     const end = textarea?.selectionEnd ?? currentValue.length;
     const selectedText = currentValue.slice(start, end) || fallback;
