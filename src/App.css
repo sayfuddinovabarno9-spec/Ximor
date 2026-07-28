@@ -3013,8 +3013,9 @@ a { text-decoration: none; }
 
 .attachment-gallery img {
   aspect-ratio: 5 / 3;
+  background: var(--surface);
   display: block;
-  object-fit: cover;
+  object-fit: contain;
   width: 100%;
 }
 
@@ -3030,6 +3031,17 @@ a { text-decoration: none; }
 
 .attachment-gallery--large { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
 .attachment-gallery--large img { aspect-ratio: 4 / 3; }
+
+.answer-card .attachment-gallery,
+.qp-answer .attachment-gallery {
+  grid-template-columns: repeat(auto-fill, minmax(140px, 260px));
+  max-width: 560px;
+}
+
+.answer-card .attachment-gallery img,
+.qp-answer .attachment-gallery img {
+  aspect-ratio: 4 / 3;
+}
 
 /* ─── Toast ───────────────────────────────────────────────────────────── */
 .toast {
