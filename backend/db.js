@@ -153,6 +153,7 @@ async function initSchema() {
     ALTER TABLE users ADD COLUMN IF NOT EXISTS website       TEXT        DEFAULT '';
     ALTER TABLE users ADD COLUMN IF NOT EXISTS study_goal    TEXT        DEFAULT '';
     ALTER TABLE users ADD COLUMN IF NOT EXISTS interests     TEXT        DEFAULT '[]';
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at  TIMESTAMPTZ;
     UPDATE users SET is_moderator = TRUE WHERE role = 'Moderator' AND is_moderator = FALSE;
     UPDATE users
        SET role = 'Mutaxassis'
@@ -473,9 +474,18 @@ async function getUserByEmail(email) {
 async function getUserById(id) {
   return q1(`
     SELECT id, username, name, initials, role, score, email, is_admin, is_moderator, banned_at,
-           bio, avatar_url, cover_url, headline, location, website, study_goal, interests
+           bio, avatar_url, cover_url, headline, location, website, study_goal, interests, last_seen_at
     FROM users WHERE id = $1
   `, [id]);
+}
+
+async function markUserSeen(userId) {
+  await pool.query(`
+    UPDATE users
+       SET last_seen_at = NOW()
+     WHERE id = $1
+       AND (last_seen_at IS NULL OR last_seen_at < NOW() - INTERVAL '30 seconds')
+  `, [userId]);
 }
 
 async function addUserScore(id, delta, reason = 'answer_accepted') {
@@ -694,6 +704,7 @@ function hydrateConversation(row) {
       avatar_url: row.other_avatar_url || '',
       role: row.other_role,
       score: row.other_score,
+      online: Boolean(row.other_online),
     },
     lastMessage: row.last_message_id ? {
       id: row.last_message_id,
@@ -733,7 +744,8 @@ async function getChatUsers(currentUserId, search = '') {
   const term = String(search || '').trim().toLowerCase();
   const like = `%${term}%`;
   const rows = await q(`
-    SELECT id, username, name, initials, avatar_url, role, score
+    SELECT id, username, name, initials, avatar_url, role, score,
+           (last_seen_at IS NOT NULL AND last_seen_at >= NOW() - INTERVAL '5 minutes') AS online
     FROM users
     WHERE id <> $1
       AND banned_at IS NULL
@@ -761,6 +773,7 @@ async function getConversationForUser(conversationId, userId) {
       u.avatar_url AS other_avatar_url,
       u.role AS other_role,
       u.score AS other_score,
+      (u.last_seen_at IS NOT NULL AND u.last_seen_at >= NOW() - INTERVAL '5 minutes') AS other_online,
       m.id AS last_message_id,
       m.body AS last_message_body,
       m.images AS last_message_images,
@@ -819,6 +832,7 @@ async function getConversationsForUser(userId) {
       u.avatar_url AS other_avatar_url,
       u.role AS other_role,
       u.score AS other_score,
+      (u.last_seen_at IS NOT NULL AND u.last_seen_at >= NOW() - INTERVAL '5 minutes') AS other_online,
       m.id AS last_message_id,
       m.body AS last_message_body,
       m.images AS last_message_images,
@@ -1376,7 +1390,7 @@ module.exports = {
   initSchema, seedDemo,
   getAllTopics, getTopicWithAnswers, saveTopic, updateTopic, updateScore, acceptAnswer,
   saveAnswer,
-  createUser, getUserByUsername, getUserByEmail, getUserById, addUserScore, getUserProfile,
+  createUser, getUserByUsername, getUserByEmail, getUserById, markUserSeen, addUserScore, getUserProfile,
   getUserAnswers, updateUserProfile, updateUserBio,
   getAllTournaments, getTournamentById, registerForTournament,
   getLeaderboard,

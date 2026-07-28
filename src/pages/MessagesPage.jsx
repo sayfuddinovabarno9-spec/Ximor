@@ -380,7 +380,7 @@ export default function MessagesPage({ theme, onThemeToggle }) {
                   <div className="messages-list">
                     {conversations.map((conversation) => (
                       <button
-                        className={`message-person ${conversation.id === activeConversationId ? 'is-active' : ''} ${conversation.unread_count > 0 ? 'is-unread' : ''}`}
+                        className={`message-person ${conversation.id === activeConversationId ? 'is-active' : ''} ${conversation.unread_count > 0 ? 'is-unread' : ''} ${conversation.otherUser.online ? 'is-online' : ''}`}
                         key={conversation.id}
                         onClick={() => setActiveConversationId(conversation.id)}
                         type="button"
@@ -389,11 +389,14 @@ export default function MessagesPage({ theme, onThemeToggle }) {
                           image={conversation.otherUser.avatar_url}
                           initials={conversation.otherUser.initials}
                           name={conversation.otherUser.name}
-                          online={conversation.unread_count > 0}
+                          online={conversation.otherUser.online}
                         />
                         <span className="message-person-main">
                           <strong>
                             <span className="message-person-name">{conversation.otherUser.name}</span>
+                            {conversation.otherUser.online && (
+                              <small className="messages-online-pill">{t('common.live')}</small>
+                            )}
                             {conversation.unread_count > 0 && (
                               <small className="messages-new-pill">{t('messages.newMessage')}</small>
                             )}
@@ -421,15 +424,20 @@ export default function MessagesPage({ theme, onThemeToggle }) {
                   <div className="messages-list">
                     {contacts.map((contact) => (
                       <button
-                        className="message-person"
+                        className={`message-person ${contact.online ? 'is-online' : ''}`}
                         disabled={startingId === contact.id}
                         key={contact.id}
                         onClick={() => startConversation(contact)}
                         type="button"
                       >
-                        <Avatar image={contact.avatar_url} initials={contact.initials} name={contact.name} />
+                        <Avatar image={contact.avatar_url} initials={contact.initials} name={contact.name} online={contact.online} />
                         <span className="message-person-main">
-                          <strong>{contact.name}</strong>
+                          <strong>
+                            <span className="message-person-name">{contact.name}</span>
+                            {contact.online && (
+                              <small className="messages-online-pill">{t('common.live')}</small>
+                            )}
+                          </strong>
                           <span>@{contact.username} · {contact.role}</span>
                         </span>
                         <em>{t('messages.startChat')}</em>
@@ -448,11 +456,14 @@ export default function MessagesPage({ theme, onThemeToggle }) {
                       image={activeConversation.otherUser.avatar_url}
                       initials={activeConversation.otherUser.initials}
                       name={activeConversation.otherUser.name}
-                      online
+                      online={activeConversation.otherUser.online}
                     />
                     <div>
                       <h2>{activeConversation.otherUser.name}</h2>
-                      <span>@{activeConversation.otherUser.username} · {activeConversation.otherUser.role}</span>
+                      <span className="messages-thread-subtitle">@{activeConversation.otherUser.username} · {activeConversation.otherUser.role}</span>
+                      {activeConversation.otherUser.online && (
+                        <span className="messages-thread-presence">{t('common.live')}</span>
+                      )}
                     </div>
                   </header>
 

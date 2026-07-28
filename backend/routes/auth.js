@@ -104,6 +104,7 @@ router.post('/register', registerLimiter, async (req, res) => {
   if (!user) return res.status(409).json({ error: "Bu username yoki email band, boshqasini tanlang" });
 
   await db.bootstrapConfiguredStaff();
+  await db.markUserSeen(user.id);
   const sessionUser = await db.getUserById(user.id) || user;
   const token = signUser(sessionUser);
   res.json({ token, user: publicUser(sessionUser) });
@@ -125,6 +126,7 @@ router.post('/login', loginLimiter, async (req, res) => {
   if (!ok) return res.status(401).json({ error: "Parol noto'g'ri" });
   if (user.banned_at) return res.status(403).json({ error: 'Hisob bloklangan' });
 
+  await db.markUserSeen(user.id);
   const token = signUser(user);
   res.json({ token, user: publicUser(user) });
 });

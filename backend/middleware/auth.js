@@ -30,6 +30,8 @@ async function requireAuth(req, res, next) {
     const user = await getAuthUser(req);
     if (!user) return res.status(401).json({ error: 'Login kerak' });
     if (user.banned_at) return res.status(403).json({ error: 'Hisob bloklangan' });
+    const db = require('../db');
+    db.markUserSeen(user.id).catch(() => {});
     req.user = {
       id: user.id,
       username: user.username,
@@ -50,6 +52,10 @@ async function requireAuth(req, res, next) {
 async function optionalAuth(req, res, next) {
   try {
     const user = await getAuthUser(req);
+    if (user && !user.banned_at) {
+      const db = require('../db');
+      db.markUserSeen(user.id).catch(() => {});
+    }
     req.user = user && !user.banned_at ? {
       id: user.id,
       username: user.username,
