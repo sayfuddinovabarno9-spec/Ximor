@@ -139,7 +139,7 @@ function EditQuestionModal({ onClose, onSubmit, topic }) {
     <div className="modal-backdrop" onClick={onClose}>
       <form
         aria-modal="true"
-        className="composer-modal question-edit-modal"
+        className="composer-modal composer-modal--split question-edit-modal"
         onClick={(event) => event.stopPropagation()}
         onSubmit={submit}
         role="dialog"
@@ -186,83 +186,104 @@ function EditQuestionModal({ onClose, onSubmit, topic }) {
               />
             </label>
 
-            <div className="composer-question-field">
-              <label htmlFor="question-edit-summary">{t('composer.questionText')}</label>
-              <AnswerEditorTools onChange={(value) => update('summary', value)} textareaRef={summaryRef} value={form.summary} />
-              <div className="composer-question-editor">
-                <textarea
-                  id="question-edit-summary"
-                  onChange={(event) => update('summary', event.target.value)}
-                  placeholder={t('composer.questionPlaceholder')}
-                  ref={summaryRef}
-                  rows={7}
-                  value={form.summary}
-                />
+            <div className="composer-live-split">
+              <div className="composer-live-editor">
+                <AnswerEditorTools onChange={(value) => update('summary', value)} textareaRef={summaryRef} value={form.summary} />
 
-                {form.images.length > 0 && (
-                  <div className="composer-editor-images">
-                    {form.images.map((image) => (
-                      <figure key={image.id}>
-                        <img alt={image.name} src={image.src} />
-                        <button
-                          aria-label={t('composer.removeImage', { name: image.name })}
-                          onClick={() => removeImage(image.id)}
-                          type="button"
-                        >
-                          <Icon name="x" size={14} />
-                        </button>
-                      </figure>
-                    ))}
+                <div className="composer-question-field">
+                  <label htmlFor="question-edit-summary">{t('composer.questionText')}</label>
+                  <div className="composer-question-editor">
+                    <textarea
+                      id="question-edit-summary"
+                      onChange={(event) => update('summary', event.target.value)}
+                      placeholder={t('composer.questionPlaceholder')}
+                      ref={summaryRef}
+                      rows={7}
+                      value={form.summary}
+                    />
+
+                    {form.images.length > 0 && (
+                      <div className="composer-editor-images">
+                        {form.images.map((image) => (
+                          <figure key={image.id}>
+                            <img alt={image.name} src={image.src} />
+                            <button
+                              aria-label={t('composer.removeImage', { name: image.name })}
+                              onClick={() => removeImage(image.id)}
+                              type="button"
+                            >
+                              <Icon name="x" size={14} />
+                            </button>
+                          </figure>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="composer-editor-footer">
+                      <input
+                        accept="image/*"
+                        multiple
+                        onChange={handleImages}
+                        ref={fileInputRef}
+                        type="file"
+                      />
+                      <button
+                        className="composer-attach-button"
+                        disabled={form.images.length >= 4}
+                        onClick={() => fileInputRef.current?.click()}
+                        type="button"
+                      >
+                        <Icon name="image" size={17} />
+                        {t('composer.image')}
+                      </button>
+                      <span>{form.images.length}/4</span>
+                    </div>
                   </div>
-                )}
+                </div>
 
-                <div className="composer-editor-footer">
-                  <input
-                    accept="image/*"
-                    multiple
-                    onChange={handleImages}
-                    ref={fileInputRef}
-                    type="file"
-                  />
-                  <button
-                    className="composer-attach-button"
-                    disabled={form.images.length >= 4}
-                    onClick={() => fileInputRef.current?.click()}
-                    type="button"
-                  >
-                    <Icon name="image" size={17} />
-                    {t('composer.image')}
-                  </button>
-                  <span>{form.images.length}/4</span>
+                <div className="composer-meta-grid">
+                  <label>
+                    {t('composer.category')}
+                    <select onChange={(event) => update('category', event.target.value)} value={form.category}>
+                      {QUESTION_CATEGORIES.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {t(item.labelKey)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label>
+                    {t('composer.tags')}
+                    <input onChange={(event) => update('tags', event.target.value)} value={form.tags} />
+                  </label>
                 </div>
               </div>
-            </div>
 
-            {(form.summary || form.images.length > 0) && (
-              <div className="latex-live-preview">
+              <aside className="composer-live-preview-pane">
                 <div className="latex-live-preview-label">{t('composer.previewLabel')}</div>
-                <div className="question-content">
-                  <RichText text={form.summary} />
-                  <AttachmentGallery images={form.images} />
+                <div className="topic-meta">
+                  <span>{t(QUESTION_CATEGORIES.find((item) => item.id === form.category)?.labelKey || 'forum.all')}</span>
                 </div>
-              </div>
-            )}
-
-            <label>
-              {t('composer.category')}
-              <select onChange={(event) => update('category', event.target.value)} value={form.category}>
-                {QUESTION_CATEGORIES.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {t(item.labelKey)}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label>
-              {t('composer.tags')}
-              <input onChange={(event) => update('tags', event.target.value)} value={form.tags} />
-            </label>
+                <h3>{form.title || t('composer.emptyTitle')}</h3>
+                <div className="question-content">
+                  <RichText text={form.summary || t('composer.emptyPreview')} />
+                  <AttachmentGallery images={form.images} size="large" />
+                </div>
+                <div className="tag-row">
+                  {form.tags
+                    .split(',')
+                    .map((tag) => tag.trim().replace(/^#/, ''))
+                    .filter(Boolean)
+                    .slice(0, 10)
+                    .map((tag) => (
+                      <span className="tag-chip" key={tag}>
+                        #{tag}
+                      </span>
+                    ))}
+                </div>
+              </aside>
+            </div>
           </>
         ) : (
           <div className="composer-preview">

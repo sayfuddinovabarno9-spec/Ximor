@@ -722,34 +722,6 @@ function ComposerModal({ onClose, onSubmit }) {
 
   const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
 
-  const insertSnippet = (snippet) => {
-    const element = summaryRef.current;
-    const currentValue = form.summary;
-    const start = element?.selectionStart ?? currentValue.length;
-    const end = element?.selectionEnd ?? currentValue.length;
-    const nextValue = `${currentValue.slice(0, start)}${snippet}${currentValue.slice(end)}`;
-    update("summary", nextValue);
-    window.requestAnimationFrame(() => {
-      summaryRef.current?.focus();
-      summaryRef.current?.setSelectionRange(start + snippet.length, start + snippet.length);
-    });
-  };
-
-  const wrapSelection = (before, after, placeholder) => {
-    const element = summaryRef.current;
-    const currentValue = form.summary;
-    const start = element?.selectionStart ?? currentValue.length;
-    const end = element?.selectionEnd ?? currentValue.length;
-    const selected = currentValue.slice(start, end) || placeholder;
-    const replacement = `${before}${selected}${after}`;
-    const nextValue = `${currentValue.slice(0, start)}${replacement}${currentValue.slice(end)}`;
-    update("summary", nextValue);
-    window.requestAnimationFrame(() => {
-      summaryRef.current?.focus();
-      summaryRef.current?.setSelectionRange(start + before.length, start + before.length + selected.length);
-    });
-  };
-
   const handleImages = async (event) => {
     const files = Array.from(event.target.files || [])
       .filter((file) => file.type.startsWith("image/"))
@@ -797,7 +769,7 @@ function ComposerModal({ onClose, onSubmit }) {
     <div className="modal-backdrop" onClick={onClose}>
       <form
         aria-modal="true"
-        className="composer-modal"
+        className="composer-modal composer-modal--split"
         onClick={(event) => event.stopPropagation()}
         onSubmit={submit}
         role="dialog"
@@ -844,149 +816,109 @@ function ComposerModal({ onClose, onSubmit }) {
               />
             </label>
 
-            <div className="chem-toolbar latex-toolbar" aria-label="LaTeX kimyo formulalari">
-              <span>LaTeX</span>
-              {[
-                { label: "Kasr",    value: "$\\frac{[A]}{[B]}$" },
-                { label: "ΔH°",     value: "$$\\Delta H^\\circ = \\sum H_f(\\text{mahsulot}) - \\sum H_f(\\text{reagent})$$" },
-                { label: "Keq",     value: "$$K_{eq} = \\frac{[C]^c[D]^d}{[A]^a[B]^b}$$" },
-                { label: "pH",      value: "$\\text{pH} = -\\log[H^+]$" },
-                { label: "ΔG",      value: "$$\\Delta G = \\Delta H - T\\Delta S$$" },
-              ].map((item) => (
-                <button key={item.label} onClick={() => insertSnippet(item.value)} type="button">
-                  {item.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="chem-toolbar markdown-toolbar" aria-label={t('composer.formatting')}>
-              <span>Markdown</span>
-              <button
-                aria-label={t('composer.bold')}
-                onClick={() => wrapSelection("**", "**", "qalin matn")}
-                title={t('composer.bold')}
-                type="button"
-              >
-                <strong>B</strong>
-              </button>
-              <button
-                aria-label={t('composer.italic')}
-                onClick={() => wrapSelection("*", "*", "kursiv matn")}
-                title={t('composer.italic')}
-                type="button"
-              >
-                <em>I</em>
-              </button>
-              <button
-                aria-label={t('composer.list')}
-                onClick={() => insertSnippet("- Birinchi band\n- Ikkinchi band")}
-                title={t('composer.list')}
-                type="button"
-              >
-                •
-              </button>
-              <button
-                aria-label={t('composer.quote')}
-                onClick={() => insertSnippet("> Iqtibos")}
-                title={t('composer.quote')}
-                type="button"
-              >
-                “
-              </button>
-              <button
-                aria-label={t('composer.code')}
-                onClick={() => wrapSelection("`", "`", "kod")}
-                title={t('composer.code')}
-                type="button"
-              >
-                &lt;/&gt;
-              </button>
-              <button
-                aria-label={t('composer.link')}
-                onClick={() => wrapSelection("[", "](https://)", "havola matni")}
-                title={t('composer.link')}
-                type="button"
-              >
-                <Icon name="link" size={15} />
-              </button>
-            </div>
-
-            <div className="composer-question-field">
-              <label htmlFor="composer-question">{t('composer.questionText')}</label>
-              <div className="composer-question-editor">
-                <textarea
-                  id="composer-question"
-                  ref={summaryRef}
-                  onChange={(event) => update("summary", event.target.value)}
-                  placeholder={t('composer.questionPlaceholder')}
-                  rows={6}
+            <div className="composer-live-split">
+              <div className="composer-live-editor">
+                <AnswerEditorTools
+                  onChange={(nextValue) => update("summary", nextValue)}
+                  textareaRef={summaryRef}
                   value={form.summary}
                 />
 
-                {form.images.length > 0 && (
-                  <div className="composer-editor-images">
-                    {form.images.map((image) => (
-                      <figure key={image.id}>
-                        <img alt={image.name} src={image.src} />
-                        <button
-                          aria-label={t('composer.removeImage', { name: image.name })}
-                          onClick={() => removeImage(image.id)}
-                          type="button"
-                        >
-                          <Icon name="close" size={14} />
-                        </button>
-                      </figure>
-                    ))}
+                <div className="composer-question-field">
+                  <label htmlFor="composer-question">{t('composer.questionText')}</label>
+                  <div className="composer-question-editor">
+                    <textarea
+                      id="composer-question"
+                      ref={summaryRef}
+                      onChange={(event) => update("summary", event.target.value)}
+                      placeholder={t('composer.questionPlaceholder')}
+                      rows={6}
+                      value={form.summary}
+                    />
+
+                    {form.images.length > 0 && (
+                      <div className="composer-editor-images">
+                        {form.images.map((image) => (
+                          <figure key={image.id}>
+                            <img alt={image.name} src={image.src} />
+                            <button
+                              aria-label={t('composer.removeImage', { name: image.name })}
+                              onClick={() => removeImage(image.id)}
+                              type="button"
+                            >
+                              <Icon name="close" size={14} />
+                            </button>
+                          </figure>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="composer-editor-footer">
+                      <input
+                        accept="image/*"
+                        multiple
+                        onChange={handleImages}
+                        ref={fileInputRef}
+                        type="file"
+                      />
+                      <button
+                        className="composer-attach-button"
+                        disabled={form.images.length >= 4}
+                        onClick={() => fileInputRef.current?.click()}
+                        type="button"
+                      >
+                        <Icon name="image" size={17} />
+                        {t('composer.image')}
+                      </button>
+                      <span>{form.images.length}/4</span>
+                    </div>
                   </div>
-                )}
+                </div>
 
-                <div className="composer-editor-footer">
-                  <input
-                    accept="image/*"
-                    multiple
-                    onChange={handleImages}
-                    ref={fileInputRef}
-                    type="file"
-                  />
-                  <button
-                    className="composer-attach-button"
-                    disabled={form.images.length >= 4}
-                    onClick={() => fileInputRef.current?.click()}
-                    type="button"
-                  >
-                    <Icon name="image" size={17} />
-                    {t('composer.image')}
-                  </button>
-                  <span>{form.images.length}/4</span>
+                <div className="composer-meta-grid">
+                  <label>
+                    {t('composer.category')}
+                    <select onChange={(event) => update("category", event.target.value)} value={form.category}>
+                      {CATEGORIES.filter((item) => item.id !== "all").map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {t(item.labelKey)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label>
+                    {t('composer.tags')}
+                    <input onChange={(event) => update("tags", event.target.value)} value={form.tags} />
+                  </label>
                 </div>
               </div>
-            </div>
 
-            {(form.summary || form.images.length > 0) && (
-              <div className="latex-live-preview">
+              <aside className="composer-live-preview-pane">
                 <div className="latex-live-preview-label">{t('composer.previewLabel')}</div>
-                <div className="question-content">
-                  <RichText text={form.summary} />
-                  <AttachmentGallery images={form.images} />
+                <div className="topic-meta">
+                  <CategoryMark categoryId={form.category} />
+                  <span>{t(CATEGORIES.find((item) => item.id === form.category)?.labelKey || 'forum.all')}</span>
                 </div>
-              </div>
-            )}
-
-            <label>
-              {t('composer.category')}
-              <select onChange={(event) => update("category", event.target.value)} value={form.category}>
-                {CATEGORIES.filter((item) => item.id !== "all").map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {t(item.labelKey)}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label>
-              {t('composer.tags')}
-              <input onChange={(event) => update("tags", event.target.value)} value={form.tags} />
-            </label>
+                <h3>{form.title || t('composer.emptyTitle')}</h3>
+                <div className="question-content">
+                  <RichText text={form.summary || t('composer.emptyPreview')} />
+                  <AttachmentGallery images={form.images} size="large" />
+                </div>
+                <div className="tag-row">
+                  {form.tags
+                    .split(",")
+                    .map((tag) => tag.trim().replace(/^#/, ""))
+                    .filter(Boolean)
+                    .slice(0, 4)
+                    .map((tag) => (
+                      <span className="tag-chip" key={tag}>
+                        #{tag}
+                      </span>
+                    ))}
+                </div>
+              </aside>
+            </div>
           </>
         ) : (
           <div className="composer-preview">
