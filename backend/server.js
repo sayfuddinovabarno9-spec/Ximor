@@ -13,7 +13,7 @@ const adminRoutes          = require('./routes/admin');
 const messagesRoutes       = require('./routes/messages');
 
 const app  = express();
-const PORT = process.env.BACKEND_PORT || 3002;
+const PORT = process.env.PORT || process.env.BACKEND_PORT || 3002;
 const HOST = '0.0.0.0';
 
 app.set('trust proxy', 1);

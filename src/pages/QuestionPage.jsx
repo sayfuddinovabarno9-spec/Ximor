@@ -533,6 +533,12 @@ export default function QuestionPage() {
     toastRef.current = setTimeout(() => setToast(''), 2200);
   };
 
+  const hasPermission = useCallback((permissionKey) => {
+    if (user?.is_admin) return true;
+    if (!user?.is_moderator) return false;
+    return Array.isArray(user.permissions) && user.permissions.includes(permissionKey);
+  }, [user?.is_admin, user?.is_moderator, user?.permissions]);
+
   const openFocusedAnswer = useCallback((withKeyboard = false) => {
     setFocusedAnswerKeyboardOpen(Boolean(withKeyboard));
     setFocusedAnswerOpen(true);
@@ -949,6 +955,9 @@ export default function QuestionPage() {
 
   /* Accept answer */
   const handleAccept = (answerId) => {
+    const isQuestionAuthor = Boolean(user && topic && (topic.user_id ? topic.user_id === user.id : topic.author === user.name));
+    if (!isQuestionAuthor && !hasPermission('answer.correctness')) return;
+
     const snapshot = topic;
     fetch(`${API}/api/forum/topics/${id}/accept/${answerId}`, {
       method: 'POST',
@@ -971,9 +980,11 @@ export default function QuestionPage() {
   };
 
   const handleSolvedToggle = () => {
-    if (!user?.is_admin && !user?.is_moderator) return;
+    if (!topic) return;
     const snapshot = topic;
     const solved = !topic.solved;
+    if (!hasPermission(solved ? 'question.solve' : 'question.open')) return;
+
     setTopic(prev => prev ? {
       ...prev,
       solved,
@@ -993,9 +1004,9 @@ export default function QuestionPage() {
 
   const handleUpdateQuestion = async (form) => {
     if (!user) { setShowAuth(true); throw new Error('auth required'); }
-    if (!user.is_admin) {
+    if (!hasPermission('question.edit')) {
       showToast(t('question.questionUpdateError'));
-      throw new Error('admin required');
+      throw new Error('permission required');
     }
 
     const tags = form.tags
@@ -1035,7 +1046,7 @@ export default function QuestionPage() {
   };
 
   const handleDeleteQuestion = () => {
-    if (!user?.is_admin) return;
+    if (!hasPermission('question.delete')) return;
     if (!confirm(t('question.confirmQuestionDelete'))) return;
 
     fetch(`${API}/api/admin/topics/${id}`, {
@@ -1050,7 +1061,9 @@ export default function QuestionPage() {
   };
 
   const handleAnswerModeration = (answerId, field, value) => {
-    if (!user?.is_admin && !user?.is_moderator) return;
+    const permissionKey = field === 'helpfulness' ? 'answer.helpfulness' : 'answer.correctness';
+    if (!hasPermission(permissionKey)) return;
+
     if (field === 'correctness' && value === 'correct') {
       handleAccept(answerId);
       return;
@@ -1097,7 +1110,7 @@ export default function QuestionPage() {
   };
 
   const handleDeleteAnswer = (answerId) => {
-    if (!user?.is_admin) return;
+    if (!hasPermission('answer.delete')) return;
     if (!confirm(t('question.confirmDelete'))) return;
 
     const snapshot = topic;
@@ -1147,8 +1160,14 @@ export default function QuestionPage() {
   );
 
   const isAuthor = Boolean(user && (topic.user_id ? topic.user_id === user.id : topic.author === user.name));
-  const isAdmin = Boolean(user?.is_admin);
-  const canModerate = Boolean(user?.is_admin || user?.is_moderator);
+  const canEditQuestion = hasPermission('question.edit');
+  const canDeleteQuestion = hasPermission('question.delete');
+  const canToggleCurrentSolved = hasPermission(topic.solved ? 'question.open' : 'question.solve');
+  const canModerateAnswerHelpfulness = hasPermission('answer.helpfulness');
+  const canModerateAnswerCorrectness = hasPermission('answer.correctness');
+  const canDeleteAnswer = hasPermission('answer.delete');
+  const canUseQuestionModbar = canEditQuestion || canDeleteQuestion || canToggleCurrentSolved;
+  const canUseAnswerModControls = canModerateAnswerHelpfulness || canModerateAnswerCorrectness || canDeleteAnswer;
   const answerCount = getAnswerCount(topic);
   const createdAt = formatQuestionCreatedAt(topic.created_at, language);
 
@@ -1238,9 +1257,9 @@ export default function QuestionPage() {
                 </div>
               )}
 
-              {canModerate && (
+              {canUseQuestionModbar && (
                 <div className="qp-modbar">
-                  {isAdmin && (
+                  {canEditQuestion && (
                     <button
                       className="soft-button"
                       onClick={() => setShowEdit(true)}
@@ -1250,7 +1269,7 @@ export default function QuestionPage() {
                       {t('question.editQuestion')}
                     </button>
                   )}
-                  {canModerate && (
+                  {canToggleCurrentSolved && (
                     <button
                       className={`soft-button ${topic.solved ? 'soft-button--success' : ''}`}
                       onClick={handleSolvedToggle}
@@ -1260,7 +1279,7 @@ export default function QuestionPage() {
                       {topic.solved ? t('question.markOpen') : t('question.markSolved')}
                     </button>
                   )}
-                  {isAdmin && (
+                  {canDeleteQuestion && (
                     <button
                       className="soft-button soft-button--danger"
                       onClick={handleDeleteQuestion}
@@ -1349,7 +1368,7 @@ export default function QuestionPage() {
                           <Icon name="check" size={15} />
                         </span>
                       )}
-                      {(isAuthor || canModerate) && !ans.accepted && (
+                      {(isAuthor || canModerateAnswerCorrectness) && !ans.accepted && (
                         <button
                           className="qp-accept-btn"
                           onClick={() => handleAccept(ans.id)}
@@ -1460,45 +1479,53 @@ export default function QuestionPage() {
                         </form>
                       )}
 
-                      {canModerate && (
+                      {canUseAnswerModControls && (
                         <div className="qp-mod-controls">
-                          <button
-                            aria-label={t('question.helpful')}
-                            className={`qp-mod-chip ${ans.moderation_helpfulness === 'helpful' ? 'is-active' : ''}`}
-                            data-tooltip={t('question.helpful')}
-                            onClick={() => handleAnswerModeration(ans.id, 'helpfulness', 'helpful')}
-                            type="button"
-                          >
-                            <Icon name="thumbsUp" size={14} />
-                          </button>
-                          <button
-                            aria-label={t('question.unhelpful')}
-                            className={`qp-mod-chip ${ans.moderation_helpfulness === 'unhelpful' ? 'is-danger' : ''}`}
-                            data-tooltip={t('question.unhelpful')}
-                            onClick={() => handleAnswerModeration(ans.id, 'helpfulness', 'unhelpful')}
-                            type="button"
-                          >
-                            <Icon name="thumbsDown" size={14} />
-                          </button>
-                          <button
-                            aria-label={t('question.correct')}
-                            className={`qp-mod-chip ${ans.accepted || ans.moderation_correctness === 'correct' ? 'is-active' : ''}`}
-                            data-tooltip={t('question.correct')}
-                            onClick={() => handleAnswerModeration(ans.id, 'correctness', 'correct')}
-                            type="button"
-                          >
-                            <Icon name="check" size={14} />
-                          </button>
-                          <button
-                            aria-label={t('question.incorrect')}
-                            className={`qp-mod-chip ${ans.moderation_correctness === 'incorrect' ? 'is-danger' : ''}`}
-                            data-tooltip={t('question.incorrect')}
-                            onClick={() => handleAnswerModeration(ans.id, 'correctness', 'incorrect')}
-                            type="button"
-                          >
-                            <Icon name="x" size={14} />
-                          </button>
-                          {isAdmin && (
+                          {canModerateAnswerHelpfulness && (
+                            <>
+                              <button
+                                aria-label={t('question.helpful')}
+                                className={`qp-mod-chip ${ans.moderation_helpfulness === 'helpful' ? 'is-active' : ''}`}
+                                data-tooltip={t('question.helpful')}
+                                onClick={() => handleAnswerModeration(ans.id, 'helpfulness', 'helpful')}
+                                type="button"
+                              >
+                                <Icon name="thumbsUp" size={14} />
+                              </button>
+                              <button
+                                aria-label={t('question.unhelpful')}
+                                className={`qp-mod-chip ${ans.moderation_helpfulness === 'unhelpful' ? 'is-danger' : ''}`}
+                                data-tooltip={t('question.unhelpful')}
+                                onClick={() => handleAnswerModeration(ans.id, 'helpfulness', 'unhelpful')}
+                                type="button"
+                              >
+                                <Icon name="thumbsDown" size={14} />
+                              </button>
+                            </>
+                          )}
+                          {canModerateAnswerCorrectness && (
+                            <>
+                              <button
+                                aria-label={t('question.correct')}
+                                className={`qp-mod-chip ${ans.accepted || ans.moderation_correctness === 'correct' ? 'is-active' : ''}`}
+                                data-tooltip={t('question.correct')}
+                                onClick={() => handleAnswerModeration(ans.id, 'correctness', 'correct')}
+                                type="button"
+                              >
+                                <Icon name="check" size={14} />
+                              </button>
+                              <button
+                                aria-label={t('question.incorrect')}
+                                className={`qp-mod-chip ${ans.moderation_correctness === 'incorrect' ? 'is-danger' : ''}`}
+                                data-tooltip={t('question.incorrect')}
+                                onClick={() => handleAnswerModeration(ans.id, 'correctness', 'incorrect')}
+                                type="button"
+                              >
+                                <Icon name="x" size={14} />
+                              </button>
+                            </>
+                          )}
+                          {canDeleteAnswer && (
                             <button
                               aria-label={t('question.delete')}
                               className="qp-mod-chip is-danger"

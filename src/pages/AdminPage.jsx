@@ -467,7 +467,11 @@ export default function AdminPage({ theme, onThemeToggle }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {topics.map(topicItem => (
+                    {topics.map(topicItem => {
+                      const canFeatureTopic = hasPermission('topic.feature');
+                      const canToggleSolved = hasPermission(topicItem.solved ? 'question.open' : 'question.solve');
+                      const canDeleteQuestion = hasPermission('question.delete');
+                      return (
                       <tr key={topicItem.id}>
                         <td>
                           <button className="adm-link" onClick={() => navigate(`/q/${topicItem.id}`)} style={{ maxWidth: 300, textAlign: 'left', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
@@ -487,7 +491,7 @@ export default function AdminPage({ theme, onThemeToggle }) {
                         </td>
                         <td>
                           <div className="adm-actions">
-                            {isAdmin && (
+                            {canFeatureTopic && (
                               <>
                                 <button
                                   className={`adm-btn ${topicItem.pinned ? 'adm-btn--active' : ''}`}
@@ -501,24 +505,26 @@ export default function AdminPage({ theme, onThemeToggle }) {
                                 >🔥</button>
                               </>
                             )}
-                            <button
-                              className={`adm-btn ${topicItem.solved ? 'adm-btn--solved' : ''}`}
-                              onClick={() => topicAction(topicItem.id, { solved: !topicItem.solved }, topicItem.solved ? 'Savol ochiq qilindi' : 'Savol yechildi')}
-                              title={topicItem.solved ? t('question.markOpen') : t('question.markSolved')}
-                            >
-                              {topicItem.solved ? t('common.open') : t('common.solved')}
-                            </button>
-                            {isAdmin && (
-                            <button
-                              className="adm-btn adm-btn--danger"
-                              onClick={() => deleteTopic(topicItem.id)}
-                              title={t('question.delete')}
-                            >🗑</button>
+                            {canToggleSolved && (
+                              <button
+                                className={`adm-btn ${topicItem.solved ? 'adm-btn--solved' : ''}`}
+                                onClick={() => topicAction(topicItem.id, { solved: !topicItem.solved }, topicItem.solved ? 'Savol ochiq qilindi' : 'Savol yechildi')}
+                                title={topicItem.solved ? t('question.markOpen') : t('question.markSolved')}
+                              >
+                                {topicItem.solved ? t('common.open') : t('common.solved')}
+                              </button>
+                            )}
+                            {canDeleteQuestion && (
+                              <button
+                                className="adm-btn adm-btn--danger"
+                                onClick={() => deleteTopic(topicItem.id)}
+                                title={t('question.delete')}
+                              >🗑</button>
                             )}
                           </div>
                         </td>
                       </tr>
-                    ))}
+                    );})}
                   </tbody>
                 </table>
               </div>
@@ -544,12 +550,33 @@ export default function AdminPage({ theme, onThemeToggle }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {PERMISSIONS.map(permission => (
-                    <tr key={`${permission.area}-${permission.label}`}>
+                  {permissions.length === 0 ? (
+                    <tr>
+                      <td colSpan={4}>
+                        <div className="adm-loading">{t('common.loading')}</div>
+                      </td>
+                    </tr>
+                  ) : permissions.map(permission => (
+                    <tr key={permission.key}>
                       <td><span className="adm-muted">{permission.area}</span></td>
                       <td>{permission.label}</td>
                       <td><PermissionBadge allowed={permission.admin} /></td>
-                      <td><PermissionBadge allowed={permission.moderator} /></td>
+                      <td>
+                        {isAdmin ? (
+                          <button
+                            aria-pressed={permission.moderator}
+                            className={`adm-permission-toggle ${permission.moderator ? 'is-on' : 'is-off'}`}
+                            disabled={permissionBusy === permission.key}
+                            onClick={() => toggleModeratorPermission(permission)}
+                            title={permission.moderator ? t('admin.turnOffRight') : t('admin.turnOnRight')}
+                            type="button"
+                          >
+                            <PermissionBadge allowed={permission.moderator} />
+                          </button>
+                        ) : (
+                          <PermissionBadge allowed={permission.moderator} />
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -559,7 +586,7 @@ export default function AdminPage({ theme, onThemeToggle }) {
         )}
 
         {/* ── Announce ── */}
-        {tab === 'announce' && isAdmin && (
+        {tab === 'announce' && canAnnounce && (
           <div className="adm-panel adm-announce">
             <h3>{t('admin.sendAnnouncement')}</h3>
             <p className="adm-muted">{t('admin.announcementHelp')}</p>
