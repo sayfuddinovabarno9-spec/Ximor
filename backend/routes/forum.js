@@ -203,6 +203,47 @@ router.post('/topics/:id/answers', requireAuth, async (req, res) => {
   res.json({ ok: true, answer: saved ? { ...saved, client_id: clientId } : null, listeners: clients.size });
 });
 
+// ── POST /api/forum/topics/:id/answers/:answerId/replies ─────────────────────
+router.post('/topics/:id/answers/:answerId/replies', requireAuth, async (req, res) => {
+  const topicId = Number(req.params.id);
+  const answerId = Number(req.params.answerId);
+  if (!Number.isFinite(topicId) || !Number.isFinite(answerId)) {
+    return res.status(400).json({ error: 'invalid id' });
+  }
+
+  const topic = await db.getTopicWithAnswers(topicId);
+  if (!topic) return res.status(404).json({ error: 'topic not found' });
+
+  const clean = sanitizeAnswer(req.body);
+  if (!clean.text.trim() && clean.images.length === 0) {
+    return res.status(400).json({ error: 'content required' });
+  }
+
+  const saved = await db.saveAnswerReply(topicId, answerId, {
+    user_id:  req.user.id,
+    text:     clean.text,
+    images:   clean.images,
+    author:   req.user.name,
+    initials: req.user.initials,
+    role:     req.user.role,
+  });
+  if (!saved) return res.status(404).json({ error: 'answer not found' });
+
+  const clientId = req.body?.id == null ? null : sanitize(String(req.body.id).slice(0, 80));
+  const reply = { ...saved.reply, client_id: clientId };
+  broadcast('answerReply', { topicId, answerId, reply });
+
+  if (saved.answer.user_id && saved.answer.user_id !== req.user.id) {
+    await db.createNotification(
+      saved.answer.user_id, 'reply', topicId,
+      `"${topic.title.slice(0, 60)}" mavzusidagi javobingizga reaksiya keldi`
+    );
+    broadcast('notification', { topicId });
+  }
+
+  res.json({ ok: true, reply, listeners: clients.size });
+});
+
 // ── PATCH /api/forum/topics/:id/vote ─────────────────────────────────────────
 router.patch('/topics/:id/vote', requireAuth, async (req, res) => {
   const topicId   = Number(req.params.id);

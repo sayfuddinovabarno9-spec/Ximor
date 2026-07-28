@@ -38,6 +38,30 @@ function getAnswerUrl(questionId, answerId) {
   return `${getQuestionUrl(questionId)}#answer-${answerId}`;
 }
 
+function mergeReplyIntoAnswers(answersList = [], answerId, reply) {
+  if (!reply) return answersList;
+  const clientId = reply.client_id;
+
+  return answersList.map((answer) => {
+    if (String(answer.id) !== String(answerId)) return answer;
+
+    let matched = false;
+    const replies = Array.isArray(answer.replies) ? answer.replies : [];
+    const nextReplies = replies.map((item) => {
+      const sameServerReply = String(item.id) === String(reply.id);
+      const sameOptimisticReply = clientId != null && String(item.id) === String(clientId);
+      if (!sameServerReply && !sameOptimisticReply) return item;
+      matched = true;
+      return { ...item, ...reply, id: reply.id };
+    });
+
+    return {
+      ...answer,
+      replies: matched ? nextReplies : [...replies, reply],
+    };
+  });
+}
+
 function Icon({ name, size=18 }) {
   const paths = {
     arrowLeft: "M19 12H5M12 5l-7 7 7 7",
@@ -323,6 +347,145 @@ function EditQuestionModal({ onClose, onSubmit, topic }) {
   );
 }
 
+function FocusedAnswerComposer({
+  defaultKeyboardOpen = false,
+  images,
+  onChange,
+  onClose,
+  onImagesChange,
+  onRemoveImage,
+  onSubmit,
+  submitting,
+  user,
+  value,
+}) {
+  const { t } = useLanguage();
+  const textareaRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const hasContent = Boolean(value.trim() || images.length);
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const focusTimer = window.setTimeout(() => {
+      textareaRef.current?.focus();
+    }, 180);
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') onClose();
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.clearTimeout(focusTimer);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onClose]);
+
+  return (
+    <div className="focus-editor-backdrop" onClick={onClose}>
+      <form
+        aria-modal="true"
+        className="focus-editor-shell"
+        onClick={(event) => event.stopPropagation()}
+        onSubmit={onSubmit}
+        role="dialog"
+      >
+        <div className="focus-editor-head">
+          <div>
+            <span className="eyebrow">{t('forum.writeAnswer')}</span>
+            <div className="focus-editor-author">
+              <Avatar initials={user.initials} name={user.name} online />
+              <strong>{user.name}</strong>
+            </div>
+          </div>
+          <button aria-label={t('common.close')} className="icon-button" onClick={onClose} title={t('common.close')} type="button">
+            <Icon name="x" size={19} />
+          </button>
+        </div>
+
+        <div className="focus-editor-grid">
+          <section className="focus-editor-write" aria-label={t('forum.writeAnswer')}>
+            <AnswerEditorTools
+              className="focus-editor-tools"
+              defaultKeyboardOpen={defaultKeyboardOpen}
+              onChange={onChange}
+              textareaRef={textareaRef}
+              value={value}
+            />
+
+            <textarea
+              id="focused-answer-editor"
+              onChange={(event) => onChange(event.target.value)}
+              placeholder={t('forum.answerPlaceholder')}
+              ref={textareaRef}
+              rows={12}
+              value={value}
+            />
+
+            {images.length > 0 && (
+              <div className="composer-editor-images">
+                {images.map((image) => (
+                  <figure key={image.id}>
+                    <img alt={image.name} src={image.src} />
+                    <button
+                      aria-label={t('composer.removeImage', { name: image.name })}
+                      onClick={() => onRemoveImage(image.id)}
+                      type="button"
+                    >
+                      <Icon name="x" size={14} />
+                    </button>
+                  </figure>
+                ))}
+              </div>
+            )}
+
+            <div className="composer-editor-footer">
+              <input
+                accept="image/*"
+                multiple
+                onChange={onImagesChange}
+                ref={fileInputRef}
+                type="file"
+              />
+              <button
+                className="composer-attach-button"
+                disabled={images.length >= 4}
+                onClick={() => fileInputRef.current?.click()}
+                type="button"
+              >
+                <Icon name="image" size={17} />
+                {t('composer.image')}
+              </button>
+              <span>{images.length}/4</span>
+            </div>
+          </section>
+
+          <aside className="focus-editor-preview" aria-label={t('composer.previewLabel')}>
+            <div className="latex-live-preview-label">{t('composer.previewLabel')}</div>
+            <div className={`focus-editor-preview-body ${hasContent ? '' : 'is-empty'}`.trim()}>
+              <RichText className="qp-answer-text" text={value || t('composer.emptyPreview')} />
+              <AttachmentGallery images={images} size="large" />
+            </div>
+          </aside>
+        </div>
+
+        <div className="focus-editor-actions">
+          <button className="soft-button" onClick={onClose} type="button">
+            {t('composer.cancel')}
+          </button>
+          <button className="primary-button" disabled={!hasContent || submitting} type="submit">
+            <Icon name="send" size={16} />
+            {submitting ? t('forum.sending') : t('forum.sendAnswer')}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 /* ── QuestionPage ──────────────────────────────────────────────────────────── */
 export default function QuestionPage() {
   const { id }              = useParams();
@@ -344,12 +507,17 @@ export default function QuestionPage() {
   const [error, setError]       = useState('');
   const [answer, setAnswer]     = useState('');
   const [answerImages, setAnswerImages] = useState([]);
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [replyDrafts, setReplyDrafts] = useState({});
+  const [replyBusy, setReplyBusy] = useState({});
   const [busy, setBusy]         = useState(false);
   const [votePending, setVotePending] = useState(false);
   const [voted, setVoted]       = useState(0);          // current user's vote on the topic
   const [answerVotes, setAnswerVotes] = useState({});   // { [answerId]: 1 | -1 | 0 }
   const [showAuth, setShowAuth] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [focusedAnswerOpen, setFocusedAnswerOpen] = useState(false);
+  const [focusedAnswerKeyboardOpen, setFocusedAnswerKeyboardOpen] = useState(false);
   const [toast, setToast]       = useState('');
   const [copiedPermalink, setCopiedPermalink] = useState('');
   const [highlightAnswerId, setHighlightAnswerId] = useState('');
@@ -364,6 +532,15 @@ export default function QuestionPage() {
     clearTimeout(toastRef.current);
     toastRef.current = setTimeout(() => setToast(''), 2200);
   };
+
+  const openFocusedAnswer = useCallback((withKeyboard = false) => {
+    setFocusedAnswerKeyboardOpen(Boolean(withKeyboard));
+    setFocusedAnswerOpen(true);
+  }, []);
+
+  const closeFocusedAnswer = useCallback(() => {
+    setFocusedAnswerOpen(false);
+  }, []);
 
   const handleCopyLink = async () => {
     try {
@@ -539,6 +716,14 @@ export default function QuestionPage() {
     });
   }, [id]);
 
+  const onAnswerReply = useCallback(({ topicId, answerId, reply }) => {
+    if (String(topicId) !== String(id)) return;
+    setTopic(prev => prev ? {
+      ...prev,
+      answersList: mergeReplyIntoAnswers(prev.answersList, answerId, reply),
+    } : prev);
+  }, [id]);
+
   const onTopicDeleted = useCallback(({ topicId }) => {
     if (String(topicId) !== String(id)) return;
     setTopic(null);
@@ -556,7 +741,8 @@ export default function QuestionPage() {
     onAnswerModeration,
     onAnswerDeleted,
     onTopicUpdate,
-    onTopicDeleted
+    onTopicDeleted,
+    onAnswerReply
   );
 
   /* Vote on the topic */
@@ -645,9 +831,9 @@ export default function QuestionPage() {
 
   /* Submit answer */
   const submitAnswer = async (e) => {
-    e.preventDefault();
-    if (!user) { setShowAuth(true); return; }
-    if ((!answer.trim() && answerImages.length === 0) || busy) return;
+    e?.preventDefault();
+    if (!user) { setShowAuth(true); return false; }
+    if ((!answer.trim() && answerImages.length === 0) || busy) return false;
 
     const text = answer.trim();
     const images = answerImages;
@@ -662,6 +848,7 @@ export default function QuestionPage() {
       score:    0,
       text,
       images,
+      replies: [],
     };
 
     setBusy(true);
@@ -691,6 +878,71 @@ export default function QuestionPage() {
       }
     } catch { /* optimistic update already applied */ }
     finally { setBusy(false); }
+    return true;
+  };
+
+  const submitFocusedAnswer = async (event) => {
+    const submitted = await submitAnswer(event);
+    if (submitted) closeFocusedAnswer();
+  };
+
+  const updateReplyDraft = (answerId, value) => {
+    setReplyDrafts(prev => ({ ...prev, [answerId]: value }));
+  };
+
+  const submitReply = async (event, answerId) => {
+    event.preventDefault();
+    if (!user) { setShowAuth(true); return; }
+    if (replyBusy[answerId]) return;
+
+    const text = (replyDrafts[answerId] || '').trim();
+    if (!text) return;
+
+    const optimisticId = `reply-${answerId}-${Date.now()}`;
+    const optimisticReply = {
+      id: optimisticId,
+      answer_id: answerId,
+      topic_id: Number(id),
+      user_id: user.id,
+      author: user.name,
+      initials: user.initials,
+      role: user.role,
+      text,
+      images: [],
+      created_at: new Date().toISOString(),
+    };
+    const snapshot = topic;
+
+    setReplyBusy(prev => ({ ...prev, [answerId]: true }));
+    setTopic(prev => prev ? {
+      ...prev,
+      answersList: mergeReplyIntoAnswers(prev.answersList, answerId, optimisticReply),
+    } : prev);
+    updateReplyDraft(answerId, '');
+
+    try {
+      const response = await fetch(`${API}/api/forum/topics/${id}/answers/${answerId}/replies`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ ...optimisticReply, id: optimisticId }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'reply failed');
+      if (result.reply) {
+        setTopic(prev => prev ? {
+          ...prev,
+          answersList: mergeReplyIntoAnswers(prev.answersList, answerId, result.reply),
+        } : prev);
+      }
+      setReplyingTo(null);
+      showToast(t('question.replySent'));
+    } catch {
+      setTopic(snapshot);
+      updateReplyDraft(answerId, text);
+      showToast(t('question.genericError'));
+    } finally {
+      setReplyBusy(prev => ({ ...prev, [answerId]: false }));
+    }
   };
 
   /* Accept answer */
@@ -1134,6 +1386,78 @@ export default function QuestionPage() {
                       </div>
                       <RichText className="qp-answer-text" text={ans.text} />
                       <AttachmentGallery images={ans.images} size="large" />
+
+                      <div className="qp-answer-actions">
+                        <button
+                          className="qp-reply-button"
+                          onClick={() => {
+                            if (!user) { setShowAuth(true); return; }
+                            setReplyingTo(current => current === ans.id ? null : ans.id);
+                          }}
+                          type="button"
+                        >
+                          <Icon name="message" size={14} />
+                          {t('question.reply')}
+                          {(ans.replies?.length || 0) > 0 && <span>{ans.replies.length}</span>}
+                        </button>
+                      </div>
+
+                      {Array.isArray(ans.replies) && ans.replies.length > 0 && (
+                        <div className="qp-replies-list">
+                          {ans.replies.map((reply) => (
+                            <article className="qp-reply" key={reply.id}>
+                              <Avatar initials={reply.initials} name={reply.author} />
+                              <div>
+                                <div className="qp-reply-meta">
+                                  <strong>{reply.author}</strong>
+                                  <span>{reply.role}</span>
+                                  {reply.created_at && (
+                                    <time dateTime={reply.created_at}>
+                                      {formatQuestionCreatedAt(reply.created_at, language)}
+                                    </time>
+                                  )}
+                                </div>
+                                <RichText className="qp-reply-text" text={reply.text} />
+                              </div>
+                            </article>
+                          ))}
+                        </div>
+                      )}
+
+                      {user && replyingTo === ans.id && (
+                        <form className="qp-reply-form" onSubmit={(event) => submitReply(event, ans.id)}>
+                          <Avatar initials={user.initials} name={user.name} online />
+                          <div>
+                            <textarea
+                              onChange={(event) => updateReplyDraft(ans.id, event.target.value)}
+                              placeholder={t('question.replyPlaceholder')}
+                              rows={3}
+                              value={replyDrafts[ans.id] || ''}
+                            />
+                            <div className="qp-reply-form-actions">
+                              <button
+                                className="soft-button"
+                                onClick={() => {
+                                  setReplyingTo(null);
+                                  updateReplyDraft(ans.id, '');
+                                }}
+                                type="button"
+                              >
+                                {t('composer.cancel')}
+                              </button>
+                              <button
+                                className="primary-button"
+                                disabled={!String(replyDrafts[ans.id] || '').trim() || replyBusy[ans.id]}
+                                type="submit"
+                              >
+                                <Icon name="send" size={14} />
+                                {replyBusy[ans.id] ? t('question.sendingReply') : t('question.sendReply')}
+                              </button>
+                            </div>
+                          </div>
+                        </form>
+                      )}
+
                       {canModerate && (
                         <div className="qp-mod-controls">
                           <button
@@ -1200,11 +1524,17 @@ export default function QuestionPage() {
                   <Avatar initials={user.initials} name={user.name} online />
                   <strong>{user.name}</strong>
                 </div>
-                <AnswerEditorTools onChange={setAnswer} textareaRef={answerRef} value={answer} />
+                <AnswerEditorTools
+                  onChange={setAnswer}
+                  onKeyboardOpen={() => openFocusedAnswer(true)}
+                  textareaRef={answerRef}
+                  value={answer}
+                />
                 <textarea
                   ref={answerRef}
                   value={answer}
                   onChange={e => setAnswer(e.target.value)}
+                  onFocus={() => openFocusedAnswer(false)}
                   placeholder={t('forum.answerPlaceholder')}
                   rows={5}
                 />
@@ -1298,6 +1628,21 @@ export default function QuestionPage() {
           )}
         </aside>
       </div>
+
+      {user && focusedAnswerOpen && (
+        <FocusedAnswerComposer
+          defaultKeyboardOpen={focusedAnswerKeyboardOpen}
+          images={answerImages}
+          onChange={setAnswer}
+          onClose={closeFocusedAnswer}
+          onImagesChange={handleAnswerImages}
+          onRemoveImage={removeAnswerImage}
+          onSubmit={submitFocusedAnswer}
+          submitting={busy}
+          user={user}
+          value={answer}
+        />
+      )}
 
       {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
       {showEdit && topic && (

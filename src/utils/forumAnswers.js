@@ -10,8 +10,16 @@ export function mergeAnswerIntoList(answersList = [], answer) {
     if (!sameServerAnswer && !sameOptimisticAnswer) return item;
 
     matched = true;
-    return { ...item, ...answer, id: answer.id };
+    const nextReplies = Array.isArray(answer.replies) && answer.replies.length
+      ? answer.replies
+      : item.replies ?? [];
+    return {
+      ...item,
+      ...answer,
+      id: answer.id,
+      replies: nextReplies,
+    };
   });
 
-  return matched ? nextAnswers : [...answersList, answer];
+  return matched ? nextAnswers : [...answersList, { ...answer, replies: answer.replies ?? [] }];
 }

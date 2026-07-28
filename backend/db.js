@@ -190,6 +190,21 @@ async function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_topic_votes_user  ON topic_votes(user_id);
     CREATE INDEX IF NOT EXISTS idx_answer_votes_user ON answer_votes(user_id);
 
+    CREATE TABLE IF NOT EXISTS answer_replies (
+      id         SERIAL PRIMARY KEY,
+      topic_id   INTEGER NOT NULL REFERENCES topics(id)  ON DELETE CASCADE,
+      answer_id  INTEGER NOT NULL REFERENCES answers(id) ON DELETE CASCADE,
+      user_id    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      author     TEXT    DEFAULT 'Anonim',
+      initials   TEXT    DEFAULT 'AN',
+      role       TEXT    DEFAULT 'Ishtirokchi',
+      text       TEXT    NOT NULL,
+      images     TEXT    DEFAULT '[]',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_answer_replies_answer ON answer_replies(answer_id, id);
+    CREATE INDEX IF NOT EXISTS idx_answer_replies_topic  ON answer_replies(topic_id, id);
+
     CREATE TABLE IF NOT EXISTS conversations (
       id           SERIAL PRIMARY KEY,
       user_low_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -247,6 +262,15 @@ function hydrateAnswer(row) {
     images: safeJson(row.images, []),
     moderation_helpfulness: row.moderation_helpfulness ?? null,
     moderation_correctness: row.moderation_correctness ?? null,
+    replies: [],
+  };
+}
+
+function hydrateAnswerReply(row) {
+  if (!row) return null;
+  return {
+    ...row,
+    images: safeJson(row.images, []),
   };
 }
 
@@ -273,6 +297,17 @@ async function getTopicWithAnswers(id) {
     [id]
   );
   topic.answersList = answers.map(hydrateAnswer);
+  if (topic.answersList.length) {
+    const replyRows = await q(
+      'SELECT * FROM answer_replies WHERE topic_id = $1 ORDER BY id ASC',
+      [id]
+    );
+    const answerById = new Map(topic.answersList.map(answer => [Number(answer.id), answer]));
+    for (const row of replyRows) {
+      const answer = answerById.get(Number(row.answer_id));
+      if (answer) answer.replies.push(hydrateAnswerReply(row));
+    }
+  }
   topic.answers = topic.answersList.length;
   return topic;
 }
@@ -447,6 +482,34 @@ async function saveAnswer(topicId, answer) {
     [topicId]
   );
   return hydrateAnswer(row);
+}
+
+async function saveAnswerReply(topicId, answerId, reply) {
+  const answer = await q1(
+    'SELECT id, topic_id, user_id, author FROM answers WHERE id = $1 AND topic_id = $2',
+    [answerId, topicId]
+  );
+  if (!answer) return null;
+
+  const row = await q1(`
+    INSERT INTO answer_replies (topic_id, answer_id, user_id, author, initials, role, text, images)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    RETURNING *
+  `, [
+    topicId,
+    answerId,
+    reply.user_id ?? null,
+    reply.author ?? 'Anonim',
+    reply.initials ?? 'AN',
+    reply.role ?? 'Ishtirokchi',
+    reply.text ?? '',
+    JSON.stringify(reply.images ?? []),
+  ]);
+
+  return {
+    reply: hydrateAnswerReply(row),
+    answer,
+  };
 }
 
 // ── Users ─────────────────────────────────────────────────────────────────────
@@ -1389,7 +1452,7 @@ module.exports = {
   USER_ROLES, normalizeUserRole,
   initSchema, seedDemo,
   getAllTopics, getTopicWithAnswers, saveTopic, updateTopic, updateScore, acceptAnswer,
-  saveAnswer,
+  saveAnswer, saveAnswerReply,
   createUser, getUserByUsername, getUserByEmail, getUserById, markUserSeen, addUserScore, getUserProfile,
   getUserAnswers, updateUserProfile, updateUserBio,
   getAllTournaments, getTournamentById, registerForTournament,

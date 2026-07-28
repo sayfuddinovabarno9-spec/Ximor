@@ -125,9 +125,16 @@ const LATEX_GROUPS = [
   },
 ];
 
-export default function AnswerEditorTools({ className = "", onChange, textareaRef, value }) {
+export default function AnswerEditorTools({
+  className = "",
+  defaultKeyboardOpen = false,
+  onChange,
+  onKeyboardOpen,
+  textareaRef,
+  value,
+}) {
   const { t } = useLanguage();
-  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [keyboardOpen, setKeyboardOpen] = useState(defaultKeyboardOpen);
   const [activeGroupId, setActiveGroupId] = useState(LATEX_GROUPS[0].id);
   const activeGroup = useMemo(
     () => LATEX_GROUPS.find((group) => group.id === activeGroupId) || LATEX_GROUPS[0],
@@ -186,6 +193,14 @@ export default function AnswerEditorTools({ className = "", onChange, textareaRe
     insertSnippet(item.value);
   }, [insertSnippet, wrapSelection]);
 
+  const handleKeyboardToggle = useCallback(() => {
+    if (onKeyboardOpen) {
+      onKeyboardOpen();
+      return;
+    }
+    setKeyboardOpen((open) => !open);
+  }, [onKeyboardOpen]);
+
   return (
     <div className={`answer-editor-tools ${className}`.trim()}>
       <div className="chem-toolbar latex-toolbar" aria-label="LaTeX formulalari">
@@ -197,8 +212,9 @@ export default function AnswerEditorTools({ className = "", onChange, textareaRe
         ))}
         <button
           aria-expanded={keyboardOpen}
+          aria-haspopup={onKeyboardOpen ? "dialog" : undefined}
           className="latex-keyboard-toggle"
-          onClick={() => setKeyboardOpen((open) => !open)}
+          onClick={handleKeyboardToggle}
           type="button"
         >
           <span aria-hidden="true">⌨</span>

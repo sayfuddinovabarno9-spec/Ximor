@@ -2320,6 +2320,191 @@ a { text-decoration: none; }
   line-height: 1.65;
 }
 
+.focus-editor-backdrop {
+  align-items: center;
+  animation: focusBackdropIn 220ms ease;
+  background: rgba(3, 10, 16, 0.76);
+  backdrop-filter: blur(8px);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 20px;
+  position: fixed;
+  z-index: 80;
+}
+
+.focus-editor-shell {
+  animation: focusEditorIn 340ms cubic-bezier(.16, 1, .3, 1);
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--primary) 20%, var(--line));
+  border-radius: var(--radius-lg);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.34);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  height: min(820px, calc(100vh - 40px));
+  max-width: 1360px;
+  min-height: 560px;
+  min-width: 0;
+  overflow: hidden;
+  width: min(1320px, calc(100vw - 40px));
+}
+
+.focus-editor-head {
+  align-items: center;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--primary) 10%, var(--surface)), var(--surface));
+  border-bottom: 1px solid var(--line-soft);
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+}
+
+.focus-editor-author {
+  align-items: center;
+  color: var(--text);
+  display: flex;
+  gap: 9px;
+  margin-top: 7px;
+  min-width: 0;
+}
+
+.focus-editor-author strong {
+  font-size: 15px;
+  font-weight: 900;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.focus-editor-grid {
+  display: grid;
+  gap: 0;
+  grid-template-columns: minmax(0, 1.08fr) minmax(340px, .92fr);
+  min-height: 0;
+  min-width: 0;
+}
+
+.focus-editor-write,
+.focus-editor-preview {
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  padding: 18px;
+}
+
+.focus-editor-write {
+  animation: focusWriteIn 380ms cubic-bezier(.16, 1, .3, 1);
+  background: color-mix(in srgb, var(--surface) 94%, var(--bg));
+  display: grid;
+  gap: 12px;
+  grid-template-rows: auto minmax(230px, 1fr) auto auto;
+}
+
+.focus-editor-write textarea {
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--primary) 36%, var(--line));
+  border-radius: var(--radius);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 12%, transparent);
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1.7;
+  min-height: 260px;
+  outline: none;
+  padding: 16px;
+  resize: none;
+  width: 100%;
+}
+
+.focus-editor-tools .latex-keyboard-panel {
+  box-shadow: none;
+  grid-template-columns: minmax(0, 1fr);
+  max-height: 260px;
+  overflow: auto;
+}
+
+.focus-editor-tools .latex-keyboard-preview {
+  display: none;
+}
+
+.focus-editor-preview {
+  animation: focusPreviewIn 420ms cubic-bezier(.16, 1, .3, 1);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-soft) 75%, transparent), transparent 160px),
+    var(--surface);
+  border-left: 1px solid var(--line-soft);
+  display: grid;
+  gap: 12px;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.focus-editor-preview-body {
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  min-height: 100%;
+  overflow: auto;
+  padding: 18px;
+}
+
+.focus-editor-preview-body.is-empty .rich-text {
+  color: var(--muted);
+}
+
+.focus-editor-preview .rich-text {
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.75;
+}
+
+.focus-editor-actions {
+  align-items: center;
+  background: var(--surface);
+  border-top: 1px solid var(--line-soft);
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  padding: 14px 18px;
+}
+
+@keyframes focusBackdropIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes focusEditorIn {
+  from {
+    opacity: 0;
+    transform: translateY(26px) scale(.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes focusWriteIn {
+  from {
+    opacity: 0;
+    transform: translateX(-22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes focusPreviewIn {
+  from {
+    opacity: 0;
+    transform: translateX(22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 #forum ~ .floating-compose {
   background: var(--primary);
   border: 1px solid var(--primary-strong);
@@ -2601,7 +2786,11 @@ a { text-decoration: none; }
 @media (prefers-reduced-motion: reduce) {
   .latex-keyboard-panel,
   .composer-live-split,
-  .composer-live-preview-pane {
+  .composer-live-preview-pane,
+  .focus-editor-backdrop,
+  .focus-editor-shell,
+  .focus-editor-write,
+  .focus-editor-preview {
     animation: none;
   }
 }
@@ -2958,6 +3147,26 @@ a { text-decoration: none; }
     grid-template-columns: 1fr;
   }
 
+  .focus-editor-backdrop {
+    padding: 12px;
+  }
+
+  .focus-editor-shell {
+    height: calc(100vh - 24px);
+    min-height: 0;
+    width: calc(100vw - 24px);
+  }
+
+  .focus-editor-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(420px, 1fr) minmax(260px, .75fr);
+  }
+
+  .focus-editor-preview {
+    border-left: 0;
+    border-top: 1px solid var(--line-soft);
+  }
+
   .composer-live-preview-pane {
     max-height: none;
     min-height: 220px;
@@ -2972,6 +3181,35 @@ a { text-decoration: none; }
 }
 
 @media (max-width: 760px) {
+  .focus-editor-backdrop {
+    padding: 0;
+  }
+
+  .focus-editor-shell {
+    border-radius: 0;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  .focus-editor-head,
+  .focus-editor-actions {
+    padding: 12px;
+  }
+
+  .focus-editor-write,
+  .focus-editor-preview {
+    padding: 12px;
+  }
+
+  .focus-editor-grid {
+    grid-template-rows: minmax(380px, 1fr) minmax(220px, .7fr);
+  }
+
+  .focus-editor-write textarea {
+    font-size: 15px;
+    min-height: 220px;
+  }
+
   .topbar {
     gap: 10px;
     grid-template-areas:
@@ -3532,6 +3770,140 @@ a { text-decoration: none; }
   color: var(--muted);
   font-size: 15px;
   line-height: 1.7;
+}
+
+.qp-answer-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.qp-reply-button {
+  align-items: center;
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--primary) 20%, var(--line));
+  border-radius: 999px;
+  color: var(--primary);
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 850;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 11px;
+  transition: background 140ms, border-color 140ms, transform 140ms;
+}
+
+.qp-reply-button:hover {
+  background: color-mix(in srgb, var(--primary) 13%, var(--surface));
+  border-color: color-mix(in srgb, var(--primary) 36%, var(--line));
+  transform: translateY(-1px);
+}
+
+.qp-reply-button span {
+  background: color-mix(in srgb, var(--primary) 18%, var(--surface));
+  border-radius: 999px;
+  color: var(--primary);
+  font-size: 10px;
+  font-weight: 900;
+  min-width: 18px;
+  padding: 1px 5px;
+  text-align: center;
+}
+
+.qp-replies-list {
+  border-left: 2px solid color-mix(in srgb, var(--primary) 20%, var(--line));
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding-left: 14px;
+}
+
+.qp-reply {
+  background: color-mix(in srgb, var(--surface-soft) 58%, var(--surface));
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 32px minmax(0, 1fr);
+  padding: 10px;
+}
+
+.qp-reply .avatar {
+  height: 32px;
+  width: 32px;
+}
+
+.qp-reply-meta {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-bottom: 4px;
+}
+
+.qp-reply-meta strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.qp-reply-meta span,
+.qp-reply-meta time {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.qp-reply-text,
+.qp-reply-text p,
+.qp-reply-text li {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.qp-reply-form {
+  align-items: start;
+  background: color-mix(in srgb, var(--primary) 5%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--line));
+  border-radius: var(--radius);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 32px minmax(0, 1fr);
+  margin-top: 14px;
+  padding: 10px;
+}
+
+.qp-reply-form .avatar {
+  height: 32px;
+  width: 32px;
+}
+
+.qp-reply-form textarea {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.55;
+  min-height: 84px;
+  outline: none;
+  padding: 10px 12px;
+  resize: vertical;
+  width: 100%;
+}
+
+.qp-reply-form textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus);
+}
+
+.qp-reply-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 8px;
 }
 
 .qp-mod-controls {
