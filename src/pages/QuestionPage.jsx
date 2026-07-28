@@ -91,11 +91,11 @@ function Icon({ name, size=18 }) {
   );
 }
 
-function Avatar({ initials, name, online=false }) {
+function Avatar({ image, initials, name, online=false }) {
   return (
     <span className={`avatar ${online ? 'is-online' : ''}`} title={name}
       style={{ background: avatarBg(initials), color: '#fff', border: 'none' }}>
-      {initials}
+      {image ? <img alt="" src={image} /> : initials}
       {online && <span className="avatar__status" />}
     </span>
   );
@@ -397,7 +397,7 @@ function FocusedAnswerComposer({
           <div>
             <span className="eyebrow">{t('forum.writeAnswer')}</span>
             <div className="focus-editor-author">
-              <Avatar initials={user.initials} name={user.name} online />
+              <Avatar image={user.avatar_url} initials={user.initials} name={user.name} online />
               <strong>{user.name}</strong>
             </div>
           </div>
@@ -843,6 +843,7 @@ export default function QuestionPage() {
       id:       optimisticId,
       author:   user.name,
       initials: user.initials,
+      avatar_url: user.avatar_url || '',
       role:     user.role,
       accepted: false,
       score:    0,
@@ -906,6 +907,7 @@ export default function QuestionPage() {
       user_id: user.id,
       author: user.name,
       initials: user.initials,
+      avatar_url: user.avatar_url || '',
       role: user.role,
       text,
       images: [],
@@ -1294,7 +1296,7 @@ export default function QuestionPage() {
                 </div>
                 <div className="qp-author-card">
                   <span className="qp-author-label">{t('question.asked')}</span>
-                  <Avatar initials={topic.initials} name={topic.author} />
+                  <Avatar image={topic.avatar_url} initials={topic.initials} name={topic.author} />
                   <div>
                     <strong>{topic.author}</strong>
                     <span>{topic.role}</span>
@@ -1360,7 +1362,7 @@ export default function QuestionPage() {
 
                     <div className="qp-answer-body">
                       <div className="qp-answer-meta">
-                        <Avatar initials={ans.initials} name={ans.author} />
+                        <Avatar image={ans.avatar_url} initials={ans.initials} name={ans.author} />
                         <strong>{ans.author}</strong>
                         <span>{ans.role}</span>
                         {ans.accepted && <span className="pill pill--ok">{t('question.accepted')}</span>}
@@ -1406,7 +1408,7 @@ export default function QuestionPage() {
                         <div className="qp-replies-list">
                           {ans.replies.map((reply) => (
                             <article className="qp-reply" key={reply.id}>
-                              <Avatar initials={reply.initials} name={reply.author} />
+                              <Avatar image={reply.avatar_url} initials={reply.initials} name={reply.author} />
                               <div>
                                 <div className="qp-reply-meta">
                                   <strong>{reply.author}</strong>
@@ -1426,7 +1428,7 @@ export default function QuestionPage() {
 
                       {user && replyingTo === ans.id && (
                         <form className="qp-reply-form" onSubmit={(event) => submitReply(event, ans.id)}>
-                          <Avatar initials={user.initials} name={user.name} online />
+                          <Avatar image={user.avatar_url} initials={user.initials} name={user.name} online />
                           <div>
                             <textarea
                               onChange={(event) => updateReplyDraft(ans.id, event.target.value)}
@@ -1521,7 +1523,7 @@ export default function QuestionPage() {
             {user ? (
               <form onSubmit={submitAnswer}>
                 <div className="qp-answerer">
-                  <Avatar initials={user.initials} name={user.name} online />
+                  <Avatar image={user.avatar_url} initials={user.initials} name={user.name} online />
                   <strong>{user.name}</strong>
                 </div>
                 <AnswerEditorTools

@@ -124,6 +124,7 @@ router.post('/topics', requireAuth, async (req, res) => {
     user_id:  req.user.id,
     author:   req.user.name,
     initials: req.user.initials,
+    avatar_url: req.user.avatar_url || '',
     role:     req.user.role,
   });
 
@@ -180,6 +181,7 @@ router.post('/topics/:id/answers', requireAuth, async (req, res) => {
     images:   clean.images,
     author:   req.user.name,
     initials: req.user.initials,
+    avatar_url: req.user.avatar_url || '',
     role:     req.user.role,
     score:    0,
   });
@@ -225,6 +227,7 @@ router.post('/topics/:id/answers/:answerId/replies', requireAuth, async (req, re
     images:   clean.images,
     author:   req.user.name,
     initials: req.user.initials,
+    avatar_url: req.user.avatar_url || '',
     role:     req.user.role,
   });
   if (!saved) return res.status(404).json({ error: 'answer not found' });

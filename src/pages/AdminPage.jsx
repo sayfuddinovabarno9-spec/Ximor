@@ -17,8 +17,8 @@ const PERMISSIONS = [
   { area: 'Staff', label: 'Admin yaratish', admin: true, moderator: false },
   { area: 'Staff', label: 'Moderator tayinlash', admin: true, moderator: false },
   { area: 'Staff', label: 'Rol nomini o\'zgartirish', admin: true, moderator: false },
-  { area: 'Users', label: 'Oddiy foydalanuvchini bloklash', admin: true, moderator: true },
-  { area: 'Users', label: 'Blokni olib tashlash', admin: true, moderator: true },
+  { area: 'Users', label: 'Oddiy foydalanuvchini bloklash', admin: true, moderator: false },
+  { area: 'Users', label: 'Blokni olib tashlash', admin: true, moderator: false },
   { area: 'Questions', label: 'Savolni yechildi deb belgilash', admin: true, moderator: true },
   { area: 'Questions', label: 'Savolni ochiq qilish', admin: true, moderator: true },
   { area: 'Questions', label: 'Savolni tahrirlash', admin: true, moderator: false },
@@ -246,7 +246,7 @@ export default function AdminPage({ theme, onThemeToggle }) {
         <div className="adm-tabs">
           {[
             { id: 'overview', labelKey: 'admin.overview' },
-            { id: 'users', labelKey: 'admin.users' },
+            isAdmin ? { id: 'users', labelKey: 'admin.users' } : null,
             { id: 'content', labelKey: 'admin.content' },
             { id: 'permissions', labelKey: 'admin.permissions' },
             isAdmin ? { id: 'announce', labelKey: 'admin.announcement' } : null,

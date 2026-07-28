@@ -309,11 +309,11 @@ function FlaskIcon() {
   );
 }
 
-function Avatar({ initials, name, online = false }) {
+function Avatar({ image, initials, name, online = false }) {
   return (
     <span className={`avatar ${online ? 'is-online' : ''}`} title={name}
       style={{ background: avatarBg(initials), color: '#fff', border: 'none' }}>
-      {initials}
+      {image ? <img alt="" src={image} /> : initials}
       {online && <span className="avatar__status" />}
     </span>
   );
@@ -602,7 +602,7 @@ function ThreadDrawer({
               return (
               <article className={`answer-card ${item.accepted ? "is-accepted" : ""}`} key={item.id ?? `${item.author}-${index}`}>
                 <div className="answer-head">
-                  <Avatar initials={item.initials} name={item.author} online={item.accepted} />
+                  <Avatar image={item.avatar_url} initials={item.initials} name={item.author} online={item.accepted} />
                   <div>
                     <strong>{item.author}</strong>
                     <span>{item.role}</span>
@@ -1417,6 +1417,7 @@ function Forum({ theme, onThemeToggle }) {
       id:       optimisticId,
       author:   user.name,
       initials: user.initials,
+      avatar_url: user.avatar_url || '',
       role:     user.role,
       accepted: false,
       score:    0,
@@ -1489,7 +1490,7 @@ function Forum({ theme, onThemeToggle }) {
     const { id: realId } = await r.json();
 
     // SSE will broadcast this topic to other clients; add it locally for the creator
-    const newTopic = { ...payload, id: realId, author: user.name, initials: user.initials, role: user.role };
+    const newTopic = { ...payload, id: realId, author: user.name, initials: user.initials, avatar_url: user.avatar_url || '', role: user.role };
     setTopics(prev => prev.some(t => t.id === realId) ? prev : [newTopic, ...prev]);
     setShowComposer(false);
     showToast(t('forum.topicCreated'));

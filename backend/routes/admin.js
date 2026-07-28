@@ -32,12 +32,14 @@ router.get('/activity', async (_req, res) => {
 
 // ── Users ─────────────────────────────────────────────────────────────────────
 router.get('/users', async (req, res) => {
+  if (!requireAdminOnly(req, res)) return;
   const limit  = Math.min(parseInt(req.query.limit  ?? 100), 200);
   const offset = parseInt(req.query.offset ?? 0);
   res.json(await db.getAllUsersAdmin(limit, offset));
 });
 
 router.patch('/users/:id', async (req, res) => {
+  if (!requireAdminOnly(req, res)) return;
   const id = parseInt(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: 'Invalid id' });
   const body = req.body || {};
@@ -52,9 +54,6 @@ router.patch('/users/:id', async (req, res) => {
 
   if ('banned' in body) {
     if (target.id === req.user.id) return res.status(400).json({ error: "O'zingizni bloklab bo'lmaydi" });
-    if (!req.user.is_admin && (target.is_admin || target.is_moderator)) {
-      return res.status(403).json({ error: 'Moderator boshqa moderator yoki adminni bloklay olmaydi' });
-    }
     fields.banned = Boolean(body.banned);
   }
 

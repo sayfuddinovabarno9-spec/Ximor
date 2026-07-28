@@ -31,7 +31,105 @@ const FEATURE_CARDS = [
   },
 ];
 
-const FLOATING_SYMBOLS = ["H2SO4", "NaCl", "pH", "CuSO4", "K_eq", "NH3", "C6H6", "Delta G"];
+const BACKGROUND_FORMULAS = [
+  {
+    key: "acid-ph",
+    label: "acid-base",
+    expression: <>pH = -log<sub>10</sub>[H<sub>3</sub>O<sup>+</sup>]</>,
+  },
+  {
+    key: "equilibrium",
+    label: "equilibrium",
+    expression: <>K<sub>eq</sub> = [NH<sub>3</sub>]<sup>2</sup> / [N<sub>2</sub>][H<sub>2</sub>]<sup>3</sup></>,
+  },
+  {
+    key: "gibbs",
+    label: "thermodynamics",
+    expression: <>Delta G = Delta G<sup>o</sup> + RT ln Q</>,
+  },
+  {
+    key: "nernst",
+    label: "electrochemistry",
+    expression: <>E<sub>cell</sub> = E<sup>o</sup><sub>cell</sub> - 0.0592/n log Q</>,
+  },
+  {
+    key: "buffer",
+    label: "buffer",
+    expression: <>pH = pK<sub>a</sub> + log(A<sup>-</sup>/HA)</>,
+  },
+  {
+    key: "rate-law",
+    label: "kinetics",
+    expression: <>rate = k[A]<sup>m</sup>[B]<sup>n</sup></>,
+  },
+  {
+    key: "solubility",
+    label: "solubility",
+    expression: <>K<sub>sp</sub> = [Ag<sup>+</sup>][Cl<sup>-</sup>]</>,
+  },
+  {
+    key: "gas-law",
+    label: "gas law",
+    expression: <>PV = nRT</>,
+  },
+];
+
+const BACKGROUND_STRUCTURES = [
+  { key: "benzene", label: "benzene", type: "benzene" },
+  { key: "acetate", label: "acetate buffer", type: "acetate" },
+  { key: "ammonia", label: "NH3 geometry", type: "ammonia" },
+];
+
+function ChemistryStructure({ type, label }) {
+  const titleId = `structure-${type}`;
+
+  return (
+    <svg
+      className={`landing-structure-svg landing-structure-svg--${type}`}
+      viewBox="0 0 180 140"
+      role="img"
+      aria-labelledby={titleId}
+    >
+      <title id={titleId}>{label}</title>
+      {type === "benzene" && (
+        <>
+          <polygon points="90,18 139,46 139,94 90,122 41,94 41,46" />
+          <circle cx="90" cy="70" r="31" />
+          <path d="M90 18v18M139 46l-16 9M139 94l-16-9M90 122v-18M41 94l16-9M41 46l16 9" />
+        </>
+      )}
+      {type === "acetate" && (
+        <>
+          <path d="M34 72h38M72 72h36M107 72l26-28M107 72l27 29" />
+          <path className="landing-structure-bond--double" d="M103 66l24-28M111 78l27 29" />
+          <circle cx="34" cy="72" r="8" />
+          <circle cx="72" cy="72" r="8" />
+          <circle cx="134" cy="39" r="9" />
+          <circle cx="138" cy="105" r="9" />
+          <text x="23" y="61">CH3</text>
+          <text x="65" y="58">C</text>
+          <text x="128" y="27">O-</text>
+          <text x="129" y="125">OH</text>
+        </>
+      )}
+      {type === "ammonia" && (
+        <>
+          <path d="M90 68l-45 38M90 68l45 38M90 68V22" />
+          <path className="landing-structure-bond--dash" d="M90 68c-7 14-11 28-12 43" />
+          <circle cx="90" cy="68" r="12" />
+          <circle cx="45" cy="106" r="8" />
+          <circle cx="135" cy="106" r="8" />
+          <circle cx="90" cy="22" r="8" />
+          <circle cx="78" cy="111" r="7" />
+          <text x="84" y="73">N</text>
+          <text x="38" y="126">H</text>
+          <text x="132" y="126">H</text>
+          <text x="86" y="16">H</text>
+        </>
+      )}
+    </svg>
+  );
+}
 
 function HomeIcon({ name }) {
   const icons = {
@@ -172,10 +270,22 @@ export default function HomePage() {
           ))}
         </div>
         <div className="landing-symbol-cloud">
-          {FLOATING_SYMBOLS.map((symbol, index) => (
-            <span key={symbol} style={{ "--symbol-index": index }}>
-              {symbol}
+          {BACKGROUND_FORMULAS.map((formula, index) => (
+            <span key={formula.key} style={{ "--symbol-index": index }}>
+              <b>{formula.expression}</b>
+              <small>{formula.label}</small>
             </span>
+          ))}
+        </div>
+        <div className="landing-structure-field">
+          {BACKGROUND_STRUCTURES.map((structure, index) => (
+            <div
+              className={`landing-structure landing-structure--${structure.type}`}
+              key={structure.key}
+              style={{ "--structure-index": index }}
+            >
+              <ChemistryStructure type={structure.type} label={structure.label} />
+            </div>
           ))}
         </div>
         <div className="landing-scan" />

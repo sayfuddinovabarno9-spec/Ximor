@@ -74,6 +74,7 @@ async function initSchema() {
       created_at   TIMESTAMPTZ DEFAULT NOW()
     );
     ALTER TABLE topics ADD COLUMN IF NOT EXISTS images TEXT DEFAULT '[]';
+    ALTER TABLE topics ADD COLUMN IF NOT EXISTS avatar_url TEXT DEFAULT '';
 
     CREATE TABLE IF NOT EXISTS answers (
       id         SERIAL PRIMARY KEY,
@@ -92,6 +93,7 @@ async function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_answers_topic ON answers(topic_id);
     ALTER TABLE answers ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
     ALTER TABLE answers ADD COLUMN IF NOT EXISTS images TEXT DEFAULT '[]';
+    ALTER TABLE answers ADD COLUMN IF NOT EXISTS avatar_url TEXT DEFAULT '';
     ALTER TABLE answers ADD COLUMN IF NOT EXISTS moderation_helpfulness TEXT;
     ALTER TABLE answers ADD COLUMN IF NOT EXISTS moderation_correctness  TEXT;
     ALTER TABLE answers ADD COLUMN IF NOT EXISTS moderated_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
@@ -202,6 +204,7 @@ async function initSchema() {
       images     TEXT    DEFAULT '[]',
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
+    ALTER TABLE answer_replies ADD COLUMN IF NOT EXISTS avatar_url TEXT DEFAULT '';
     CREATE INDEX IF NOT EXISTS idx_answer_replies_answer ON answer_replies(answer_id, id);
     CREATE INDEX IF NOT EXISTS idx_answer_replies_topic  ON answer_replies(topic_id, id);
 
@@ -244,6 +247,7 @@ function hydrateTopic(row) {
     ...row,
     tags:         safeJson(row.tags, []),
     images:       safeJson(row.images, []),
+    avatar_url:   row.avatar_url || '',
     participants: safeJson(row.participants, []),
     pinned:       Boolean(row.pinned),
     hot:          Boolean(row.hot),
@@ -260,6 +264,7 @@ function hydrateAnswer(row) {
     ...row,
     accepted: Boolean(row.accepted),
     images: safeJson(row.images, []),
+    avatar_url: row.avatar_url || '',
     moderation_helpfulness: row.moderation_helpfulness ?? null,
     moderation_correctness: row.moderation_correctness ?? null,
     replies: [],
@@ -271,14 +276,18 @@ function hydrateAnswerReply(row) {
   return {
     ...row,
     images: safeJson(row.images, []),
+    avatar_url: row.avatar_url || '',
   };
 }
 
 // ── Topics ────────────────────────────────────────────────────────────────────
 async function getAllTopics() {
   const rows = await q(`
-    SELECT t.*, COALESCE(a.answers, 0)::INTEGER AS answers
+    SELECT t.*,
+           COALESCE(NULLIF(t.avatar_url, ''), u.avatar_url, '') AS avatar_url,
+           COALESCE(a.answers, 0)::INTEGER AS answers
     FROM topics t
+    LEFT JOIN users u ON u.id = t.user_id
     LEFT JOIN (
       SELECT topic_id, COUNT(*)::INTEGER AS answers
       FROM answers
@@ -290,16 +299,32 @@ async function getAllTopics() {
 }
 
 async function getTopicWithAnswers(id) {
-  const topic = hydrateTopic(await q1('SELECT * FROM topics WHERE id = $1', [id]));
+  const topic = hydrateTopic(await q1(`
+    SELECT t.*,
+           COALESCE(NULLIF(t.avatar_url, ''), u.avatar_url, '') AS avatar_url
+    FROM topics t
+    LEFT JOIN users u ON u.id = t.user_id
+    WHERE t.id = $1
+  `, [id]));
   if (!topic) return null;
   const answers = await q(
-    'SELECT * FROM answers WHERE topic_id = $1 ORDER BY accepted DESC, score DESC, id ASC',
+    `SELECT a.*,
+            COALESCE(NULLIF(a.avatar_url, ''), u.avatar_url, '') AS avatar_url
+     FROM answers a
+     LEFT JOIN users u ON u.id = a.user_id
+     WHERE a.topic_id = $1
+     ORDER BY a.accepted DESC, a.score DESC, a.id ASC`,
     [id]
   );
   topic.answersList = answers.map(hydrateAnswer);
   if (topic.answersList.length) {
     const replyRows = await q(
-      'SELECT * FROM answer_replies WHERE topic_id = $1 ORDER BY id ASC',
+      `SELECT r.*,
+              COALESCE(NULLIF(r.avatar_url, ''), u.avatar_url, '') AS avatar_url
+       FROM answer_replies r
+       LEFT JOIN users u ON u.id = r.user_id
+       WHERE r.topic_id = $1
+       ORDER BY r.id ASC`,
       [id]
     );
     const answerById = new Map(topic.answersList.map(answer => [Number(answer.id), answer]));
@@ -316,8 +341,8 @@ async function saveTopic(topic) {
   const row = await q1(`
     INSERT INTO topics
       (category, title, summary, formula, tags, images, author, initials, role,
-       score, answers, views, activity, difficulty, participants, pinned, hot, solved, user_id)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+       score, answers, views, activity, difficulty, participants, pinned, hot, solved, avatar_url, user_id)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
     RETURNING *
   `, [
     topic.category     ?? 'all',
@@ -338,6 +363,7 @@ async function saveTopic(topic) {
     topic.pinned       ?? false,
     topic.hot          ?? false,
     topic.solved       ?? false,
+    topic.avatar_url   ?? '',
     topic.user_id      ?? null,
   ]);
   return hydrateTopic(row);
@@ -471,11 +497,12 @@ async function acceptAnswer(topicId, answerId) {
 // ── Answers ───────────────────────────────────────────────────────────────────
 async function saveAnswer(topicId, answer) {
   const row = await q1(`
-    INSERT INTO answers (topic_id, user_id, author, initials, role, score, text, images)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    INSERT INTO answers (topic_id, user_id, author, initials, role, score, text, images, avatar_url)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     RETURNING *
   `, [topicId, answer.user_id ?? null, answer.author ?? 'Anonim', answer.initials ?? 'AN',
-      answer.role ?? 'Ishtirokchi', answer.score ?? 0, answer.text ?? '', JSON.stringify(answer.images ?? [])]);
+      answer.role ?? 'Ishtirokchi', answer.score ?? 0, answer.text ?? '', JSON.stringify(answer.images ?? []),
+      answer.avatar_url ?? '']);
   if (!row) return null;
   await pool.query(
     "UPDATE topics SET answers = answers + 1, activity = 'Hozir', solved = FALSE WHERE id = $1",
@@ -492,8 +519,8 @@ async function saveAnswerReply(topicId, answerId, reply) {
   if (!answer) return null;
 
   const row = await q1(`
-    INSERT INTO answer_replies (topic_id, answer_id, user_id, author, initials, role, text, images)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    INSERT INTO answer_replies (topic_id, answer_id, user_id, author, initials, role, text, images, avatar_url)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     RETURNING *
   `, [
     topicId,
@@ -504,6 +531,7 @@ async function saveAnswerReply(topicId, answerId, reply) {
     reply.role ?? 'Ishtirokchi',
     reply.text ?? '',
     JSON.stringify(reply.images ?? []),
+    reply.avatar_url ?? '',
   ]);
 
   return {
@@ -742,12 +770,16 @@ async function updateUserProfile(userId, fields) {
   ]);
 
   await pool.query(
-    'UPDATE topics SET author=$1, initials=$2, role=$3 WHERE user_id=$4',
-    [row.name, row.initials, row.role, userId]
+    'UPDATE topics SET author=$1, initials=$2, role=$3, avatar_url=$4 WHERE user_id=$5',
+    [row.name, row.initials, row.role, row.avatar_url || '', userId]
   );
   await pool.query(
-    'UPDATE answers SET author=$1, initials=$2, role=$3 WHERE user_id=$4',
-    [row.name, row.initials, row.role, userId]
+    'UPDATE answers SET author=$1, initials=$2, role=$3, avatar_url=$4 WHERE user_id=$5',
+    [row.name, row.initials, row.role, row.avatar_url || '', userId]
+  );
+  await pool.query(
+    'UPDATE answer_replies SET author=$1, initials=$2, role=$3, avatar_url=$4 WHERE user_id=$5',
+    [row.name, row.initials, row.role, row.avatar_url || '', userId]
   );
 
   return { ...row, interests: safeJson(row.interests, []) };
@@ -1228,7 +1260,16 @@ async function moderateAnswer(id, fields, moderatorId) {
     row.accepted = false;
     row.topic_solved = Boolean(stillSolved?.solved);
   }
-  return hydrateAnswer(row);
+  if (!row) return null;
+  const fresh = await q1(`
+    SELECT a.*,
+           COALESCE(NULLIF(a.avatar_url, ''), u.avatar_url, '') AS avatar_url
+    FROM answers a
+    LEFT JOIN users u ON u.id = a.user_id
+    WHERE a.id = $1
+  `, [id]);
+  if (fresh && row.topic_solved !== undefined) fresh.topic_solved = row.topic_solved;
+  return hydrateAnswer(fresh);
 }
 
 async function broadcastAnnouncement(message) {
