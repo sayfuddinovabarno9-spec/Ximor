@@ -3,12 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import AnswerEditorTools from '../components/AnswerEditorTools';
 import AuthModal from '../components/AuthModal';
 import AttachmentGallery from '../components/AttachmentGallery';
+import ImageDropZone from '../components/ImageDropZone';
 import Layout from '../components/Layout';
 import RichText from '../components/RichText';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { avatarBg } from '../utils/avatarColor';
-import { prepareForumImage } from '../utils/forumImage';
+import { prepareForumImages } from '../utils/forumImage';
 
 const BACKEND = import.meta.env.VITE_API_URL || 'http://localhost:3002';
 
@@ -102,7 +103,6 @@ export default function MessagesPage({ theme, onThemeToggle }) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const draftRef = useRef(null);
-  const draftImageInputRef = useRef(null);
   const messagesEndRef = useRef(null);
 
   const activeConversation = useMemo(
@@ -261,20 +261,11 @@ export default function MessagesPage({ theme, onThemeToggle }) {
     }
   };
 
-  const handleDraftImages = async (event) => {
-    const files = Array.from(event.target.files || [])
-      .filter((file) => file.type.startsWith('image/'))
-      .slice(0, Math.max(0, 4 - draftImages.length));
-
-    if (!files.length) return;
-
-    const results = await Promise.allSettled(files.map(prepareForumImage));
-    const images = results
-      .filter((result) => result.status === 'fulfilled')
-      .map((result) => result.value);
+  const handleDraftImages = async (fileList) => {
+    const images = await prepareForumImages(fileList, 4 - draftImages.length);
+    if (!images.length) return;
 
     setDraftImages((current) => [...current, ...images].slice(0, 4));
-    event.target.value = '';
   };
 
   const removeDraftImage = (imageId) => {
@@ -532,25 +523,12 @@ export default function MessagesPage({ theme, onThemeToggle }) {
                         {sending ? t('messages.sending') : t('messages.sendMessage')}
                       </button>
                     </div>
-                    <div className="composer-editor-footer messages-composer-footer">
-                      <input
-                        accept="image/*"
-                        multiple
-                        onChange={handleDraftImages}
-                        ref={draftImageInputRef}
-                        type="file"
-                      />
-                      <button
-                        className="composer-attach-button"
-                        disabled={draftImages.length >= 4}
-                        onClick={() => draftImageInputRef.current?.click()}
-                        type="button"
-                      >
-                        <Icon name="image" size={17} />
-                        {t('composer.image')}
-                      </button>
-                      <span>{draftImages.length}/4</span>
-                    </div>
+                    <ImageDropZone
+                      className="messages-composer-footer"
+                      count={draftImages.length}
+                      onFiles={handleDraftImages}
+                      renderIcon={(size) => <Icon name="image" size={size} />}
+                    />
                   </form>
                 </>
               ) : (

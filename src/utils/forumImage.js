@@ -31,3 +31,19 @@ export function prepareForumImage(file) {
     reader.readAsDataURL(file);
   });
 }
+
+export function selectForumImageFiles(fileList, availableSlots = 4) {
+  return Array.from(fileList || [])
+    .filter((file) => file?.type?.startsWith('image/'))
+    .slice(0, Math.max(0, availableSlots));
+}
+
+export async function prepareForumImages(fileList, availableSlots = 4) {
+  const files = selectForumImageFiles(fileList, availableSlots);
+  if (!files.length) return [];
+
+  const results = await Promise.allSettled(files.map(prepareForumImage));
+  return results
+    .filter((result) => result.status === 'fulfilled')
+    .map((result) => result.value);
+}

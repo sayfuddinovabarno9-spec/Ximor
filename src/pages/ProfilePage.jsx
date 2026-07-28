@@ -85,6 +85,10 @@ function prepareProfileImage(file, kind) {
   });
 }
 
+function getDroppedProfileImage(fileList) {
+  return Array.from(fileList || []).find((file) => file?.type?.startsWith('image/')) || null;
+}
+
 const COVER_PRESETS = [
   {
     id: 'lab',
@@ -382,6 +386,7 @@ function EditProfileModal({ authHeaders, onClose, onSaved, profile }) {
   const [error, setError] = useState('');
   const [selectedCover, setSelectedCover] = useState('');
   const [selectedAvatar, setSelectedAvatar] = useState('');
+  const [dragTarget, setDragTarget] = useState('');
   const [form, setForm] = useState({
     username: profile.username || '',
     name: profile.name || '',
@@ -398,8 +403,7 @@ function EditProfileModal({ authHeaders, onClose, onSaved, profile }) {
 
   const update = (key, value) => setForm(current => ({ ...current, [key]: value }));
 
-  const handleImage = async (event, key, kind) => {
-    const file = event.target.files?.[0];
+  const handleImageFile = async (file, key, kind) => {
     if (!file || !file.type.startsWith('image/')) return;
     try {
       const src = await prepareProfileImage(file, kind);
@@ -408,9 +412,41 @@ function EditProfileModal({ authHeaders, onClose, onSaved, profile }) {
       if (key === 'avatar_url') setSelectedAvatar('');
     } catch {
       setError(t('profile.imageError'));
-    } finally {
-      event.target.value = '';
     }
+  };
+
+  const handleImage = async (event, key, kind) => {
+    await handleImageFile(event.target.files?.[0], key, kind);
+    event.target.value = '';
+  };
+
+  const handleImageDragEnter = (event, key) => {
+    if (!getDroppedProfileImage(event.dataTransfer?.items || event.dataTransfer?.files)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setDragTarget(key);
+  };
+
+  const handleImageDragOver = (event, key) => {
+    if (!getDroppedProfileImage(event.dataTransfer?.items || event.dataTransfer?.files)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = 'copy';
+    setDragTarget(key);
+  };
+
+  const handleImageDragLeave = (event, key) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.currentTarget.contains(event.relatedTarget)) return;
+    setDragTarget((current) => (current === key ? '' : current));
+  };
+
+  const handleImageDrop = async (event, key, kind) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setDragTarget('');
+    await handleImageFile(getDroppedProfileImage(event.dataTransfer.files), key, kind);
   };
 
   const selectCoverPreset = (preset) => {
@@ -471,7 +507,14 @@ function EditProfileModal({ authHeaders, onClose, onSaved, profile }) {
         </div>
 
         <div className="profile-photo-tools">
-          <div className="profile-cover-preview" style={{ backgroundImage: form.cover_url ? `url(${form.cover_url})` : undefined }}>
+          <div
+            className={`profile-cover-preview ${dragTarget === 'cover_url' ? 'is-dragging' : ''}`}
+            onDragEnter={(event) => handleImageDragEnter(event, 'cover_url')}
+            onDragLeave={(event) => handleImageDragLeave(event, 'cover_url')}
+            onDragOver={(event) => handleImageDragOver(event, 'cover_url')}
+            onDrop={(event) => handleImageDrop(event, 'cover_url', 'cover')}
+            style={{ backgroundImage: form.cover_url ? `url(${form.cover_url})` : undefined }}
+          >
             <button className="soft-button" type="button" onClick={() => coverInputRef.current?.click()}>
               <Icon name="camera" size={16} />
               {t('profile.coverPhoto')}
@@ -499,7 +542,13 @@ function EditProfileModal({ authHeaders, onClose, onSaved, profile }) {
               ))}
             </div>
           </div>
-          <div className="profile-avatar-tool">
+          <div
+            className={`profile-avatar-tool ${dragTarget === 'avatar_url' ? 'is-dragging' : ''}`}
+            onDragEnter={(event) => handleImageDragEnter(event, 'avatar_url')}
+            onDragLeave={(event) => handleImageDragLeave(event, 'avatar_url')}
+            onDragOver={(event) => handleImageDragOver(event, 'avatar_url')}
+            onDrop={(event) => handleImageDrop(event, 'avatar_url', 'avatar')}
+          >
             <ProfilePhoto profile={{ ...profile, avatar_url: form.avatar_url, initials: profile.initials }} />
             <div>
               <button className="soft-button" type="button" onClick={() => avatarInputRef.current?.click()}>

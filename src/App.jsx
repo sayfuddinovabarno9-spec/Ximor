@@ -7,6 +7,7 @@ import { useLanguage } from "./context/LanguageContext";
 import AnswerEditorTools from "./components/AnswerEditorTools";
 import AuthModal from "./components/AuthModal";
 import AttachmentGallery from "./components/AttachmentGallery";
+import ImageDropZone from "./components/ImageDropZone";
 import RichText from "./components/RichText";
 import Layout from "./components/Layout";
 import InsightsPanel from "./components/InsightsPanel";
@@ -23,7 +24,7 @@ import { avatarBg } from "./utils/avatarColor";
 import copyToClipboard from "./utils/copyToClipboard";
 import { formatQuestionCreatedAt } from "./utils/dateTime";
 import { mergeAnswerIntoList } from "./utils/forumAnswers";
-import { prepareForumImage } from "./utils/forumImage";
+import { prepareForumImages } from "./utils/forumImage";
 
 const BACKEND = import.meta.env.VITE_API_URL || 'http://localhost:3002';
 
@@ -470,7 +471,6 @@ function ThreadDrawer({
   const [answer, setAnswer] = useState("");
   const [answerImages, setAnswerImages] = useState([]);
   const answerRef = useRef(null);
-  const answerImageInputRef = useRef(null);
   const createdAt = formatQuestionCreatedAt(topic?.created_at, language);
 
   useEffect(() => {
@@ -483,20 +483,11 @@ function ThreadDrawer({
 
   if (!topic) return null;
 
-  const handleAnswerImages = async (event) => {
-    const files = Array.from(event.target.files || [])
-      .filter((file) => file.type.startsWith("image/"))
-      .slice(0, Math.max(0, 4 - answerImages.length));
-
-    if (!files.length) return;
-
-    const results = await Promise.allSettled(files.map(prepareForumImage));
-    const images = results
-      .filter((result) => result.status === "fulfilled")
-      .map((result) => result.value);
+  const handleAnswerImages = async (fileList) => {
+    const images = await prepareForumImages(fileList, 4 - answerImages.length);
+    if (!images.length) return;
 
     setAnswerImages((current) => [...current, ...images].slice(0, 4));
-    event.target.value = "";
   };
 
   const removeAnswerImage = (imageId) => {
@@ -675,25 +666,11 @@ function ThreadDrawer({
               ))}
             </div>
           )}
-          <div className="composer-editor-footer">
-            <input
-              accept="image/*"
-              multiple
-              onChange={handleAnswerImages}
-              ref={answerImageInputRef}
-              type="file"
-            />
-            <button
-              className="composer-attach-button"
-              disabled={answerImages.length >= 4}
-              onClick={() => answerImageInputRef.current?.click()}
-              type="button"
-            >
-              <Icon name="image" size={17} />
-              {t('composer.image')}
-            </button>
-            <span>{answerImages.length}/4</span>
-          </div>
+          <ImageDropZone
+            count={answerImages.length}
+            onFiles={handleAnswerImages}
+            renderIcon={(size) => <Icon name="image" size={size} />}
+          />
           {(answer.trim() || answerImages.length > 0) && (
             <div className="latex-live-preview answer-live-preview">
               <div className="latex-live-preview-label">{t('composer.previewLabel')}</div>
@@ -714,7 +691,6 @@ function ThreadDrawer({
 function ComposerModal({ onClose, onSubmit }) {
   const { t } = useLanguage();
   const summaryRef = useRef(null);
-  const fileInputRef = useRef(null);
   const [mode, setMode] = useState("write");
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
@@ -727,20 +703,11 @@ function ComposerModal({ onClose, onSubmit }) {
 
   const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
 
-  const handleImages = async (event) => {
-    const files = Array.from(event.target.files || [])
-      .filter((file) => file.type.startsWith("image/"))
-      .slice(0, Math.max(0, 4 - form.images.length));
+  const handleImages = async (fileList) => {
+    const images = await prepareForumImages(fileList, 4 - form.images.length);
+    if (!images.length) return;
 
-    if (!files.length) return;
-
-    const results = await Promise.allSettled(files.map(prepareForumImage));
-    const images = results
-      .filter((result) => result.status === "fulfilled")
-      .map((result) => result.value);
-
-    setForm((current) => ({ ...current, images: [...current.images, ...images] }));
-    event.target.value = "";
+    setForm((current) => ({ ...current, images: [...current.images, ...images].slice(0, 4) }));
   };
 
   const removeImage = (imageId) => {
@@ -858,25 +825,11 @@ function ComposerModal({ onClose, onSubmit }) {
                       </div>
                     )}
 
-                    <div className="composer-editor-footer">
-                      <input
-                        accept="image/*"
-                        multiple
-                        onChange={handleImages}
-                        ref={fileInputRef}
-                        type="file"
-                      />
-                      <button
-                        className="composer-attach-button"
-                        disabled={form.images.length >= 4}
-                        onClick={() => fileInputRef.current?.click()}
-                        type="button"
-                      >
-                        <Icon name="image" size={17} />
-                        {t('composer.image')}
-                      </button>
-                      <span>{form.images.length}/4</span>
-                    </div>
+                    <ImageDropZone
+                      count={form.images.length}
+                      onFiles={handleImages}
+                      renderIcon={(size) => <Icon name="image" size={size} />}
+                    />
                   </div>
                 </div>
 
