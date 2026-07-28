@@ -330,7 +330,7 @@ export default function MessagesPage({ theme, onThemeToggle }) {
     <Layout
       theme={theme}
       onThemeToggle={onThemeToggle}
-      onCompose={() => navigate('/chat')}
+      onCompose={() => navigate('/forum')}
       query={query}
       onQuery={setQuery}
       searchPlaceholder={t('messages.searchUsers')}

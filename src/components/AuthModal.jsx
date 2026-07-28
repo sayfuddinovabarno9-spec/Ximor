@@ -52,7 +52,7 @@ export default function AuthModal({ onClose, onSuccess }) {
             <BrandMark />
           </div>
           <div>
-            <strong>Ximor</strong>
+            <strong>ChemOlymp</strong>
             <span>{t('home.chemistryChat')}</span>
           </div>
         </div>

@@ -43,6 +43,11 @@ const SORTS = [
   { id: "saved", labelKey: "forum.saved", icon: "bookmark" },
 ];
 
+function getSortFromParams(searchParams) {
+  const view = searchParams.get("view");
+  return SORTS.some((sort) => sort.id === view) ? view : "recent";
+}
+
 const TRENDING_TAGS = [
   "organik-kimyo",
   "reaksiya-mexanizmi",
@@ -65,8 +70,8 @@ const INITIAL_TOPICS = [
       "Bu yerda organik, anorganik, analitik va fizikaviy kimyo bo'yicha savollarni muhokama qilamiz. Savolingizga urinish, kuzatuv va aniq formulani ilova qiling.",
     formula: "savol + urinish + formula = tez va foydali javob",
     tags: ["qoidalar", "boshlash", "kimyo"],
-    author: "Ximor jamoasi",
-    initials: "Xi",
+    author: "ChemOlymp jamoasi",
+    initials: "CO",
     role: "Moderator",
     score: 412,
     answers: 18,
@@ -977,9 +982,10 @@ export default function App() {
     <AuthProvider>
       <Routes>
         <Route path="/" element={<HomePage />} />
-        <Route path="/chat" element={<Forum theme={theme} onThemeToggle={toggleTheme} />} />
+        <Route path="/forum" element={<Forum theme={theme} onThemeToggle={toggleTheme} />} />
+        <Route path="/chat" element={<Navigate to="/forum" replace />} />
+        <Route path="/saved" element={<Navigate to="/forum?view=saved" replace />} />
         <Route path="/messages" element={<MessagesPage theme={theme} onThemeToggle={toggleTheme} />} />
-        <Route path="/forum" element={<Navigate to="/chat" replace />} />
         <Route path="/chat/admin" element={<Navigate to="/admin" replace />} />
         <Route path="/olimpiadalar" element={<OlimpiadalarPage theme={theme} onThemeToggle={toggleTheme} />} />
         <Route path="/reyting" element={<ReytingPage theme={theme} onThemeToggle={toggleTheme} />} />
@@ -997,7 +1003,7 @@ function Forum({ theme, onThemeToggle }) {
   const { user, token, logout, authHeaders } = useAuth();
   const { t } = useLanguage();
   const navigate                  = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [showAuth, setShowAuth]   = useState(false);
   const [topics, setTopics] = useState([]);
   const [topicsLoaded, setTopicsLoaded] = useState(false);
@@ -1009,7 +1015,7 @@ function Forum({ theme, onThemeToggle }) {
   const pendingVoteIdsRef = useRef(new Set());
   const pendingAnswerVoteIdsRef = useRef(new Set());
   const [activeCategory, setActiveCategory] = useState("all");
-  const [activeSort, setActiveSort] = useState("recent");
+  const [activeSort, setActiveSort] = useState(() => getSortFromParams(searchParams));
   const [density, setDensity] = useState("comfortable");
   const [query, setQuery] = useState(() => searchParams.get("q") || "");
   const openTopic = (id) => navigate(`/q/${id}`);
@@ -1145,6 +1151,21 @@ function Forum({ theme, onThemeToggle }) {
   useEffect(() => {
     setQuery(searchParams.get("q") || "");
   }, [searchParams]);
+
+  useEffect(() => {
+    setActiveSort((current) => {
+      const nextSort = getSortFromParams(searchParams);
+      return current === nextSort ? current : nextSort;
+    });
+  }, [searchParams]);
+
+  const handleSortChange = useCallback((sortId) => {
+    setActiveSort(sortId);
+    const nextParams = new URLSearchParams(searchParams);
+    if (sortId === "recent") nextParams.delete("view");
+    else nextParams.set("view", sortId);
+    setSearchParams(nextParams, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     if (topicsLoaded) return;
@@ -1605,7 +1626,7 @@ function Forum({ theme, onThemeToggle }) {
                     aria-selected={activeSort === sort.id}
                     className={activeSort === sort.id ? "is-active" : ""}
                     key={sort.id}
-                    onClick={() => setActiveSort(sort.id)}
+                    onClick={() => handleSortChange(sort.id)}
                     role="tab"
                     type="button"
                   >
@@ -1638,9 +1659,22 @@ function Forum({ theme, onThemeToggle }) {
               </div>
             ) : filteredTopics.length === 0 ? (
               <div className="empty-state">
-                <Icon name="filter" size={24} />
-                <strong>{t('forum.noResults')}</strong>
-                <span>{t('forum.noResultsHint')}</span>
+                <Icon name={activeSort === "saved" ? "bookmark" : "filter"} size={24} />
+                <strong>
+                  {activeSort === "saved"
+                    ? user ? t('forum.noSaved') : t('forum.signInForSaved')
+                    : t('forum.noResults')}
+                </strong>
+                <span>
+                  {activeSort === "saved"
+                    ? user ? t('forum.noSavedHint') : t('forum.signInForSavedHint')
+                    : t('forum.noResultsHint')}
+                </span>
+                {activeSort === "saved" && !user && (
+                  <button className="primary-button" type="button" onClick={() => setShowAuth(true)}>
+                    {t('nav.login')}
+                  </button>
+                )}
               </div>
             ) : (
               filteredTopics.map((topic) => (
@@ -1678,7 +1712,7 @@ function Forum({ theme, onThemeToggle }) {
           <button
             className={activeSort === sort.id ? "is-active" : ""}
             key={sort.id}
-            onClick={() => setActiveSort(sort.id)}
+            onClick={() => handleSortChange(sort.id)}
             type="button"
           >
             <Icon name={sort.icon} size={15} />

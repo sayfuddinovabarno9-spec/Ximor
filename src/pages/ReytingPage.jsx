@@ -249,7 +249,7 @@ export default function ReytingPage({ theme, onThemeToggle }) {
           </div>
         </section>
 
-        <InsightsPanel onSpotlightClick={() => navigate('/chat?q=reaksiya')} />
+        <InsightsPanel onSpotlightClick={() => navigate('/forum?q=reaksiya')} />
       </main>
     </Layout>
   );

@@ -54,7 +54,7 @@ function decode(s) {
 
 async function fetchNews() {
   const r = await fetch('https://www.sciencedaily.com/rss/matter_energy/chemistry.xml', {
-    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; XimorBot/1.0)' },
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ChemOlympBot/1.0)' },
     signal: AbortSignal.timeout(8000),
   });
   if (!r.ok) throw new Error(`RSS ${r.status}`);

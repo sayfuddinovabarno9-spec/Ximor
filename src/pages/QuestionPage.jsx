@@ -1044,7 +1044,7 @@ export default function QuestionPage() {
     }).then(r => r.ok ? r.json() : Promise.reject())
       .then(() => {
         showToast(t('question.questionDeleted'));
-        navigate('/chat', { replace: true });
+        navigate('/forum', { replace: true });
       })
       .catch(() => showToast(t('question.genericError')));
   };

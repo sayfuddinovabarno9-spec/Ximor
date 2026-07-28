@@ -1,7 +1,6 @@
 const express = require('express');
 const db = require('../db');
 const { requireAuth } = require('../middleware/auth');
-const { hasModeratorAccess } = require('../middleware/requireModerator');
 
 const router = express.Router();
 const clients = new Set();
@@ -140,7 +139,7 @@ router.patch('/topics/:id', requireAuth, async (req, res) => {
   const existing = await db.getTopicWithAnswers(topicId);
   if (!existing) return res.status(404).json({ error: 'topic not found' });
 
-  if (!req.user.is_admin) {
+  if (!(await db.userHasPermission(req.user, 'question.edit'))) {
     return res.status(403).json({ error: 'Faqat admin savolni tahrirlashi mumkin' });
   }
 
@@ -266,7 +265,7 @@ router.post('/topics/:id/accept/:answerId', requireAuth, async (req, res) => {
   const topic  = await db.getTopicWithAnswers(topicId);
   if (!topic) return res.status(404).json({ error: 'not found' });
   const isAuthor = topic.user_id === req.user.id || topic.author === req.user.name;
-  if (!isAuthor && !hasModeratorAccess(req.user)) {
+  if (!isAuthor && !(await db.userHasPermission(req.user, 'answer.correctness'))) {
     return res.status(403).json({ error: 'Faqat savol egasi yoki moderator javobni qabul qilishi mumkin' });
   }
   const answer = await db.acceptAnswer(topicId, answerId);

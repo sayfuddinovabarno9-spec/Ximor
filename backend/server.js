@@ -59,14 +59,14 @@ app.use('/api/messages',      messagesRoutes);
 let dbReady = false;
 
 app.get('/api/health', (_req, res) =>
-  res.json({ status: 'ok', service: 'ximor-backend', db: dbReady })
+  res.json({ status: 'ok', service: 'chemolymp-backend', db: dbReady })
 );
 
 async function start() {
   // Bind port first so Railway health checks pass immediately
   await new Promise((resolve, reject) => {
     const server = app.listen(PORT, HOST, () => {
-      console.log(`\n🧪 Ximor API → http://${HOST}:${PORT}`);
+      console.log(`\n🧪 ChemOlymp API → http://${HOST}:${PORT}`);
       console.log(`🔒 CORS: ${ALLOWED_ORIGIN} + *.vercel.app + localhost`);
       resolve();
     });

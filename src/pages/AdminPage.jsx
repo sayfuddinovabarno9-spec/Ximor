@@ -13,23 +13,6 @@ function roleSelectValue(role) {
   return ROLES.includes(role) ? role : 'Mutaxassis';
 }
 
-const PERMISSIONS = [
-  { area: 'Staff', label: 'Admin yaratish', admin: true, moderator: false },
-  { area: 'Staff', label: 'Moderator tayinlash', admin: true, moderator: false },
-  { area: 'Staff', label: 'Rol nomini o\'zgartirish', admin: true, moderator: false },
-  { area: 'Users', label: 'Oddiy foydalanuvchini bloklash', admin: true, moderator: false },
-  { area: 'Users', label: 'Blokni olib tashlash', admin: true, moderator: false },
-  { area: 'Questions', label: 'Savolni yechildi deb belgilash', admin: true, moderator: true },
-  { area: 'Questions', label: 'Savolni ochiq qilish', admin: true, moderator: true },
-  { area: 'Questions', label: 'Savolni tahrirlash', admin: true, moderator: false },
-  { area: 'Questions', label: 'Savolni o\'chirish', admin: true, moderator: false },
-  { area: 'Answers', label: 'Javobni foydali yoki foydasiz belgilash', admin: true, moderator: true },
-  { area: 'Answers', label: 'Javobni to\'g\'ri yoki noto\'g\'ri belgilash', admin: true, moderator: true },
-  { area: 'Answers', label: 'Javobni o\'chirish', admin: true, moderator: false },
-  { area: 'Topics', label: 'Mavzuni mahkamlash yoki qaynoq qilish', admin: true, moderator: false },
-  { area: 'Notify', label: 'Umumiy e\'lon yuborish', admin: true, moderator: false },
-];
-
 function StatCard({ label, value, sub, color }) {
   const { t } = useLanguage();
   return (
@@ -76,6 +59,26 @@ export default function AdminPage({ theme, onThemeToggle }) {
   const [toast, setToast] = useState('');
   const [setupStatus, setSetupStatus] = useState('');
   const [setupBusy, setSetupBusy] = useState(false);
+  const [permissions, setPermissions] = useState([]);
+  const [permissionBusy, setPermissionBusy] = useState('');
+
+  const hasPermission = useCallback((permissionKey) => {
+    if (isAdmin) return true;
+    return permissions.some(permission => permission.key === permissionKey && permission.moderator);
+  }, [isAdmin, permissions]);
+
+  const hasAnyPermission = useCallback((permissionKeys) => (
+    isAdmin || permissionKeys.some(hasPermission)
+  ), [hasPermission, isAdmin]);
+
+  const canManageUsers = hasAnyPermission([
+    'staff.create_admin',
+    'staff.assign_moderator',
+    'staff.change_role',
+    'users.ban',
+    'users.unban',
+  ]);
+  const canAnnounce = hasPermission('notify.announce');
 
   const api = useCallback(async (path, opts = {}) => {
     const r = await fetch(`${BACKEND}/api/admin${path}`, {
@@ -118,10 +121,11 @@ export default function AdminPage({ theme, onThemeToggle }) {
     if (!canModerate) return;
     api('/stats').then(setStats).catch(() => {});
     api('/activity').then(setActivity).catch(() => {});
+    api('/permissions').then(setPermissions).catch(() => {});
   }, [canModerate, api]);
 
   useEffect(() => {
-    if (tab === 'users' && !users.length) {
+    if (tab === 'users' && canManageUsers && !users.length) {
       setLoading(true);
       api('/users').then(d => { setUsers(d); setLoading(false); }).catch(() => setLoading(false));
     }
@@ -129,7 +133,7 @@ export default function AdminPage({ theme, onThemeToggle }) {
       setLoading(true);
       api('/topics').then(d => { setTopics(d); setLoading(false); }).catch(() => setLoading(false));
     }
-  }, [tab, api, users.length, topics.length]);
+  }, [tab, api, users.length, topics.length, canManageUsers]);
 
   if (!user) {
     return (
@@ -206,6 +210,30 @@ export default function AdminPage({ theme, onThemeToggle }) {
     } catch { setAnnounceStatus('Xato yuz berdi'); }
   };
 
+  const toggleModeratorPermission = async (permission) => {
+    if (!isAdmin || permissionBusy) return;
+    const nextValue = !permission.moderator;
+    setPermissionBusy(permission.key);
+    setPermissions(prev => prev.map(item => (
+      item.key === permission.key ? { ...item, moderator: nextValue } : item
+    )));
+    try {
+      const result = await api(`/permissions/${permission.key}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ moderator: nextValue }),
+      });
+      setPermissions(result.permissions || []);
+      showToast(nextValue ? 'Moderator huquqi yoqildi' : 'Moderator huquqi o\'chirildi');
+    } catch {
+      setPermissions(prev => prev.map(item => (
+        item.key === permission.key ? { ...item, moderator: permission.moderator } : item
+      )));
+      showToast('Xato yuz berdi');
+    } finally {
+      setPermissionBusy('');
+    }
+  };
+
   const filteredUsers = userSearch.trim()
     ? users.filter(u => {
         const q = userSearch.toLowerCase();
@@ -228,7 +256,7 @@ export default function AdminPage({ theme, onThemeToggle }) {
             <h1>Admin Panel</h1>
             <p>{isAdmin ? t('admin.adminCenter') : t('admin.moderatorCenter')}</p>
           </div>
-          <button className="soft-button" onClick={() => navigate('/chat')}>← {t('question.forum')}</button>
+          <button className="soft-button" onClick={() => navigate('/forum')}>← {t('question.forum')}</button>
         </div>
 
         {/* Stats */}
@@ -246,10 +274,10 @@ export default function AdminPage({ theme, onThemeToggle }) {
         <div className="adm-tabs">
           {[
             { id: 'overview', labelKey: 'admin.overview' },
-            isAdmin ? { id: 'users', labelKey: 'admin.users' } : null,
+            canManageUsers ? { id: 'users', labelKey: 'admin.users' } : null,
             { id: 'content', labelKey: 'admin.content' },
             { id: 'permissions', labelKey: 'admin.permissions' },
-            isAdmin ? { id: 'announce', labelKey: 'admin.announcement' } : null,
+            canAnnounce ? { id: 'announce', labelKey: 'admin.announcement' } : null,
           ].filter(Boolean).map(item => (
             <button
               key={item.id}
@@ -324,7 +352,11 @@ export default function AdminPage({ theme, onThemeToggle }) {
                     {filteredUsers.map(u => {
                       const isSelf = u.id === user.id;
                       const isStaff = u.is_admin || u.is_moderator;
-                      const canBlockUser = !isSelf && (isAdmin || !isStaff);
+                      const canChangeAdmin = !isSelf && hasPermission('staff.create_admin') && (isAdmin || !u.is_admin);
+                      const canChangeModerator = !isSelf && hasPermission('staff.assign_moderator') && (isAdmin || !u.is_admin);
+                      const canChangeRole = hasPermission('staff.change_role') && (isAdmin || !isStaff);
+                      const canBlockUser = !isSelf && !u.banned_at && hasPermission('users.ban') && (isAdmin || !isStaff);
+                      const canUnblockUser = !isSelf && u.banned_at && hasPermission('users.unban') && (isAdmin || !isStaff);
                       return (
                       <tr key={u.id} className={u.banned_at ? 'adm-row--banned' : u.is_admin ? 'adm-row--admin' : u.is_moderator ? 'adm-row--moderator' : ''}>
                         <td>
@@ -346,7 +378,7 @@ export default function AdminPage({ theme, onThemeToggle }) {
                         <td>{u.topics_count}</td>
                         <td>{u.answers_count}</td>
                         <td>
-                          {isAdmin ? (
+                          {canChangeRole ? (
                             <select
                               className="adm-role-select"
                               value={roleSelectValue(u.role)}
@@ -362,32 +394,36 @@ export default function AdminPage({ theme, onThemeToggle }) {
                           <div className="adm-actions">
                             {!isSelf && (
                               <>
-                                {isAdmin && (
+                                {(canChangeAdmin || canChangeModerator) && (
                                   <>
-                                    <button
-                                      className={`adm-btn ${u.is_admin ? 'adm-btn--active' : ''}`}
-                                      onClick={() => userAction(u.id, { is_admin: !u.is_admin }, u.is_admin ? 'Admin huquqi olindi' : 'Admin qilindi')}
-                                      title={u.is_admin ? 'Admin huquqini olish' : 'Admin qilish'}
-                                    >
-                                      {u.is_admin ? '★' : '☆'}
-                                    </button>
-                                    <button
-                                      className={`adm-btn ${u.is_moderator ? 'adm-btn--mod-active' : ''}`}
-                                      onClick={() => {
-                                        const nextModerator = !u.is_moderator;
-                                        userAction(
-                                          u.id,
-                                          { is_moderator: nextModerator, ...(nextModerator ? { role: 'Moderator' } : {}) },
-                                          u.is_moderator ? 'Moderator huquqi olindi' : 'Moderator qilindi'
-                                        );
-                                      }}
-                                      title={u.is_moderator ? 'Moderator huquqini olish' : 'Moderator qilish'}
-                                    >
-                                      Mod
-                                    </button>
+                                    {canChangeAdmin && (
+                                      <button
+                                        className={`adm-btn ${u.is_admin ? 'adm-btn--active' : ''}`}
+                                        onClick={() => userAction(u.id, { is_admin: !u.is_admin }, u.is_admin ? 'Admin huquqi olindi' : 'Admin qilindi')}
+                                        title={u.is_admin ? 'Admin huquqini olish' : 'Admin qilish'}
+                                      >
+                                        {u.is_admin ? '★' : '☆'}
+                                      </button>
+                                    )}
+                                    {canChangeModerator && (
+                                      <button
+                                        className={`adm-btn ${u.is_moderator ? 'adm-btn--mod-active' : ''}`}
+                                        onClick={() => {
+                                          const nextModerator = !u.is_moderator;
+                                          userAction(
+                                            u.id,
+                                            { is_moderator: nextModerator, ...(nextModerator ? { role: 'Moderator' } : {}) },
+                                            u.is_moderator ? 'Moderator huquqi olindi' : 'Moderator qilindi'
+                                          );
+                                        }}
+                                        title={u.is_moderator ? 'Moderator huquqini olish' : 'Moderator qilish'}
+                                      >
+                                        Mod
+                                      </button>
+                                    )}
                                   </>
                                 )}
-                                {canBlockUser && (
+                                {(canBlockUser || canUnblockUser) && (
                                   <button
                                     className={`adm-btn ${u.banned_at ? 'adm-btn--unban' : 'adm-btn--ban'}`}
                                     onClick={() => userAction(u.id, { banned: !u.banned_at }, u.banned_at ? 'Blok olib tashlandi' : 'Foydalanuvchi bloklandi')}

@@ -22,7 +22,7 @@ function ownerAdminEmails() {
   ];
 }
 
-function publicUser(user) {
+async function publicUser(user) {
   let interests = [];
   if (Array.isArray(user.interests)) {
     interests = user.interests;
@@ -47,6 +47,7 @@ function publicUser(user) {
     website: user.website || '',
     study_goal: user.study_goal || '',
     interests,
+    permissions: await db.getUserPermissionKeys(user),
   };
 }
 
@@ -107,7 +108,7 @@ router.post('/register', registerLimiter, async (req, res) => {
   await db.markUserSeen(user.id);
   const sessionUser = await db.getUserById(user.id) || user;
   const token = signUser(sessionUser);
-  res.json({ token, user: publicUser(sessionUser) });
+  res.json({ token, user: await publicUser(sessionUser) });
 });
 
 // ── POST /api/auth/login ──────────────────────────────────────────────────────
@@ -128,7 +129,7 @@ router.post('/login', loginLimiter, async (req, res) => {
 
   await db.markUserSeen(user.id);
   const token = signUser(user);
-  res.json({ token, user: publicUser(user) });
+  res.json({ token, user: await publicUser(user) });
 });
 
 // ── POST /api/auth/bootstrap-admin ────────────────────────────────────────────
@@ -150,14 +151,14 @@ router.post('/bootstrap-admin', requireAuth, async (req, res) => {
   if (!promoted) return res.status(404).json({ error: 'Foydalanuvchi topilmadi' });
 
   const token = signUser(promoted);
-  res.json({ ok: true, token, user: publicUser(promoted) });
+  res.json({ ok: true, token, user: await publicUser(promoted) });
 });
 
 // ── GET /api/auth/me ──────────────────────────────────────────────────────────
 router.get('/me', requireAuth, async (req, res) => {
   const user = await db.getUserById(req.user.id);
   if (!user) return res.status(404).json({ error: 'not found' });
-  res.json(publicUser(user));
+  res.json(await publicUser(user));
 });
 
 module.exports = router;

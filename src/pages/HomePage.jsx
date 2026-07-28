@@ -259,7 +259,7 @@ export default function HomePage() {
     animateToSection(target);
   }, [animateToSection]);
 
-  const openChat = () => navigate("/chat");
+  const openChat = () => navigate("/forum");
 
   return (
     <div className="landing-page" ref={pageRef}>
@@ -283,7 +283,7 @@ export default function HomePage() {
             <BrandMark />
           </span>
           <span>
-            <strong>Ximor</strong>
+            <strong>ChemOlymp</strong>
             <small>{t('home.chemistryChat')}</small>
           </span>
         </button>
@@ -328,7 +328,7 @@ export default function HomePage() {
               </a>
             </div>
 
-            <div className="landing-metrics" aria-label="Ximor">
+            <div className="landing-metrics" aria-label="ChemOlymp">
               <div>
                 <strong>24/7</strong>
                 <span>{t('home.questionFlow')}</span>
@@ -361,7 +361,7 @@ export default function HomePage() {
             <div className="preview-phone">
               <div className="preview-phone-top">
                 <span>9:41</span>
-                <span>Ximor live</span>
+                <span>ChemOlymp live</span>
               </div>
               <div className="preview-search">{t('home.reactionSearch')}</div>
               <div className="preview-thread preview-thread--hot">

@@ -24,6 +24,7 @@ function Icon({ name, size = 18 }) {
     message:  "M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8Z",
     newspaper:"M4 22h14a2 2 0 0 0 2-2V7.5L14.5 2H6a2 2 0 0 0-2 2v4M14 2v6h6M2 15h10M2 19h10M2 11h4",
     beaker:   "M9 3h6M10 3v6l-5 10a1 1 0 0 0 .9 1.5h12.2A1 1 0 0 0 19 19L14 9V3M8 15h8",
+    bookmark: "M6 4h12v17l-6-4-6 4V4Z",
   };
   return (
     <svg aria-hidden fill="none" height={size} stroke="currentColor"
@@ -53,7 +54,7 @@ function timeAgo(iso, t) {
 }
 
 const NAV_ITEMS = [
-  { to: '/chat',         labelKey: 'nav.chat',      icon: 'home', exact: true },
+  { to: '/forum',        labelKey: 'nav.chat',      icon: 'home', exact: true },
   { to: '/messages',     labelKey: 'nav.messages',  icon: 'message' },
   { to: '/olimpiadalar', labelKey: 'nav.community', icon: 'person' },
   { to: '/reyting',      labelKey: 'nav.ranking',   icon: 'trophy' },
@@ -188,7 +189,7 @@ export default function Layout({ children, theme, onThemeToggle, onCompose, quer
         <Link to="/" className="brand">
           <div className="brand-icon"><BrandMark /></div>
           <div className="brand-text">
-            <strong>Ximor</strong>
+            <strong>ChemOlymp</strong>
             <small>{t('home.chemistryChat')}</small>
           </div>
         </Link>
@@ -317,6 +318,10 @@ export default function Layout({ children, theme, onThemeToggle, onCompose, quer
                   <Link to={`/u/${user.username}`} onClick={() => setMenuOpen(false)}>
                     <span>{t('nav.myProfile')}</span>
                     <span className="dropdown-kbd">@{user.username}</span>
+                  </Link>
+                  <Link to="/forum?view=saved" onClick={() => setMenuOpen(false)}>
+                    <span>{t('nav.savedQuestions')}</span>
+                    <Icon name="bookmark" size={14} />
                   </Link>
                   {(user.is_admin || user.is_moderator) && (
                     <Link to="/admin" onClick={() => setMenuOpen(false)} style={{ color: 'var(--amber)' }}>

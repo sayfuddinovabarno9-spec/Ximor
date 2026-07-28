@@ -23,6 +23,7 @@ function normalizeUser(value) {
     role: value.role,
     is_admin: Boolean(value.is_admin),
     is_moderator: Boolean(value.is_moderator),
+    permissions: Array.isArray(value.permissions) ? value.permissions : [],
     bio: value.bio || '',
     avatar_url: value.avatar_url || '',
     cover_url: value.cover_url || '',

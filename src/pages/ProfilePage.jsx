@@ -715,7 +715,7 @@ export default function ProfilePage({ theme, onThemeToggle }) {
                   {t('profile.editProfile')}
                 </button>
               ) : (
-                <Link className="primary-button" to={token ? '/messages' : '/chat'}>
+                <Link className="primary-button" to={token ? '/messages' : '/forum'}>
                   <Icon name="message" size={16} />
                   {t('profile.messageUser')}
                 </Link>

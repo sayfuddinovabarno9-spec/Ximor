@@ -24,6 +24,25 @@ const LEGACY_SUBJECT_ROLES = new Set([
   'Abituriyent',
 ]);
 
+const PERMISSION_DEFINITIONS = [
+  { key: 'staff.create_admin', area: 'Staff', label: 'Admin yaratish', defaultModerator: false },
+  { key: 'staff.assign_moderator', area: 'Staff', label: 'Moderator tayinlash', defaultModerator: false },
+  { key: 'staff.change_role', area: 'Staff', label: "Rol nomini o'zgartirish", defaultModerator: false },
+  { key: 'users.ban', area: 'Users', label: 'Oddiy foydalanuvchini bloklash', defaultModerator: false },
+  { key: 'users.unban', area: 'Users', label: 'Blokni olib tashlash', defaultModerator: false },
+  { key: 'question.solve', area: 'Questions', label: 'Savolni yechildi deb belgilash', defaultModerator: true },
+  { key: 'question.open', area: 'Questions', label: 'Savolni ochiq qilish', defaultModerator: true },
+  { key: 'question.edit', area: 'Questions', label: 'Savolni tahrirlash', defaultModerator: false },
+  { key: 'question.delete', area: 'Questions', label: "Savolni o'chirish", defaultModerator: false },
+  { key: 'answer.helpfulness', area: 'Answers', label: 'Javobni foydali yoki foydasiz belgilash', defaultModerator: true },
+  { key: 'answer.correctness', area: 'Answers', label: "Javobni to'g'ri yoki noto'g'ri belgilash", defaultModerator: true },
+  { key: 'answer.delete', area: 'Answers', label: "Javobni o'chirish", defaultModerator: false },
+  { key: 'topic.feature', area: 'Topics', label: 'Mavzuni mahkamlash yoki qaynoq qilish', defaultModerator: false },
+  { key: 'notify.announce', area: 'Notify', label: "Umumiy e'lon yuborish", defaultModerator: false },
+];
+
+const PERMISSION_KEYS = new Set(PERMISSION_DEFINITIONS.map(permission => permission.key));
+
 function normalizeUserRole(value, fallback = 'Shogird') {
   const role = String(value || '').trim();
   if (USER_ROLES.includes(role)) return role;
@@ -232,7 +251,24 @@ async function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_conversations_low  ON conversations(user_low_id, updated_at DESC);
     CREATE INDEX IF NOT EXISTS idx_conversations_high ON conversations(user_high_id, updated_at DESC);
     CREATE INDEX IF NOT EXISTS idx_chat_messages_conversation ON chat_messages(conversation_id, id DESC);
+
+    CREATE TABLE IF NOT EXISTS role_permissions (
+      role           TEXT NOT NULL,
+      permission_key TEXT NOT NULL,
+      allowed        BOOLEAN NOT NULL DEFAULT FALSE,
+      updated_at     TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (role, permission_key)
+    );
   `);
+
+  for (const permission of PERMISSION_DEFINITIONS) {
+    await pool.query(
+      `INSERT INTO role_permissions (role, permission_key, allowed)
+       VALUES ('moderator', $1, $2)
+       ON CONFLICT (role, permission_key) DO NOTHING`,
+      [permission.key, permission.defaultModerator]
+    );
+  }
 }
 
 // ── Hydration ─────────────────────────────────────────────────────────────────
@@ -1048,6 +1084,69 @@ async function markNotificationsRead(userId) {
 }
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
+async function getRolePermissions() {
+  const rows = await q(
+    `SELECT permission_key, allowed
+     FROM role_permissions
+     WHERE role = 'moderator' AND permission_key = ANY($1::text[])`,
+    [PERMISSION_DEFINITIONS.map(permission => permission.key)]
+  );
+  const saved = new Map(rows.map(row => [row.permission_key, Boolean(row.allowed)]));
+  return PERMISSION_DEFINITIONS.map(permission => ({
+    key: permission.key,
+    area: permission.area,
+    label: permission.label,
+    admin: true,
+    moderator: saved.has(permission.key) ? saved.get(permission.key) : permission.defaultModerator,
+  }));
+}
+
+async function setModeratorPermission(permissionKey, allowed) {
+  if (!PERMISSION_KEYS.has(permissionKey)) return null;
+  await pool.query(
+    `INSERT INTO role_permissions (role, permission_key, allowed, updated_at)
+     VALUES ('moderator', $1, $2, NOW())
+     ON CONFLICT (role, permission_key)
+     DO UPDATE SET allowed = EXCLUDED.allowed, updated_at = NOW()`,
+    [permissionKey, Boolean(allowed)]
+  );
+  return getRolePermissions();
+}
+
+async function getUserPermissionKeys(user) {
+  if (!user) return [];
+  if (user.is_admin) return PERMISSION_DEFINITIONS.map(permission => permission.key);
+  if (!user.is_moderator) return [];
+  const permissions = await getRolePermissions();
+  return permissions
+    .filter(permission => permission.moderator)
+    .map(permission => permission.key);
+}
+
+async function userHasPermission(user, permissionKey) {
+  if (!PERMISSION_KEYS.has(permissionKey)) return false;
+  if (user?.is_admin) return true;
+  if (!user?.is_moderator) return false;
+  const row = await q1(
+    `SELECT allowed
+     FROM role_permissions
+     WHERE role = 'moderator' AND permission_key = $1`,
+    [permissionKey]
+  );
+  if (row) return Boolean(row.allowed);
+  const definition = PERMISSION_DEFINITIONS.find(permission => permission.key === permissionKey);
+  return Boolean(definition?.defaultModerator);
+}
+
+async function userHasAnyPermission(user, permissionKeys) {
+  if (user?.is_admin) return true;
+  if (!user?.is_moderator) return false;
+  for (const key of permissionKeys) {
+    if (await userHasPermission(user, key)) return true;
+  }
+  return false;
+}
+
 async function getAdminStats() {
   const [users, topics, answers, todayUsers, todayTopics, todayAnswers, banned, moderators] = await Promise.all([
     q1('SELECT COUNT(*)::INTEGER AS n FROM users'),
@@ -1458,7 +1557,7 @@ async function seedDemo() {
       "Bu yerda organik, anorganik, analitik va fizikaviy kimyo bo'yicha savollarni muhokama qilamiz. Savolingizga urinish, kuzatuv va aniq formulani ilova qiling.",
       "savol + urinish + formula = tez va foydali javob",
       JSON.stringify(['qoidalar', 'boshlash', 'kimyo']),
-      'Ximor jamoasi', 'Xi', 'Moderator',
+      'ChemOlymp jamoasi', 'CO', 'Moderator',
       412, 1, '9.7k', "Boshlang'ich",
       true, true,
     ]);
@@ -1476,7 +1575,7 @@ async function seedDemo() {
       ["O'zbekiston Kimyo Olimpiadasi — Final", 'respublika', 'Toshkent',  '2026-06-28T09:00:00Z', '2026-06-25T23:59:59Z', "12 000 000 so'm", "10-11 sinflar uchun ochiq. 3 bosqich: test, yozma, amaliy. O'zRFA bilan hamkorlikda.", 200],
       ["Mendeleev Xalqaro Turniri — Saralash",  'xalqaro',   'Toshkent',  '2026-07-06T09:00:00Z', '2026-07-03T23:59:59Z', "$2 500",          "IChO oldidan eng muhim tayyorlov musobaqasi. 9-11 sinflar.",                            50 ],
       ["IChO 2026 Milliy Jamoa Tanlovi",         'xalqaro',   'Samarqand', '2026-07-12T09:00:00Z', '2026-07-09T23:59:59Z', "IChO sayohati",  "Xalqaro kimyo olimpiadasiga seleksiya. Faqat 11-sinf.",                                  30 ],
-      ["Ximor Tezkor Turnir — Ekvivalent",       'tezkor',    'Online',    '2026-07-20T09:00:00Z', '2026-07-19T23:59:59Z', "200 000 so'm",   "1v1 tezkor reaksiya aniqlash. Top-32 format. Barcha sinflar.",                          64 ],
+      ["ChemOlymp Tezkor Turnir — Ekvivalent",   'tezkor',    'Online',    '2026-07-20T09:00:00Z', '2026-07-19T23:59:59Z', "200 000 so'm",   "1v1 tezkor reaksiya aniqlash. Top-32 format. Barcha sinflar.",                          64 ],
       ["Onlayn Kimyo Sprint",                    'onlayn',    'Online',    '2026-06-22T14:00:00Z', '2026-06-21T23:59:59Z', "Sertifikat + ball","24 soatlik tezkor masalalar. Onlayn format, barcha sinf.",                              310],
     ];
     for (const t of tours) {
@@ -1491,6 +1590,7 @@ async function seedDemo() {
 module.exports = {
   pool,
   USER_ROLES, normalizeUserRole,
+  PERMISSION_DEFINITIONS,
   initSchema, seedDemo,
   getAllTopics, getTopicWithAnswers, saveTopic, updateTopic, updateScore, acceptAnswer,
   saveAnswer, saveAnswerReply,
@@ -1504,6 +1604,7 @@ module.exports = {
   searchTopics,
   // Admin
   getAdminStats, getAllUsersAdmin, updateUserAdmin, hasAnyAdmin, promoteUserToAdmin, bootstrapConfiguredStaff,
+  getRolePermissions, setModeratorPermission, getUserPermissionKeys, userHasPermission, userHasAnyPermission,
   getAdminTopics, adminDeleteTopic, adminDeleteAnswer, adminUpdateTopic, moderateAnswer,
   broadcastAnnouncement, getRecentActivity,
   // Votes & saves
