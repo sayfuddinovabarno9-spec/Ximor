@@ -329,13 +329,21 @@ function EditQuestionModal({ onClose, onSubmit, topic }) {
 }
 
 function FocusedAnswerComposer({
+  ariaLabel,
   defaultKeyboardOpen = false,
+  emptyPreview,
+  eyebrow,
+  id = 'focused-answer-editor',
   images,
   onChange,
   onClose,
   onImagesChange,
   onRemoveImage,
   onSubmit,
+  placeholder,
+  previewTextClassName = 'qp-answer-text',
+  submitLabel,
+  submittingLabel,
   submitting,
   user,
   value,
@@ -344,6 +352,11 @@ function FocusedAnswerComposer({
   const textareaRef = useRef(null);
   const hasContent = Boolean(value.trim() || images.length);
   const answerDropTarget = useImageDropTarget({ count: images.length, onFiles: onImagesChange });
+  const editorLabel = eyebrow || t('forum.writeAnswer');
+  const editorPlaceholder = placeholder || t('forum.answerPlaceholder');
+  const previewEmptyText = emptyPreview || t('composer.emptyPreview');
+  const sendText = submitLabel || t('forum.sendAnswer');
+  const sendingText = submittingLabel || t('forum.sending');
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -376,7 +389,7 @@ function FocusedAnswerComposer({
       >
         <div className="focus-editor-head">
           <div>
-            <span className="eyebrow">{t('forum.writeAnswer')}</span>
+            <span className="eyebrow">{editorLabel}</span>
             <div className="focus-editor-author">
               <Avatar image={user.avatar_url} initials={user.initials} name={user.name} online />
               <strong>{user.name}</strong>
@@ -390,7 +403,7 @@ function FocusedAnswerComposer({
         <div className="focus-editor-grid">
           <section
             className={`focus-editor-write ${answerDropTarget.isDragging ? 'is-dragging' : ''}`}
-            aria-label={t('forum.writeAnswer')}
+            aria-label={ariaLabel || editorLabel}
             {...answerDropTarget.dropTargetProps}
           >
             <AnswerEditorTools
@@ -402,9 +415,9 @@ function FocusedAnswerComposer({
             />
 
             <textarea
-              id="focused-answer-editor"
+              id={id}
               onChange={(event) => onChange(event.target.value)}
-              placeholder={t('forum.answerPlaceholder')}
+              placeholder={editorPlaceholder}
               ref={textareaRef}
               rows={12}
               value={value}
@@ -437,7 +450,7 @@ function FocusedAnswerComposer({
           <aside className="focus-editor-preview" aria-label={t('composer.previewLabel')}>
             <div className="latex-live-preview-label">{t('composer.previewLabel')}</div>
             <div className={`focus-editor-preview-body ${hasContent ? '' : 'is-empty'}`.trim()}>
-              <RichText className="qp-answer-text" text={value || t('composer.emptyPreview')} />
+              <RichText className={previewTextClassName} text={value || previewEmptyText} />
               <AttachmentGallery images={images} size="large" />
             </div>
           </aside>
@@ -449,7 +462,7 @@ function FocusedAnswerComposer({
           </button>
           <button className="primary-button" disabled={!hasContent || submitting} type="submit">
             <Icon name="send" size={16} />
-            {submitting ? t('forum.sending') : t('forum.sendAnswer')}
+            {submitting ? sendingText : sendText}
           </button>
         </div>
       </form>
@@ -480,6 +493,7 @@ export default function QuestionPage() {
   const [answerImages, setAnswerImages] = useState([]);
   const [replyingTo, setReplyingTo] = useState(null);
   const [replyDrafts, setReplyDrafts] = useState({});
+  const [replyImages, setReplyImages] = useState([]);
   const [replyBusy, setReplyBusy] = useState({});
   const [busy, setBusy]         = useState(false);
   const [votePending, setVotePending] = useState(false);
@@ -494,7 +508,6 @@ export default function QuestionPage() {
   const [highlightAnswerId, setHighlightAnswerId] = useState('');
   const toastRef                = useRef(null);
   const answerRef               = useRef(null);
-  const replyRef                = useRef(null);
   const copiedTimerRef          = useRef(null);
   const highlightTimerRef       = useRef(null);
 
@@ -517,6 +530,10 @@ export default function QuestionPage() {
 
   const closeFocusedAnswer = useCallback(() => {
     setFocusedAnswerOpen(false);
+  }, []);
+
+  const closeFocusedReply = useCallback(() => {
+    setReplyingTo(null);
   }, []);
 
   const handleCopyLink = async () => {
@@ -553,6 +570,17 @@ export default function QuestionPage() {
 
   const removeAnswerImage = (imageId) => {
     setAnswerImages((current) => current.filter((image) => image.id !== imageId));
+  };
+
+  const handleReplyImages = async (fileList) => {
+    const images = await prepareForumImages(fileList, 4 - replyImages.length);
+    if (!images.length) return;
+
+    setReplyImages((current) => [...current, ...images].slice(0, 4));
+  };
+
+  const removeReplyImage = (imageId) => {
+    setReplyImages((current) => current.filter((image) => image.id !== imageId));
   };
 
   /* Fetch topic on mount */
@@ -860,13 +888,21 @@ export default function QuestionPage() {
     setReplyDrafts(prev => ({ ...prev, [answerId]: value }));
   };
 
+  const openReplyComposer = (answerId) => {
+    if (!user) { setShowAuth(true); return; }
+    setFocusedAnswerOpen(false);
+    if (replyingTo !== answerId) setReplyImages([]);
+    setReplyingTo(answerId);
+  };
+
   const submitReply = async (event, answerId) => {
     event.preventDefault();
-    if (!user) { setShowAuth(true); return; }
-    if (replyBusy[answerId]) return;
+    if (!user) { setShowAuth(true); return false; }
+    if (replyBusy[answerId]) return false;
 
     const text = (replyDrafts[answerId] || '').trim();
-    if (!text) return;
+    const images = replyImages;
+    if (!text && images.length === 0) return false;
 
     const optimisticId = `reply-${answerId}-${Date.now()}`;
     const optimisticReply = {
@@ -879,7 +915,7 @@ export default function QuestionPage() {
       avatar_url: user.avatar_url || '',
       role: user.role,
       text,
-      images: [],
+      images,
       created_at: new Date().toISOString(),
     };
     const snapshot = topic;
@@ -890,6 +926,7 @@ export default function QuestionPage() {
       answersList: mergeReplyIntoAnswers(prev.answersList, answerId, optimisticReply),
     } : prev);
     updateReplyDraft(answerId, '');
+    setReplyImages([]);
 
     try {
       const response = await fetch(`${API}/api/forum/topics/${id}/answers/${answerId}/replies`, {
@@ -907,13 +944,21 @@ export default function QuestionPage() {
       }
       setReplyingTo(null);
       showToast(t('question.replySent'));
+      return true;
     } catch {
       setTopic(snapshot);
       updateReplyDraft(answerId, text);
+      setReplyImages(images);
       showToast(t('question.genericError'));
+      return false;
     } finally {
       setReplyBusy(prev => ({ ...prev, [answerId]: false }));
     }
+  };
+
+  const submitFocusedReply = async (event) => {
+    if (!replyingTo) return false;
+    return submitReply(event, replyingTo);
   };
 
   /* Accept answer */
@@ -1374,10 +1419,7 @@ export default function QuestionPage() {
                       <div className="qp-answer-actions">
                         <button
                           className="qp-reply-button"
-                          onClick={() => {
-                            if (!user) { setShowAuth(true); return; }
-                            setReplyingTo(current => current === ans.id ? null : ans.id);
-                          }}
+                          onClick={() => openReplyComposer(ans.id)}
                           type="button"
                         >
                           <Icon name="message" size={14} />
@@ -1402,51 +1444,11 @@ export default function QuestionPage() {
                                   )}
                                 </div>
                                 <RichText className="qp-reply-text" text={reply.text} />
+                                <AttachmentGallery images={reply.images || []} />
                               </div>
                             </article>
                           ))}
                         </div>
-                      )}
-
-                      {user && replyingTo === ans.id && (
-                        <form className="qp-reply-form" onSubmit={(event) => submitReply(event, ans.id)}>
-                          <Avatar image={user.avatar_url} initials={user.initials} name={user.name} online />
-                          <div>
-                            <AnswerEditorTools
-                              className="qp-reply-editor-tools"
-                              onChange={(value) => updateReplyDraft(ans.id, value)}
-                              textareaRef={replyRef}
-                              value={replyDrafts[ans.id] || ''}
-                            />
-                            <textarea
-                              onChange={(event) => updateReplyDraft(ans.id, event.target.value)}
-                              placeholder={t('question.replyPlaceholder')}
-                              ref={replyRef}
-                              rows={3}
-                              value={replyDrafts[ans.id] || ''}
-                            />
-                            <div className="qp-reply-form-actions">
-                              <button
-                                className="soft-button"
-                                onClick={() => {
-                                  setReplyingTo(null);
-                                  updateReplyDraft(ans.id, '');
-                                }}
-                                type="button"
-                              >
-                                {t('composer.cancel')}
-                              </button>
-                              <button
-                                className="primary-button"
-                                disabled={!String(replyDrafts[ans.id] || '').trim() || replyBusy[ans.id]}
-                                type="submit"
-                              >
-                                <Icon name="send" size={14} />
-                                {replyBusy[ans.id] ? t('question.sendingReply') : t('question.sendReply')}
-                              </button>
-                            </div>
-                          </div>
-                        </form>
                       )}
 
                       {canUseAnswerModControls && (
@@ -1630,6 +1632,28 @@ export default function QuestionPage() {
           submitting={busy}
           user={user}
           value={answer}
+        />
+      )}
+
+      {user && replyingTo && (
+        <FocusedAnswerComposer
+          ariaLabel={t('question.reply')}
+          emptyPreview={t('question.replyPlaceholder')}
+          eyebrow={t('question.reply')}
+          id="focused-reply-editor"
+          images={replyImages}
+          onChange={(value) => updateReplyDraft(replyingTo, value)}
+          onClose={closeFocusedReply}
+          onImagesChange={handleReplyImages}
+          onRemoveImage={removeReplyImage}
+          onSubmit={submitFocusedReply}
+          placeholder={t('question.replyPlaceholder')}
+          previewTextClassName="qp-reply-text"
+          submitLabel={t('question.sendReply')}
+          submitting={Boolean(replyBusy[replyingTo])}
+          submittingLabel={t('question.sendingReply')}
+          user={user}
+          value={replyDrafts[replyingTo] || ''}
         />
       )}
 

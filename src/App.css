@@ -3926,75 +3926,14 @@ a { text-decoration: none; }
   line-height: 1.6;
 }
 
-.qp-reply-form {
-  align-items: start;
-  background: color-mix(in srgb, var(--primary) 5%, var(--surface));
-  border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--line));
-  border-radius: var(--radius);
-  display: grid;
-  gap: 10px;
-  grid-template-columns: 32px minmax(0, 1fr);
-  margin-top: 14px;
-  padding: 10px;
-}
-
-.qp-reply-form .avatar {
-  height: 32px;
-  width: 32px;
-}
-
-.qp-reply-editor-tools {
-  margin-bottom: 8px;
-}
-
-.qp-reply-form .chem-toolbar {
-  background: var(--surface);
-  border-color: var(--line);
-  padding: 6px;
-}
-
-.qp-reply-form .chem-toolbar button {
-  font-size: 12px;
-  min-height: 30px;
-  padding: 0 9px;
-}
-
-.qp-reply-form .latex-keyboard-panel {
-  box-shadow: none;
-  grid-template-columns: minmax(0, 1fr);
-  max-height: 360px;
-  overflow: auto;
-}
-
-.qp-reply-form .latex-keyboard-preview {
-  min-height: 130px;
-}
-
-.qp-reply-form textarea {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  color: var(--text);
-  font-size: 14px;
-  line-height: 1.55;
-  min-height: 84px;
-  outline: none;
-  padding: 10px 12px;
-  resize: vertical;
-  width: 100%;
-}
-
-.qp-reply-form textarea:focus {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--focus);
-}
-
-.qp-reply-form-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: flex-end;
+.qp-reply .attachment-gallery {
+  grid-template-columns: repeat(auto-fill, minmax(90px, 160px));
   margin-top: 8px;
+  max-width: 360px;
+}
+
+.qp-reply .attachment-gallery img {
+  aspect-ratio: 4 / 3;
 }
 
 .qp-mod-controls {
