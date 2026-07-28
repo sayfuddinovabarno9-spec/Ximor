@@ -6,7 +6,7 @@ import { useForumStream } from '../hooks/useForumStream';
 import AnswerEditorTools from '../components/AnswerEditorTools';
 import AuthModal from '../components/AuthModal';
 import AttachmentGallery from '../components/AttachmentGallery';
-import ImageDropZone from '../components/ImageDropZone';
+import ImageDropZone, { useImageDropTarget } from '../components/ImageDropZone';
 import Layout from '../components/Layout';
 import RichText from '../components/RichText';
 import { avatarBg } from '../utils/avatarColor';
@@ -123,6 +123,7 @@ function EditQuestionModal({ onClose, onSubmit, topic }) {
 
     setForm((current) => ({ ...current, images: [...current.images, ...images].slice(0, 4) }));
   };
+  const editorDropTarget = useImageDropTarget({ count: form.images.length, onFiles: handleImages });
 
   const removeImage = (imageId) => {
     setForm((current) => ({
@@ -207,7 +208,10 @@ function EditQuestionModal({ onClose, onSubmit, topic }) {
 
                 <div className="composer-question-field">
                   <label htmlFor="question-edit-summary">{t('composer.questionText')}</label>
-                  <div className="composer-question-editor">
+                  <div
+                    className={`composer-question-editor ${editorDropTarget.isDragging ? 'is-dragging' : ''}`}
+                    {...editorDropTarget.dropTargetProps}
+                  >
                     <textarea
                       id="question-edit-summary"
                       onChange={(event) => update('summary', event.target.value)}
@@ -339,6 +343,7 @@ function FocusedAnswerComposer({
   const { t } = useLanguage();
   const textareaRef = useRef(null);
   const hasContent = Boolean(value.trim() || images.length);
+  const answerDropTarget = useImageDropTarget({ count: images.length, onFiles: onImagesChange });
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -383,7 +388,11 @@ function FocusedAnswerComposer({
         </div>
 
         <div className="focus-editor-grid">
-          <section className="focus-editor-write" aria-label={t('forum.writeAnswer')}>
+          <section
+            className={`focus-editor-write ${answerDropTarget.isDragging ? 'is-dragging' : ''}`}
+            aria-label={t('forum.writeAnswer')}
+            {...answerDropTarget.dropTargetProps}
+          >
             <AnswerEditorTools
               className="focus-editor-tools"
               defaultKeyboardOpen={defaultKeyboardOpen}
@@ -539,6 +548,7 @@ export default function QuestionPage() {
 
     setAnswerImages((current) => [...current, ...images].slice(0, 4));
   };
+  const answerDropTarget = useImageDropTarget({ count: answerImages.length, onFiles: handleAnswerImages });
 
   const removeAnswerImage = (imageId) => {
     setAnswerImages((current) => current.filter((image) => image.id !== imageId));
@@ -1500,7 +1510,11 @@ export default function QuestionPage() {
           <div className="qp-answer-box">
             <h3>{t('forum.writeAnswer')}</h3>
             {user ? (
-              <form onSubmit={submitAnswer}>
+              <form
+                className={answerDropTarget.isDragging ? 'is-dragging' : ''}
+                onSubmit={submitAnswer}
+                {...answerDropTarget.dropTargetProps}
+              >
                 <div className="qp-answerer">
                   <Avatar image={user.avatar_url} initials={user.initials} name={user.name} online />
                   <strong>{user.name}</strong>

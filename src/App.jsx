@@ -7,7 +7,7 @@ import { useLanguage } from "./context/LanguageContext";
 import AnswerEditorTools from "./components/AnswerEditorTools";
 import AuthModal from "./components/AuthModal";
 import AttachmentGallery from "./components/AttachmentGallery";
-import ImageDropZone from "./components/ImageDropZone";
+import ImageDropZone, { useImageDropTarget } from "./components/ImageDropZone";
 import RichText from "./components/RichText";
 import Layout from "./components/Layout";
 import InsightsPanel from "./components/InsightsPanel";
@@ -481,14 +481,15 @@ function ThreadDrawer({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
-  if (!topic) return null;
-
   const handleAnswerImages = async (fileList) => {
     const images = await prepareForumImages(fileList, 4 - answerImages.length);
     if (!images.length) return;
 
     setAnswerImages((current) => [...current, ...images].slice(0, 4));
   };
+  const answerDropTarget = useImageDropTarget({ count: answerImages.length, onFiles: handleAnswerImages });
+
+  if (!topic) return null;
 
   const removeAnswerImage = (imageId) => {
     setAnswerImages((current) => current.filter((image) => image.id !== imageId));
@@ -640,7 +641,11 @@ function ThreadDrawer({
           )}
         </section>
 
-        <form className="answer-box" onSubmit={submitAnswer}>
+        <form
+          className={`answer-box ${answerDropTarget.isDragging ? 'is-dragging' : ''}`}
+          onSubmit={submitAnswer}
+          {...answerDropTarget.dropTargetProps}
+        >
           <label htmlFor="answer">{t('forum.writeAnswer')}</label>
           <AnswerEditorTools onChange={setAnswer} textareaRef={answerRef} value={answer} />
           <textarea
@@ -709,6 +714,7 @@ function ComposerModal({ onClose, onSubmit }) {
 
     setForm((current) => ({ ...current, images: [...current.images, ...images].slice(0, 4) }));
   };
+  const editorDropTarget = useImageDropTarget({ count: form.images.length, onFiles: handleImages });
 
   const removeImage = (imageId) => {
     setForm((current) => ({
@@ -798,7 +804,10 @@ function ComposerModal({ onClose, onSubmit }) {
 
                 <div className="composer-question-field">
                   <label htmlFor="composer-question">{t('composer.questionText')}</label>
-                  <div className="composer-question-editor">
+                  <div
+                    className={`composer-question-editor ${editorDropTarget.isDragging ? 'is-dragging' : ''}`}
+                    {...editorDropTarget.dropTargetProps}
+                  >
                     <textarea
                       id="composer-question"
                       ref={summaryRef}

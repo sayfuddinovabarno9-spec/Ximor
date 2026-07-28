@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import AnswerEditorTools from '../components/AnswerEditorTools';
 import AuthModal from '../components/AuthModal';
 import AttachmentGallery from '../components/AttachmentGallery';
-import ImageDropZone from '../components/ImageDropZone';
+import ImageDropZone, { useImageDropTarget } from '../components/ImageDropZone';
 import Layout from '../components/Layout';
 import RichText from '../components/RichText';
 import { useAuth } from '../context/AuthContext';
@@ -267,6 +267,7 @@ export default function MessagesPage({ theme, onThemeToggle }) {
 
     setDraftImages((current) => [...current, ...images].slice(0, 4));
   };
+  const draftDropTarget = useImageDropTarget({ count: draftImages.length, onFiles: handleDraftImages });
 
   const removeDraftImage = (imageId) => {
     setDraftImages((current) => current.filter((image) => image.id !== imageId));
@@ -486,7 +487,11 @@ export default function MessagesPage({ theme, onThemeToggle }) {
                     <div ref={messagesEndRef} />
                   </div>
 
-                  <form className="messages-composer" onSubmit={submitMessage}>
+                  <form
+                    className={`messages-composer ${draftDropTarget.isDragging ? 'is-dragging' : ''}`}
+                    onSubmit={submitMessage}
+                    {...draftDropTarget.dropTargetProps}
+                  >
                     <AnswerEditorTools
                       className="messages-editor-tools"
                       onChange={setDraft}
