@@ -1,5 +1,6 @@
-export default function BrandMark({ className = "", alt = "ChOUZ Team" }) {
+export default function BrandMark({ className = "", alt = "ChOUZ Team", variant = "wordmark" }) {
   const classes = ["brand-mark", className].filter(Boolean).join(" ");
+  const src = variant === "mark" ? "/chouz-logo-mark.png" : "/chouz-logo.png";
 
   return (
     <img
@@ -7,7 +8,7 @@ export default function BrandMark({ className = "", alt = "ChOUZ Team" }) {
       className={classes}
       decoding="async"
       draggable="false"
-      src="/chouz-logo.png"
+      src={src}
     />
   );
 }
