@@ -1,5 +1,6 @@
 html {
   background: #f4f5f7;
+  overflow-x: hidden;
   scroll-behavior: smooth;
   scroll-padding-top: 104px;
 }
@@ -11,11 +12,13 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
 body,
 #root {
   min-height: 100vh;
+  max-width: 100%;
 }
 
 code {
