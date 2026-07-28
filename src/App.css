@@ -88,11 +88,13 @@ a { text-decoration: none; }
   border-bottom: 1px solid var(--line);
   display: grid;
   gap: 16px;
-  grid-template-columns: max-content max-content minmax(160px, 1fr) max-content;
+  grid-template-areas: "brand nav search actions";
+  grid-template-columns: max-content auto minmax(160px, 1fr) max-content;
   min-height: 68px;
   padding: 0 28px;
   position: sticky;
   top: 0;
+  max-width: 100vw;
   width: 100%;
   z-index: 20;
 }
@@ -102,6 +104,7 @@ a { text-decoration: none; }
   align-items: center;
   display: flex;
   gap: 10px;
+  grid-area: brand;
   min-width: 0;
 }
 
@@ -159,6 +162,7 @@ a { text-decoration: none; }
   align-items: center;
   display: flex;
   gap: 2px;
+  grid-area: nav;
   min-width: 0;
   overflow: hidden;
 }
@@ -243,6 +247,7 @@ a { text-decoration: none; }
   color: var(--muted);
   display: flex;
   gap: 10px;
+  grid-area: search;
   height: 42px;
   min-width: 0;
   padding: 0 14px;
@@ -279,6 +284,7 @@ a { text-decoration: none; }
 }
 
 .top-actions {
+  grid-area: actions;
   justify-content: flex-end;
 }
 
@@ -2565,17 +2571,39 @@ a { text-decoration: none; }
 .desktop-hidden { display: none; }
 
 /* ─── Responsive ──────────────────────────────────────────────────────── */
-@media (max-width: 1360px) {
+@media (max-width: 1920px) {
   .topbar {
-    gap: 12px;
-    grid-template-columns: max-content minmax(0, 1fr) max-content;
+    gap: 8px 12px;
+    grid-template-areas:
+      "brand search actions"
+      "nav nav nav";
+    grid-template-columns: max-content minmax(180px, 1fr) max-content;
+    min-height: auto;
+    padding-block: 8px 10px;
     padding-inline: 20px;
   }
 
   .topnav {
+    display: flex;
+    overflow-x: auto;
+    padding-top: 2px;
+    scrollbar-width: none;
+  }
+
+  .topnav::-webkit-scrollbar {
     display: none;
   }
 
+  .topnav a {
+    padding-inline: 10px;
+  }
+
+  .search-box {
+    height: 38px;
+  }
+}
+
+@media (max-width: 1360px) {
   #forum.layout {
     grid-template-columns: 220px minmax(0, 1fr);
   }
@@ -2665,14 +2693,24 @@ a { text-decoration: none; }
 @media (max-width: 760px) {
   .topbar {
     gap: 10px;
-    grid-template-columns: 1fr max-content;
+    grid-template-areas:
+      "brand actions"
+      "search search";
+    grid-template-columns: minmax(0, 1fr) max-content;
     padding: 10px 14px;
+  }
+
+  .topnav {
+    display: none;
   }
 
   .brand-text small,
   .top-actions .avatar,
   .top-actions .primary-button,
-  .top-actions .icon-button:first-child {
+  .top-actions .staff-status-pill,
+  .top-actions .user-menu-wrap,
+  .top-actions .avatar-btn,
+  .top-actions > .icon-button {
     display: none;
   }
 
