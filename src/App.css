@@ -7583,6 +7583,139 @@ a { text-decoration: none; }
   }
 }
 
+@media (max-width: 1024px) {
+  .topbar {
+    grid-template-areas: "brand search actions";
+    grid-template-columns: max-content minmax(180px, 1fr) max-content;
+    padding: 10px 16px;
+  }
+
+  .topnav {
+    display: none;
+  }
+
+  .mobile-nav {
+    background: color-mix(in srgb, var(--surface) 94%, transparent);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border-top: 1px solid var(--line);
+    bottom: 0;
+    box-shadow: 0 -12px 30px rgba(20, 23, 26, 0.12);
+    display: grid;
+    gap: 6px;
+    grid-auto-columns: auto;
+    grid-auto-flow: row;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    left: 0;
+    overflow: visible;
+    padding: 8px max(14px, env(safe-area-inset-left)) calc(8px + env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-right));
+    position: fixed;
+    right: 0;
+    z-index: 40;
+  }
+
+  .mobile-nav a,
+  .mobile-nav button {
+    align-items: center;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: var(--muted);
+    display: grid;
+    font-size: 11px;
+    font-weight: 800;
+    gap: 4px;
+    justify-items: center;
+    min-height: 56px;
+    min-width: 0;
+    padding: 6px 4px;
+    position: relative;
+    text-align: center;
+  }
+
+  .mobile-nav a span,
+  .mobile-nav button span {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-nav a.is-active,
+  .mobile-nav button.is-active {
+    background: color-mix(in srgb, var(--primary) 13%, var(--surface));
+    border-color: color-mix(in srgb, var(--primary) 28%, var(--line));
+    color: var(--primary);
+  }
+
+  .mobile-nav-badge {
+    right: calc(50% - 25px);
+    top: 4px;
+  }
+
+  .layout,
+  #forum.layout,
+  .messages-shell,
+  .profile-shell,
+  .community-layout,
+  .reyting-layout,
+  .tools-shell,
+  .news-shell,
+  .adm-shell,
+  .qp-shell {
+    padding-bottom: calc(112px + env(safe-area-inset-bottom));
+  }
+
+  .floating-compose {
+    bottom: calc(92px + env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-width: 700px) {
+  .topbar {
+    grid-template-areas:
+      "brand actions"
+      "search search";
+    grid-template-columns: minmax(0, 1fr) max-content;
+  }
+
+  .mobile-nav {
+    gap: 4px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    padding: 6px max(8px, env(safe-area-inset-left)) calc(8px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-right));
+  }
+
+  .mobile-nav a,
+  .mobile-nav button {
+    font-size: 10px;
+    min-height: 48px;
+    padding: 5px 3px;
+  }
+
+  .mobile-nav a svg,
+  .mobile-nav button svg {
+    height: 17px;
+    width: 17px;
+  }
+
+  .layout,
+  #forum.layout,
+  .messages-shell,
+  .profile-shell,
+  .community-layout,
+  .reyting-layout,
+  .tools-shell,
+  .news-shell,
+  .adm-shell,
+  .qp-shell {
+    padding-bottom: calc(124px + env(safe-area-inset-bottom));
+  }
+
+  .floating-compose {
+    bottom: calc(116px + env(safe-area-inset-bottom));
+  }
+}
+
 /* Landing */
 .landing-page {
   --landing-bg: #111412;
@@ -7631,106 +7764,64 @@ a { text-decoration: none; }
   width: 1px;
 }
 
-.landing-symbol-cloud,
-.landing-structure-field {
-  inset: 0;
+.landing-molecule-stage {
+  filter: drop-shadow(0 34px 52px rgba(0, 0, 0, 0.34));
+  opacity: 0.68;
   position: absolute;
+  right: -9vw;
+  top: 3vh;
+  transform: perspective(960px) rotateX(8deg) rotateY(-16deg) rotateZ(-7deg);
+  transform-origin: 58% 48%;
+  width: min(78vw, 980px);
 }
 
-.landing-symbol-cloud span {
-  align-items: flex-start;
-  border: 1px solid var(--landing-line);
-  border-radius: var(--radius);
-  color: rgba(244, 245, 242, 0.44);
-  display: grid;
-  gap: 3px;
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 0.8rem;
-  font-weight: 800;
-  max-width: 270px;
-  padding: 10px 12px;
-  position: absolute;
-}
-
-.landing-symbol-cloud b {
-  color: inherit;
-  font-weight: 900;
-  line-height: 1.25;
-}
-
-.landing-symbol-cloud small {
-  color: rgba(244, 245, 242, 0.32);
-  font-family: var(--font-sans);
-  font-size: 0.66rem;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.landing-symbol-cloud sub,
-.landing-symbol-cloud sup {
-  font-size: 0.7em;
-  line-height: 0;
-}
-
-.landing-symbol-cloud span:nth-child(1) { left: 6%; top: 18%; }
-.landing-symbol-cloud span:nth-child(2) { left: 72%; top: 13%; }
-.landing-symbol-cloud span:nth-child(3) { left: 52%; top: 28%; }
-.landing-symbol-cloud span:nth-child(4) { left: 84%; top: 48%; }
-.landing-symbol-cloud span:nth-child(5) { left: 14%; top: 62%; }
-.landing-symbol-cloud span:nth-child(6) { left: 63%; top: 76%; }
-.landing-symbol-cloud span:nth-child(7) { left: 31%; top: 82%; }
-.landing-symbol-cloud span:nth-child(8) { left: 79%; top: 83%; }
-
-.landing-structure {
-  color: rgba(244, 245, 242, 0.34);
-  position: absolute;
-}
-
-.landing-structure-svg {
-  fill: none;
+.landing-molecule-svg {
+  display: block;
   height: auto;
   overflow: visible;
   width: 100%;
 }
 
-.landing-structure-svg path,
-.landing-structure-svg polygon,
-.landing-structure-svg circle {
-  stroke: currentColor;
+.landing-molecule-ground {
+  fill: rgba(9, 17, 34, 0.48);
+  filter: blur(5px);
+}
+
+.landing-molecule-bond,
+.landing-molecule-bond-shine {
   stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 3;
 }
 
-.landing-structure-svg circle {
-  fill: rgba(24, 27, 25, 0.8);
+.landing-molecule-bond {
+  stroke: url("#landingMoleculeBond");
 }
 
-.landing-structure-svg text {
-  fill: currentColor;
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 14px;
-  font-weight: 900;
-  stroke: none;
-  text-anchor: middle;
+.landing-molecule-bond-shine {
+  opacity: 0.58;
+  stroke: rgba(255, 255, 255, 0.75);
 }
 
-.landing-structure--benzene {
-  left: 4%;
-  top: 35%;
-  width: 210px;
+.landing-molecule-atom {
+  stroke: rgba(255, 255, 255, 0.1);
+  stroke-width: 1.5;
 }
 
-.landing-structure--acetate {
-  right: 8%;
-  top: 28%;
-  width: 245px;
+.landing-molecule-atom-gloss {
+  fill: rgba(255, 255, 255, 0.48);
+  mix-blend-mode: screen;
 }
 
-.landing-structure--ammonia {
-  bottom: 8%;
-  left: 43%;
-  width: 190px;
+.landing-molecule-atoms,
+.landing-molecule-bonds {
+  transform-origin: center;
+}
+
+.landing-molecule-atoms {
+  animation: landingMoleculeAtoms 8s ease-in-out infinite;
+}
+
+.landing-molecule-bonds {
+  animation: landingMoleculeBonds 8s ease-in-out infinite;
 }
 
 .landing-header {
@@ -8516,91 +8607,13 @@ a { text-decoration: none; }
   animation-delay: calc(var(--line-index) * -0.55s);
 }
 
-.landing-symbol-cloud span {
-  background: rgba(5, 11, 24, 0.46);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-color: rgba(45, 232, 204, 0.24);
-  box-shadow: inset 0 0 22px rgba(45, 232, 204, 0.08), 0 0 28px rgba(77, 145, 255, 0.08);
-  color: rgba(243, 248, 255, 0.64);
-  min-width: 150px;
-  animation: landingSymbolFloat 7.5s ease-in-out infinite;
+.landing-molecule-stage {
+  animation: landingMoleculeFloat 11s ease-in-out infinite;
+  opacity: 0.76;
 }
 
-.landing-symbol-cloud span:nth-child(1) { left: 6%; top: 15%; }
-.landing-symbol-cloud span:nth-child(2) { left: 63%; top: 10%; }
-.landing-symbol-cloud span:nth-child(3) { left: 38%; top: 29%; }
-.landing-symbol-cloud span:nth-child(4) { left: 76%; top: 42%; }
-.landing-symbol-cloud span:nth-child(5) { left: 5%; top: 70%; }
-.landing-symbol-cloud span:nth-child(6) { left: 55%; top: 66%; }
-.landing-symbol-cloud span:nth-child(7) { left: 27%; top: 81%; }
-.landing-symbol-cloud span:nth-child(8) { left: 78%; top: 80%; }
-
-.landing-symbol-cloud b {
-  text-shadow: 0 0 18px rgba(45, 232, 204, 0.18);
-}
-
-.landing-symbol-cloud small {
-  color: rgba(174, 187, 208, 0.62);
-}
-
-.landing-symbol-cloud span:nth-child(2n) {
-  border-color: rgba(255, 209, 102, 0.22);
-  box-shadow: inset 0 0 20px rgba(255, 209, 102, 0.07), 0 0 24px rgba(255, 209, 102, 0.06);
-  animation-delay: -2.4s;
-}
-
-.landing-symbol-cloud span:nth-child(3n) {
-  border-color: rgba(255, 95, 162, 0.2);
-  box-shadow: inset 0 0 20px rgba(255, 95, 162, 0.07), 0 0 24px rgba(255, 95, 162, 0.06);
-  animation-delay: -4.4s;
-}
-
-.landing-structure {
-  filter: drop-shadow(0 0 28px rgba(45, 232, 204, 0.14));
-  opacity: 0.42;
-  animation: landingStructureFloat 10s ease-in-out infinite;
-}
-
-.landing-structure-svg path,
-.landing-structure-svg polygon,
-.landing-structure-svg circle {
-  stroke-width: 2.8;
-}
-
-.landing-structure-svg circle {
-  fill: rgba(5, 11, 24, 0.62);
-}
-
-.landing-structure-bond--double {
-  opacity: 0.7;
-}
-
-.landing-structure-bond--dash {
-  stroke-dasharray: 4 7;
-}
-
-.landing-structure--benzene {
-  color: rgba(45, 232, 204, 0.58);
-  left: 4%;
-  top: 30%;
-  width: 250px;
-}
-
-.landing-structure--acetate {
-  color: rgba(255, 209, 102, 0.5);
-  right: 5%;
-  top: 24%;
-  width: 285px;
-  animation-delay: -3.2s;
-}
-
-.landing-structure--ammonia {
-  bottom: 6%;
-  color: rgba(77, 145, 255, 0.52);
-  left: 39%;
-  width: 220px;
-  animation-delay: -6.4s;
+.landing-molecule-svg {
+  filter: saturate(1.12) contrast(1.05);
 }
 
 .landing-header {
@@ -8750,14 +8763,23 @@ a { text-decoration: none; }
   50% { opacity: 0.6; translate: 48px 0; }
 }
 
-@keyframes landingSymbolFloat {
-  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 0.26; }
-  50% { transform: translate3d(14px, -20px, 0) rotate(2deg); opacity: 0.64; }
+@keyframes landingMoleculeFloat {
+  0%, 100% {
+    transform: perspective(960px) rotateX(8deg) rotateY(-16deg) rotateZ(-7deg) translate3d(0, 0, 0);
+  }
+  50% {
+    transform: perspective(960px) rotateX(11deg) rotateY(-10deg) rotateZ(-4deg) translate3d(-18px, 18px, 0);
+  }
 }
 
-@keyframes landingStructureFloat {
-  0%, 100% { transform: translate3d(0, 0, 0) rotate(-2deg); opacity: 0.16; }
-  50% { transform: translate3d(-12px, 16px, 0) rotate(2deg); opacity: 0.36; }
+@keyframes landingMoleculeAtoms {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -4px, 0); }
+}
+
+@keyframes landingMoleculeBonds {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -2px, 0); }
 }
 
 @keyframes landingPulse {
@@ -8799,7 +8821,28 @@ a { text-decoration: none; }
 
 @media (max-width: 1040px) {
   .landing-nav {
-    display: flex;
+    display: grid;
+    flex: 1 1 100%;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    order: 5;
+    width: 100%;
+  }
+
+  .landing-header {
+    flex-wrap: wrap;
+  }
+
+  .landing-nav a {
+    justify-content: center;
+    min-height: 38px;
+    text-align: center;
+  }
+
+  .landing-molecule-stage {
+    opacity: 0.56;
+    right: -50vw;
+    top: 76px;
+    width: 88vw;
   }
 }
 
@@ -8812,15 +8855,14 @@ a { text-decoration: none; }
   }
 
   .landing-nav {
-    display: flex;
     order: 3;
     width: 100%;
     gap: 4px;
-    overflow-x: auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: visible;
   }
 
   .landing-nav a {
-    flex: 0 0 auto;
     min-height: 34px;
     padding: 7px 9px;
     font-size: 0.76rem;
@@ -8870,41 +8912,14 @@ a { text-decoration: none; }
     width: 310px;
   }
 
-  .landing-symbol-cloud span {
+  .landing-molecule-stage {
     animation: none;
-    font-size: 0.62rem;
-    max-width: 190px;
-    min-width: 118px;
-    opacity: 0.28;
-    padding: 8px 9px;
-  }
-
-  .landing-symbol-cloud small {
-    font-size: 0.54rem;
-  }
-
-  .landing-symbol-cloud span:nth-child(1) { left: 4%; top: 18%; }
-  .landing-symbol-cloud span:nth-child(2) { left: 48%; top: 13%; }
-  .landing-symbol-cloud span:nth-child(3) { left: 6%; top: 76%; }
-  .landing-symbol-cloud span:nth-child(n + 4) { display: none; }
-
-  .landing-structure {
-    animation: none;
-    opacity: 0.16;
-  }
-
-  .landing-structure--benzene {
-    left: -54px;
-    top: 42%;
-    width: 190px;
-  }
-
-  .landing-structure--acetate {
-    display: none;
-  }
-
-  .landing-structure--ammonia {
-    display: none;
+    left: -120px;
+    opacity: 0.34;
+    right: auto;
+    top: 240px;
+    transform: rotate(-12deg);
+    width: 760px;
   }
 
   .preview-notice {

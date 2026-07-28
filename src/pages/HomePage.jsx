@@ -31,102 +31,104 @@ const FEATURE_CARDS = [
   },
 ];
 
-const BACKGROUND_FORMULAS = [
-  {
-    key: "acid-ph",
-    label: "acid-base",
-    expression: <>pH = -log<sub>10</sub>[H<sub>3</sub>O<sup>+</sup>]</>,
-  },
-  {
-    key: "equilibrium",
-    label: "equilibrium",
-    expression: <>K<sub>eq</sub> = [NH<sub>3</sub>]<sup>2</sup> / [N<sub>2</sub>][H<sub>2</sub>]<sup>3</sup></>,
-  },
-  {
-    key: "gibbs",
-    label: "thermodynamics",
-    expression: <>Delta G = Delta G<sup>o</sup> + RT ln Q</>,
-  },
-  {
-    key: "nernst",
-    label: "electrochemistry",
-    expression: <>E<sub>cell</sub> = E<sup>o</sup><sub>cell</sub> - 0.0592/n log Q</>,
-  },
-  {
-    key: "buffer",
-    label: "buffer",
-    expression: <>pH = pK<sub>a</sub> + log(A<sup>-</sup>/HA)</>,
-  },
-  {
-    key: "rate-law",
-    label: "kinetics",
-    expression: <>rate = k[A]<sup>m</sup>[B]<sup>n</sup></>,
-  },
-  {
-    key: "solubility",
-    label: "solubility",
-    expression: <>K<sub>sp</sub> = [Ag<sup>+</sup>][Cl<sup>-</sup>]</>,
-  },
-  {
-    key: "gas-law",
-    label: "gas law",
-    expression: <>PV = nRT</>,
-  },
+const MOLECULE_ATOMS = [
+  { id: "oLeft", type: "oxygen", x: 30, y: 286, r: 28 },
+  { id: "hLeft", type: "hydrogen", x: 82, y: 294, r: 21 },
+  { id: "c1", type: "carbon", x: 140, y: 268, r: 34 },
+  { id: "c2", type: "carbon", x: 222, y: 218, r: 39 },
+  { id: "oTop", type: "oxygen", x: 246, y: 112, r: 30 },
+  { id: "hTop", type: "hydrogen", x: 216, y: 55, r: 24 },
+  { id: "c3", type: "carbon", x: 345, y: 194, r: 43 },
+  { id: "hCenter", type: "hydrogen", x: 357, y: 87, r: 24 },
+  { id: "oBottom", type: "oxygen", x: 356, y: 318, r: 32 },
+  { id: "c4", type: "carbon", x: 465, y: 216, r: 36 },
+  { id: "hTopRight", type: "hydrogen", x: 495, y: 102, r: 23 },
+  { id: "c5", type: "carbon", x: 552, y: 178, r: 34 },
+  { id: "oRight", type: "oxygen", x: 636, y: 226, r: 31 },
+  { id: "hRight", type: "hydrogen", x: 698, y: 177, r: 23 },
+  { id: "c6", type: "carbon", x: 534, y: 314, r: 33 },
+  { id: "oBranch", type: "oxygen", x: 611, y: 342, r: 29 },
+  { id: "hBranch", type: "hydrogen", x: 665, y: 376, r: 21 },
+  { id: "hLower", type: "hydrogen", x: 488, y: 386, r: 21 },
 ];
 
-const BACKGROUND_STRUCTURES = [
-  { key: "benzene", label: "benzene", type: "benzene" },
-  { key: "acetate", label: "acetate buffer", type: "acetate" },
-  { key: "ammonia", label: "NH3 geometry", type: "ammonia" },
+const MOLECULE_BONDS = [
+  ["oLeft", "hLeft", 17],
+  ["hLeft", "c1", 19],
+  ["c1", "c2", 24],
+  ["c2", "oTop", 22],
+  ["oTop", "hTop", 18],
+  ["c2", "c3", 24],
+  ["c3", "hCenter", 18],
+  ["c3", "oBottom", 24],
+  ["c3", "c4", 25],
+  ["c4", "hTopRight", 18],
+  ["c4", "c5", 24],
+  ["c5", "oRight", 22],
+  ["oRight", "hRight", 18],
+  ["c4", "c6", 23],
+  ["c6", "oBranch", 21],
+  ["oBranch", "hBranch", 17],
+  ["c6", "hLower", 17],
 ];
 
-function ChemistryStructure({ type, label }) {
-  const titleId = `structure-${type}`;
+const atomById = Object.fromEntries(MOLECULE_ATOMS.map((atom) => [atom.id, atom]));
+
+function MoleculeBackground() {
+  const atomFill = {
+    carbon: "url(#landingAtomCarbon)",
+    oxygen: "url(#landingAtomOxygen)",
+    hydrogen: "url(#landingAtomHydrogen)",
+  };
 
   return (
-    <svg
-      className={`landing-structure-svg landing-structure-svg--${type}`}
-      viewBox="0 0 180 140"
-      role="img"
-      aria-labelledby={titleId}
-    >
-      <title id={titleId}>{label}</title>
-      {type === "benzene" && (
-        <>
-          <polygon points="90,18 139,46 139,94 90,122 41,94 41,46" />
-          <circle cx="90" cy="70" r="31" />
-          <path d="M90 18v18M139 46l-16 9M139 94l-16-9M90 122v-18M41 94l16-9M41 46l16 9" />
-        </>
-      )}
-      {type === "acetate" && (
-        <>
-          <path d="M34 72h38M72 72h36M107 72l26-28M107 72l27 29" />
-          <path className="landing-structure-bond--double" d="M103 66l24-28M111 78l27 29" />
-          <circle cx="34" cy="72" r="8" />
-          <circle cx="72" cy="72" r="8" />
-          <circle cx="134" cy="39" r="9" />
-          <circle cx="138" cy="105" r="9" />
-          <text x="23" y="61">CH3</text>
-          <text x="65" y="58">C</text>
-          <text x="128" y="27">O-</text>
-          <text x="129" y="125">OH</text>
-        </>
-      )}
-      {type === "ammonia" && (
-        <>
-          <path d="M90 68l-45 38M90 68l45 38M90 68V22" />
-          <path className="landing-structure-bond--dash" d="M90 68c-7 14-11 28-12 43" />
-          <circle cx="90" cy="68" r="12" />
-          <circle cx="45" cy="106" r="8" />
-          <circle cx="135" cy="106" r="8" />
-          <circle cx="90" cy="22" r="8" />
-          <circle cx="78" cy="111" r="7" />
-          <text x="84" y="73">N</text>
-          <text x="38" y="126">H</text>
-          <text x="132" y="126">H</text>
-          <text x="86" y="16">H</text>
-        </>
-      )}
+    <svg className="landing-molecule-svg" viewBox="0 0 740 440" aria-hidden="true">
+      <defs>
+        <radialGradient id="landingAtomCarbon" cx="34%" cy="24%" r="72%">
+          <stop offset="0%" stopColor="#5f6878" />
+          <stop offset="38%" stopColor="#111318" />
+          <stop offset="100%" stopColor="#020304" />
+        </radialGradient>
+        <radialGradient id="landingAtomOxygen" cx="32%" cy="24%" r="72%">
+          <stop offset="0%" stopColor="#fff1e8" />
+          <stop offset="30%" stopColor="#ff3a2e" />
+          <stop offset="100%" stopColor="#720400" />
+        </radialGradient>
+        <radialGradient id="landingAtomHydrogen" cx="30%" cy="22%" r="76%">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="42%" stopColor="#e5ecff" />
+          <stop offset="100%" stopColor="#526fd0" />
+        </radialGradient>
+        <linearGradient id="landingMoleculeBond" x1="0%" x2="100%" y1="0%" y2="0%">
+          <stop offset="0%" stopColor="#8fa7cf" />
+          <stop offset="42%" stopColor="#fff0cf" />
+          <stop offset="100%" stopColor="#c8d6ef" />
+        </linearGradient>
+        <filter id="landingMoleculeShadow" x="-30%" y="-30%" width="160%" height="160%">
+          <feDropShadow dx="0" dy="12" stdDeviation="10" floodColor="#000000" floodOpacity="0.45" />
+        </filter>
+      </defs>
+      <ellipse className="landing-molecule-ground" cx="390" cy="372" rx="290" ry="48" />
+      <g className="landing-molecule-bonds" filter="url(#landingMoleculeShadow)">
+        {MOLECULE_BONDS.map(([from, to, width]) => {
+          const a = atomById[from];
+          const b = atomById[to];
+          return (
+            <g key={`${from}-${to}`}>
+              <line className="landing-molecule-bond" x1={a.x} y1={a.y} x2={b.x} y2={b.y} strokeWidth={width} />
+              <line className="landing-molecule-bond-shine" x1={a.x} y1={a.y - 2} x2={b.x} y2={b.y - 2} strokeWidth={Math.max(4, width * 0.28)} />
+            </g>
+          );
+        })}
+      </g>
+      <g className="landing-molecule-atoms" filter="url(#landingMoleculeShadow)">
+        {MOLECULE_ATOMS.map((atom) => (
+          <g key={atom.id}>
+            <circle className="landing-molecule-atom" cx={atom.x} cy={atom.y} r={atom.r} fill={atomFill[atom.type]} />
+            <circle className="landing-molecule-atom-gloss" cx={atom.x - atom.r * 0.28} cy={atom.y - atom.r * 0.3} r={Math.max(5, atom.r * 0.2)} />
+          </g>
+        ))}
+      </g>
     </svg>
   );
 }
@@ -269,24 +271,8 @@ export default function HomePage() {
             <span key={`line-${index}`} style={{ "--line-index": index }} />
           ))}
         </div>
-        <div className="landing-symbol-cloud">
-          {BACKGROUND_FORMULAS.map((formula, index) => (
-            <span key={formula.key} style={{ "--symbol-index": index }}>
-              <b>{formula.expression}</b>
-              <small>{formula.label}</small>
-            </span>
-          ))}
-        </div>
-        <div className="landing-structure-field">
-          {BACKGROUND_STRUCTURES.map((structure, index) => (
-            <div
-              className={`landing-structure landing-structure--${structure.type}`}
-              key={structure.key}
-              style={{ "--structure-index": index }}
-            >
-              <ChemistryStructure type={structure.type} label={structure.label} />
-            </div>
-          ))}
+        <div className="landing-molecule-stage">
+          <MoleculeBackground />
         </div>
         <div className="landing-scan" />
       </div>

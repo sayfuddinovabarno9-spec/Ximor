@@ -344,33 +344,25 @@ export default function Layout({ children, theme, onThemeToggle, onCompose, quer
 
       {/* ── Mobile bottom nav ── */}
       <nav className="mobile-nav" aria-label={t('nav.mobile')}>
-        <Link to="/chat" className={location.pathname === '/chat' ? 'is-active' : ''}>
-          <Icon name="home" size={18} />
-          <span>{t('nav.chat')}</span>
-        </Link>
-        <Link to="/messages" className={location.pathname.startsWith('/messages') ? 'is-active' : ''}>
-          <Icon name="message" size={18} />
-          <span>{t('nav.messages')}</span>
-          {messageUnreadCount > 0 && (
-            <b className="mobile-nav-badge">{messageUnreadCount > 99 ? '99+' : messageUnreadCount}</b>
-          )}
-        </Link>
-        <Link to="/olimpiadalar" className={location.pathname.startsWith('/olimpiadalar') ? 'is-active' : ''}>
-          <Icon name="person" size={18} />
-          <span>{t('nav.community')}</span>
-        </Link>
-        <Link to="/reyting" className={location.pathname.startsWith('/reyting') ? 'is-active' : ''}>
-          <Icon name="trophy" size={18} />
-          <span>{t('nav.ranking')}</span>
-        </Link>
-        <Link to="/asboblar" className={location.pathname.startsWith('/asboblar') ? 'is-active' : ''}>
-          <Icon name="beaker" size={18} />
-          <span>{t('nav.tools')}</span>
-        </Link>
-        <Link to="/yangiliklar" className={location.pathname.startsWith('/yangiliklar') ? 'is-active' : ''}>
-          <Icon name="newspaper" size={18} />
-          <span>{t('nav.news')}</span>
-        </Link>
+        {NAV_ITEMS.map(item => {
+          const active = item.exact
+            ? location.pathname === item.to
+            : location.pathname.startsWith(item.to);
+          const badge = navBadgeFor(item);
+          return (
+            <Link
+              key={item.to}
+              to={item.to}
+              className={`${active ? 'is-active' : ''} ${badge ? 'has-unread' : ''}`}
+            >
+              <Icon name={item.icon} size={18} />
+              <span>{t(item.labelKey)}</span>
+              {badge != null && (
+                <b className="mobile-nav-badge">{badge}</b>
+              )}
+            </Link>
+          );
+        })}
         {user ? (
           <Link to={`/u/${user.username}`} className={location.pathname.startsWith('/u/') ? 'is-active' : ''}>
             <Icon name="person" size={18} />
