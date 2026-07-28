@@ -494,6 +494,7 @@ export default function QuestionPage() {
   const [highlightAnswerId, setHighlightAnswerId] = useState('');
   const toastRef                = useRef(null);
   const answerRef               = useRef(null);
+  const replyRef                = useRef(null);
   const copiedTimerRef          = useRef(null);
   const highlightTimerRef       = useRef(null);
 
@@ -1411,9 +1412,16 @@ export default function QuestionPage() {
                         <form className="qp-reply-form" onSubmit={(event) => submitReply(event, ans.id)}>
                           <Avatar image={user.avatar_url} initials={user.initials} name={user.name} online />
                           <div>
+                            <AnswerEditorTools
+                              className="qp-reply-editor-tools"
+                              onChange={(value) => updateReplyDraft(ans.id, value)}
+                              textareaRef={replyRef}
+                              value={replyDrafts[ans.id] || ''}
+                            />
                             <textarea
                               onChange={(event) => updateReplyDraft(ans.id, event.target.value)}
                               placeholder={t('question.replyPlaceholder')}
+                              ref={replyRef}
                               rows={3}
                               value={replyDrafts[ans.id] || ''}
                             />

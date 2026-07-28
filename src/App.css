@@ -3943,6 +3943,33 @@ a { text-decoration: none; }
   width: 32px;
 }
 
+.qp-reply-editor-tools {
+  margin-bottom: 8px;
+}
+
+.qp-reply-form .chem-toolbar {
+  background: var(--surface);
+  border-color: var(--line);
+  padding: 6px;
+}
+
+.qp-reply-form .chem-toolbar button {
+  font-size: 12px;
+  min-height: 30px;
+  padding: 0 9px;
+}
+
+.qp-reply-form .latex-keyboard-panel {
+  box-shadow: none;
+  grid-template-columns: minmax(0, 1fr);
+  max-height: 360px;
+  overflow: auto;
+}
+
+.qp-reply-form .latex-keyboard-preview {
+  min-height: 130px;
+}
+
 .qp-reply-form textarea {
   background: var(--surface);
   border: 1px solid var(--line);
